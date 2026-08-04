@@ -1,0 +1,103 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ==================== HELPER FUNCTIONS ====================
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function currentUserId() {
+      return request.auth.uid;
+    }
+
+    function getUserDoc() {
+      return get(/databases/$(database)/documents/hospitalUsers/$(currentUserId())).data;
+    }
+
+    function belongsToHospital(hospitalId) {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/hospitalUsers/$(currentUserId())) &&
+             getUserDoc().hospitalId == hospitalId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && 
+             exists(/databases/$(database)/documents/hospitalUsers/$(currentUserId())) &&
+             getUserDoc().role == 'admin';
+    }
+
+    function isAdminOfHospital(hospitalId) {
+      return belongsToHospital(hospitalId) && getUserDoc().role == 'admin';
+    }
+
+    function canReadHospital(hospitalId) {
+      return belongsToHospital(hospitalId);
+    }
+
+    function canWriteHospital(hospitalId) {
+      return belongsToHospital(hospitalId) && 
+             getUserDoc().role in ['admin', 'doctor', 'nurse', 'receptionist'];
+    }
+
+    // ==================== HOSPITAL USERS ====================
+
+    match /hospitalUsers/{userId} {
+      // Read: own profile OR admin of same hospital
+      allow read: if isAuthenticated() && (
+        currentUserId() == userId || 
+        (isAdmin() && resource.data.hospitalId == getUserDoc().hospitalId)
+      );
+
+      // Update own profile (can't change role/hospitalId)
+      allow update: if isAuthenticated() && currentUserId() == userId &&
+        request.resource.data.hospitalId == resource.data.hospitalId &&
+        request.resource.data.role == resource.data.role;
+
+      // Create: admin of hospital OR self-registration
+      allow create: if isAuthenticated() && (
+        (isAdmin() && request.resource.data.hospitalId == getUserDoc().hospitalId) ||
+        currentUserId() == userId
+      );
+
+      // Delete: admin only
+      allow delete: if isAuthenticated() && isAdmin() && 
+        resource.data.hospitalId == getUserDoc().hospitalId;
+    }
+
+    // ==================== HOSPITALS ====================
+
+    match /hospitals/{hospitalId} {
+      allow read: if canReadHospital(hospitalId);
+      allow create: if isAuthenticated() && 
+        request.resource.data.hospitalId == hospitalId;
+      allow update: if isAdminOfHospital(hospitalId);
+      allow delete: if isAdminOfHospital(hospitalId);
+    }
+
+    // ==================== HOSPITAL SUBCOLLECTIONS ====================
+
+    match /hospitals/{hospitalId}/{collection}/{docId} {
+      allow read: if canReadHospital(hospitalId);
+      allow create: if canWriteHospital(hospitalId) && 
+        request.resource.data.hospitalId == hospitalId;
+      allow update: if canWriteHospital(hospitalId) && 
+        request.resource.data.hospitalId == resource.data.hospitalId;
+      allow delete: if canWriteHospital(hospitalId);
+    }
+
+    // ==================== CONNECTION TEST (ALL AUTH USERS CAN READ) ====================
+
+    match /_connection_test/{docId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // ==================== DEFAULT DENY ====================
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
