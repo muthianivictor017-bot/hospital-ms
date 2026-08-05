@@ -287,63 +287,45 @@ body{font-family:'Inter',sans-serif;background:var(--light);color:var(--dark)}
 
 <!-- LOGIN SCREEN -->
 <div class="login-screen" id="loginScreen">
-<div class="login-box">
-<div class="logo"><i class="fas fa-hospital"></i></div>
+<div class="login-box"><div class="logo"><i class="fas fa-hospital"></i></div>
 <h1>MediCare Hospital</h1>
 <p class="subtitle">Hospital Management System</p>
 <div class="error-msg" id="loginError"></div>
 <div class="success-msg" id="loginSuccess"></div>
+
+<!-- LOGIN FORM -->
 <form id="loginForm">
-<div class="form-group"><label>Hospital ID</label><input type="text" id="loginHospitalId" placeholder="e.g., HOSP-001" required></div>
-<div class="form-group"><label>Email</label><input type="email" id="loginEmail" placeholder="admin@hospital.com" required></div>
-<div class="form-group"><label>Password <span style="color:var(--gray);font-size:11px">(min 6 characters)</span></label><input type="password" id="loginPassword" placeholder="Enter password" required minlength="6"></div>
-<button type="submit" class="btn btn-primary" id="loginBtn"><span id="loginBtnText">Sign In</span></button>
+    <div class="form-group"><label>Hospital ID</label><input type="text" id="loginHospitalId" placeholder="e.g., HOSP-001" required></div>
+    <div class="form-group"><label>Email</label><input type="email" id="loginEmail" placeholder="admin@hospital.com" required></div>
+    <div class="form-group"><label>Password <span style="color:var(--gray);font-size:11px">(min 6 characters)</span></label><input type="password" id="loginPassword" placeholder="Enter password" required minlength="6"></div>
+    <button type="submit" class="btn btn-primary" id="loginBtn"><span id="loginBtnText">Sign In</span></button>
 </form>
 
-<!-- DEMO ACCOUNTS (hidden in production) -->
-<div id="demoAccountsSection" style="margin-top:24px;padding-top:20px;border-top:2px dashed var(--border);display:none">
-    <p style="text-align:center;font-size:12px;color:var(--gray);margin-bottom:12px;font-weight:600;text-transform:uppercase;letter-spacing:1px">Try Demo Account</p>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
-        <button type="button" class="btn btn-secondary" style="margin-top:0;padding:10px;font-size:12px" onclick="loginDemo('admin')"><i class="fas fa-user-shield"></i> Admin</button>
-        <button type="button" class="btn btn-secondary" style="margin-top:0;padding:10px;font-size:12px" onclick="loginDemo('doctor')"><i class="fas fa-user-md"></i> Doctor</button>
-        <button type="button" class="btn btn-secondary" style="margin-top:0;padding:10px;font-size:12px" onclick="loginDemo('nurse')"><i class="fas fa-user-nurse"></i> Nurse</button>
-        <button type="button" class="btn btn-secondary" style="margin-top:0;padding:10px;font-size:12px" onclick="loginDemo('receptionist')"><i class="fas fa-concierge-bell"></i> Reception</button>
-    </div>
-    <p style="text-align:center;font-size:11px;color:var(--gray);margin-top:10px">Hospital ID: <strong>DEMO</strong> | All passwords: <strong>demo123</strong></p>
-</div>
-<script>if(ENABLE_DEMO_ACCOUNTS) document.getElementById('demoAccountsSection').style.display='block';</script>
+<!-- REGISTRATION FORM -->
 <form id="hospitalRegForm" style="display:none;">
-<div class="form-group"><label>Private Registration Code *</label><input type="password" id="regPrivateCode" placeholder="Enter admin registration code" required></div>
-<div class="form-group"><label>Hospital Name *</label><input type="text" id="regHospName" placeholder="Aga Khan University Hospital" required></div>
-<div class="form-row">
-<div class="form-group"><label>Hospital ID *</label><input type="text" id="regHospId" placeholder="HOSP-001" required></div>
-<div class="form-group"><label>License Number</label><input type="text" id="regHospLicense" placeholder="LIC-12345"></div>
-</div>
-<div class="form-group"><label>Address *</label><input type="text" id="regHospAddress" placeholder="Hospital Road, Nairobi" required></div>
-<div class="form-row">
-<div class="form-group"><label>Phone *</label><input type="tel" id="regHospPhone" placeholder="+254-7XX-XXXXXX" required></div>
-<div class="form-group"><label>Email *</label><input type="email" id="regHospEmail" placeholder="admin@hospital.com" required></div>
-</div>
-<div class="form-group"><label>Admin Full Name *</label><input type="text" id="regAdminName" placeholder="Dr. John Smith" required></div>
-<div class="form-group"><label>Admin Password *</label><input type="password" id="regAdminPassword" placeholder="Min 6 characters" required minlength="6"></div>
-<button type="submit" class="btn btn-primary" id="regBtn"><span id="regBtnText">Register Hospital</span></button>
+    <div class="form-group"><label>Private Registration Code *</label><input type="password" id="regPrivateCode" placeholder="Enter admin registration code" required></div>
+    <div class="form-group"><label>Hospital Name *</label><input type="text" id="regHospName" placeholder="Aga Khan University Hospital" required></div>
+    <div class="form-row">
+        <div class="form-group"><label>Hospital ID *</label><input type="text" id="regHospId" placeholder="HOSP-001" required></div>
+        <div class="form-group"><label>License Number</label><input type="text" id="regHospLicense" placeholder="LIC-12345"></div>
+    </div>
+    <div class="form-group"><label>Address *</label><input type="text" id="regHospAddress" placeholder="Hospital Road, Nairobi" required></div>
+    <div class="form-row">
+        <div class="form-group"><label>Phone *</label><input type="tel" id="regHospPhone" placeholder="+254-7XX-XXXXXX" required></div>
+        <div class="form-group"><label>Email *</label><input type="email" id="regHospEmail" placeholder="admin@hospital.com" required></div>
+    </div>
+    <div class="form-group"><label>Admin Full Name *</label><input type="text" id="regAdminName" placeholder="Dr. John Smith" required></div>
+    <div class="form-group"><label>Admin Password *</label><input type="password" id="regAdminPassword" placeholder="Min 6 characters" required minlength="6"></div>
+    <button type="submit" class="btn btn-primary" id="regBtn"><span id="regBtnText">Register Hospital</span></button>
 </form>
-<p class="toggle-text" id="registrationToggle" style="display:none"><span id="toggleText">New hospital?</span> <a id="toggleAuth">Register your hospital</a></p>
-<script>if(ENABLE_HOSPITAL_REGISTRATION) document.getElementById('registrationToggle').style.display='block';</script>
-<div style="text-align:center;margin-top:14px"><span class="offline-badge" id="offlineBadge" style="display:none"><i class="fas fa-wifi-slash"></i> Offline Mode</span></div>
-<div style="margin-top:16px;padding:12px;background:#fef3c7;border-radius:8px;border:1px solid #fbbf24">
-    <p style="font-size:12px;color:#92400e;margin:0 0 8px 0"><i class="fas fa-exclamation-triangle"></i> <strong>New hospital not syncing?</strong></p>
-    <p style="font-size:11px;color:#92400e;margin:0 0 8px 0">If you registered a hospital but see "permission denied", your Firestore security rules need updating.</p>
-    <a href="https://console.firebase.google.com/project/medicare-93413/firestore/rules" target="_blank" style="font-size:12px;color:#2563eb;font-weight:600">Open Firebase Rules →</a>
-    <p style="font-size:10px;color:#92400e;margin:8px 0 0 0">Rule to paste: <code style="background:#fff;padding:2px 4px;border-radius:3px;">allow read, write: if request.auth != null;</code></p>
+
+<!-- TOGGLE BUTTONS -->
+<div style="text-align:center;margin-top:20px">
+    <button type="button" class="btn btn-secondary" id="showSignUpBtn" onclick="showSignUp()" style="margin-top:0"><i class="fas fa-user-plus"></i> Sign Up</button>
+    <button type="button" class="btn btn-secondary" id="showSignInBtn" onclick="showSignIn()" style="margin-top:0;display:none"><i class="fas fa-sign-in-alt"></i> Back to Sign In</button>
 </div>
-<div style="margin-top:12px;padding:12px;background:#dbeafe;border-radius:8px;border:1px solid #93c5fd">
-    <p style="font-size:12px;color:#1e40af;margin:0 0 8px 0"><i class="fas fa-tools"></i> <strong>Account Repair</strong></p>
-    <p style="font-size:11px;color:#1e40af;margin:0 0 8px 0">If your account was created when rules were broken, click below to repair it.</p>
-    <button type="button" class="btn btn-secondary" style="margin-top:0;padding:8px 16px;font-size:12px" onclick="repairAccount()">Repair My Account</button>
-</div>
-</div>
-</div>
+
+<div style="text-align:center;margin-top:14px;display:none"><span class="offline-badge" id="offlineBadge"><i class="fas fa-wifi-slash"></i> Offline Mode</span></div>
 
 <!-- DASHBOARD -->
 <div class="dashboard" id="dashboard">
@@ -1231,21 +1213,35 @@ async function loadCloudSettings(){
     try {
         const hospId = currentHospital.hospitalId || currentHospital.id;
         const secSnap = await db.collection('hospitals').doc(hospId).collection('settings').doc('security').get();
+        const localSettings = secureGet('medicare_security_settings', '{}');
+        const localTime = localSettings.updatedAt ? new Date(localSettings.updatedAt).getTime() : 0;
+
         if(secSnap.exists){
             const cloudSettings = secSnap.data();
-            // Merge cloud settings with local (cloud wins if newer)
-            const localSettings = secureGet('medicare_security_settings', '{}');
-            const cloudTime = new Date(cloudSettings.updatedAt || 0).getTime();
-            const localTime = new Date(localSettings.updatedAt || 0).getTime();
+            const cloudTime = cloudSettings.updatedAt ? new Date(cloudSettings.updatedAt).getTime() : 0;
+
             if(cloudTime >= localTime){
                 secureSet('medicare_security_settings', cloudSettings);
                 if(typeof cloudSettings.enableDemo === 'boolean') ENABLE_DEMO_ACCOUNTS = cloudSettings.enableDemo;
                 if(typeof cloudSettings.enableRegistration === 'boolean') ENABLE_HOSPITAL_REGISTRATION = cloudSettings.enableRegistration;
                 if(typeof cloudSettings.enableRepair === 'boolean') ENABLE_ACCOUNT_REPAIR = cloudSettings.enableRepair;
                 if(cloudSettings.privateCode) PRIVATE_REGISTRATION_CODE = cloudSettings.privateCode;
+                console.log('Cloud settings applied:', cloudSettings);
+            } else if(localTime > cloudTime && localSettings.updatedAt) {
+                await db.collection('hospitals').doc(hospId).collection('settings').doc('security').set({
+                    ...localSettings,
+                    cloudSyncedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
             }
+        } else if(localSettings && localSettings.updatedAt) {
+            await db.collection('hospitals').doc(hospId).collection('settings').doc('security').set({
+                ...localSettings,
+                cloudSyncedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
         }
-    } catch(e) { console.warn('Cloud settings load failed:', e); }
+    } catch(e) { 
+        console.warn('Cloud settings load failed:', e); 
+    }
 }
 
 function showDashboard(){
@@ -1287,21 +1283,30 @@ function showDashboard(){
     }
 }
 
-let isLoginForm = true;
-document.getElementById('toggleAuth').addEventListener('click', () => {
-    isLoginForm = !isLoginForm;
-    document.getElementById('loginForm').style.display = isLoginForm ? 'block' : 'none';
-    document.getElementById('hospitalRegForm').style.display = isLoginForm ? 'none' : 'block';
-    document.getElementById('toggleText').textContent = isLoginForm ? "New hospital?" : "Already registered?";
-    document.getElementById('toggleAuth').textContent = isLoginForm ? "Register your hospital" : "Sign In";
-    // Clear any previous error messages when switching
+function showSignUp(){
+    document.getElementById('loginForm').style.display = 'none';
+    document.getElementById('hospitalRegForm').style.display = 'block';
+    document.getElementById('showSignUpBtn').style.display = 'none';
+    document.getElementById('showSignInBtn').style.display = '';
     document.getElementById('loginError').style.display = 'none';
     document.getElementById('loginSuccess').style.display = 'none';
-});
+}
+function showSignIn(){
+    document.getElementById('loginForm').style.display = 'block';
+    document.getElementById('hospitalRegForm').style.display = 'none';
+    document.getElementById('showSignUpBtn').style.display = '';
+    document.getElementById('showSignInBtn').style.display = 'none';
+    document.getElementById('loginError').style.display = 'none';
+    document.getElementById('loginSuccess').style.display = 'none';
+}
 
 // Demo account quick-login
 async function repairAccount(){
     if(!ENABLE_ACCOUNT_REPAIR){ showError('Account repair is disabled.'); return; }
+    if(userRole !== 'admin' && currentUser){
+        showError('Only administrators can repair accounts.');
+        return;
+    }
     const email = sanitizeInput(document.getElementById('loginEmail').value.trim().toLowerCase());
     const password = document.getElementById('loginPassword').value;
     const hospitalId = sanitizeInput(document.getElementById('loginHospitalId').value.trim().toUpperCase());
@@ -1437,174 +1442,157 @@ async function loginDemo(role){
 // ==================== LOGIN FORM ====================
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
-    // Rate limiting
     if(isLoginLockedOut()) return;
 
     const hospitalId = sanitizeInput(document.getElementById('loginHospitalId').value.trim().toUpperCase());
     const email = sanitizeInput(document.getElementById('loginEmail').value.trim().toLowerCase());
     const password = document.getElementById('loginPassword').value;
 
-    // STRICT VALIDATION
-    if(!hospitalId){ showError('Hospital ID is required.'); return; }
-    if(!validateHospitalId(hospitalId)){ showError('Invalid Hospital ID format.'); return; }
-    if(!email){ showError('Email is required.'); return; }
-    if(!validateEmail(email)){ showError('Invalid email format.'); return; }
+    if(!hospitalId || !validateHospitalId(hospitalId)){ showError('Valid Hospital ID is required.'); return; }
+    if(!email || !validateEmail(email)){ showError('Valid email is required.'); return; }
     if(!password || password.length < 6){ showError('Password must be at least 6 characters.'); return; }
-
-    // Hash password for local comparison
-    const passwordHash = await sha256(password);
 
     const btn = document.getElementById('loginBtn');
     const btnText = document.getElementById('loginBtnText');
-    btn.disabled = true; btnText.innerHTML = '<span class="loading-spinner"></span>';
+    btn.disabled = true; 
+    btnText.innerHTML = '<span class="loading-spinner"></span>';
     let firebaseSuccess = false;
 
-    // Try Firebase first
-    if(auth && isOnline){
+    // ========== ONLINE FIREBASE LOGIN (Strict) ==========
+    if(auth && navigator.onLine){
         try {
             const cred = await auth.signInWithEmailAndPassword(email, password);
             await cred.user.getIdToken(true);
-            currentUser = cred.user;
 
-            // Read user profile from hospitalUsers (with timeout)
+            // 1. MUST have hospitalUsers doc
             let userDoc = null;
-            let userData = null;
             try {
-                userDoc = await promiseTimeout(db.collection('hospitalUsers').doc(cred.user.uid).get(), 3000);
+                userDoc = await promiseTimeout(db.collection('hospitalUsers').doc(cred.user.uid).get(), 5000);
             } catch(e) {
-                console.warn('hospitalUsers read failed:', e.code || e.message);
-            }
-
-            // AUTO-REPAIR: If hospitalUsers doc is missing, create from localStorage
-            if(!userDoc || !userDoc.exists){
-                console.log('hospitalUsers doc missing for uid:', cred.user.uid, '- auto-repairing...');
-                let localUser = null;
-                const localUsers = secureGet('medicare_users_local', '[]');
-                localUser = localUsers.find(u => u.email === email && u.hospitalId === hospitalId);
-                if(!localUser){
-                    const hospUsers = secureGet(getStorageKey('users', hospitalId), '[]');
-                    localUser = hospUsers.find(u => u.email === email);
-                }
-
-                if(localUser && localUser.role){
-                    // SECURITY: Never default to admin. Only use verified role from localStorage.
-                    const verifiedRole = ['admin','doctor','nurse','receptionist'].includes(localUser.role) ? localUser.role : 'staff';
-                    userData = {
-                        hospitalId: hospitalId,
-                        name: localUser.name || email.split('@')[0],
-                        email: email,
-                        role: verifiedRole,
-                        phone: localUser.phone || '',
-                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                        autoRepaired: true,
-                        repairedAt: new Date().toISOString()
-                    };
-                    try {
-                        await db.collection('hospitalUsers').doc(cred.user.uid).set(userData);
-                        console.log('Auto-repair: Created hospitalUsers doc from localStorage');
-                        userDoc = await db.collection('hospitalUsers').doc(cred.user.uid).get();
-                    } catch(e) {
-                        console.warn('hospitalUsers auto-repair failed:', e.code);
-                    }
-                } else {
-                    console.warn('No local user data found for auto-repair');
-                }
-            }
-
-            if(userDoc && userDoc.exists){
-                userData = userDoc.data();
-                // If wrong hospital, check local data before rejecting
-                if(userData.hospitalId !== hospitalId){
-                    const localUsers = JSON.parse(localStorage.getItem('medicare_users_local') || '[]');
-                    const localUser = localUsers.find(u => u.email === email && u.hospitalId === hospitalId);
-                    if(!localUser){
-                        showError('Not authorized for ' + hospitalId + '. Your account is linked to: ' + (userData.hospitalId || 'unknown'));
-                        btn.disabled = false; btnText.textContent = 'Sign In';
-                        return; // Keep them signed in, let them try different hospital ID
-                    }
-                    // Update Firestore doc to allow this hospital
-                    userData.hospitalId = hospitalId;
-                    try { await db.collection('hospitalUsers').doc(cred.user.uid).set({hospitalId: hospitalId}, {merge: true}); }
-                    catch(e) {}
-                }
-                userRole = userData.role || 'staff';
-            } else {
-                showError('Account not found for this hospital. Ask your admin to add you.');
+                console.warn('hospitalUsers read failed:', e.code);
+                showError('Cannot verify account. ' + (e.code === 'permission-denied' ? 'Firestore rules block access.' : 'Network error.'));
+                await auth.signOut();
                 btn.disabled = false; btnText.textContent = 'Sign In';
                 return;
             }
 
-            // Read hospital doc (with timeout)
+            if(!userDoc || !userDoc.exists){
+                showError('Account not registered in this hospital system. Contact your administrator.');
+                await auth.signOut();
+                btn.disabled = false; btnText.textContent = 'Sign In';
+                logSecurityEvent('LOGIN_FAIL', {reason: 'hospitalUsers doc missing', email, hospitalId});
+                return;
+            }
+
+            const userData = userDoc.data();
+
+            // 2. hospitalId MUST match exactly
+            if(userData.hospitalId !== hospitalId){
+                showError('Not authorized for hospital ' + hospitalId + '.');
+                await auth.signOut();
+                btn.disabled = false; btnText.textContent = 'Sign In';
+                logSecurityEvent('LOGIN_FAIL', {reason: 'hospitalId mismatch', email, expected: hospitalId, actual: userData.hospitalId});
+                return;
+            }
+
+            userRole = userData.role || 'staff';
+
+            // 3. MUST have hospitals doc
             let hospDoc = null;
             try {
-                hospDoc = await promiseTimeout(db.collection('hospitals').doc(hospitalId).get(), 3000);
-            } catch(e) { console.warn('Hospital doc read timeout'); }
+                hospDoc = await promiseTimeout(db.collection('hospitals').doc(hospitalId).get(), 5000);
+            } catch(e) {
+                console.warn('hospitals read failed:', e.code);
+                showError('Cannot verify hospital data. Network error.');
+                await auth.signOut();
+                btn.disabled = false; btnText.textContent = 'Sign In';
+                return;
+            }
 
-            // AUTO-REPAIR: If hospital doc is missing, create from localStorage
             if(!hospDoc || !hospDoc.exists){
-                console.log('Hospital doc missing for', hospitalId, '- auto-repairing...');
-                const localHosp = JSON.parse(localStorage.getItem('medicare_currentHospital') || '{}');
-                if(localHosp.hospitalId === hospitalId || localHosp.id === hospitalId){
-                    try {
-                        await db.collection('hospitals').doc(hospitalId).set({
-                            ...localHosp,
-                            hospitalId: hospitalId,
-                            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                            autoRepaired: true
-                        });
-                        console.log('Auto-repair: Created hospital doc from localStorage');
-                        hospDoc = await db.collection('hospitals').doc(hospitalId).get();
-                    } catch(e) { console.warn('Hospital auto-repair failed:', e.code); }
-                }
+                showError('Hospital data not found. Contact administrator.');
+                await auth.signOut();
+                btn.disabled = false; btnText.textContent = 'Sign In';
+                logSecurityEvent('LOGIN_FAIL', {reason: 'hospital doc missing', email, hospitalId});
+                return;
             }
 
-            if(hospDoc && hospDoc.exists){
-                currentHospital = {id: hospitalId, ...hospDoc.data()};
-            } else {
-                const hospitals = JSON.parse(localStorage.getItem('medicare_hospitals') || '[]');
-                const localHosp = hospitals.find(h => h.hospitalId === hospitalId);
-                if(localHosp) currentHospital = localHosp;
+            currentHospital = {id: hospitalId, ...hospDoc.data()};
+            currentUser = cred.user;
+
+            // 4. Cross-check localStorage consistency (if exists)
+            const localUsers = secureGet('medicare_users_local', '[]');
+            const localUser = localUsers.find(u => u.email === email && u.hospitalId === hospitalId);
+            if(localUser && localUser.role && localUser.role !== userRole){
+                localUser.role = userRole;
+                localUser.name = userData.name || localUser.name;
+                secureSet('medicare_users_local', localUsers);
             }
 
+            // Save verified session
             secureSet('medicare_currentHospital', currentHospital);
-            secureSet('medicare_currentUser', {role: userRole, email: email, uid: cred.user.uid});
+            secureSet('medicare_currentUser', {
+                role: userRole,
+                email: email,
+                uid: cred.user.uid,
+                hospitalId: hospitalId,
+                checksum: computeChecksum({role: userRole, email, uid: cred.user.uid, hospitalId})
+            });
 
-            // Sync to medicare_users_local
-            const localUsers = JSON.parse(localStorage.getItem('medicare_users_local') || '[]');
-            const existingIdx = localUsers.findIndex(u => u.email === email && u.hospitalId === hospitalId);
-            const existingLocalEntry = localUsers.find(u => u.email === email && u.hospitalId === hospitalId);
-            const localUserEntry = {
+            // Sync user to local auth cache
+            const localAuthUsers = secureGet('medicare_users_local', '[]');
+            const existingIdx = localAuthUsers.findIndex(u => u.email === email && u.hospitalId === hospitalId);
+            const localEntry = {
                 uid: cred.user.uid,
                 hospitalId: hospitalId,
                 name: userData.name || cred.user.displayName || email.split('@')[0],
                 email: email,
-                password: existingLocalEntry ? (existingLocalEntry.password || '') : '',
                 role: userRole,
-                phone: userData.phone || ''
+                phone: userData.phone || '',
+                updatedAt: new Date().toISOString()
             };
             if(existingIdx >= 0){
-                localUsers[existingIdx] = {...localUsers[existingIdx], ...localUserEntry};
+                localAuthUsers[existingIdx] = {...localAuthUsers[existingIdx], ...localEntry};
             } else {
-                localUsers.push(localUserEntry);
+                localAuthUsers.push(localEntry);
             }
-            secureSet('medicare_users_local', localUsers);
-            btn.disabled = false; btnText.textContent = 'Sign In';
-            isOnline = true;
+            secureSet('medicare_users_local', localAuthUsers);
+
             firebaseSuccess = true;
-            logSecurityEvent('LOGIN_SUCCESS', {email: email, hospitalId: hospitalId, method: 'firebase'});
+            logSecurityEvent('LOGIN_SUCCESS', {email, hospitalId, method: 'firebase', role: userRole});
+            btn.disabled = false; btnText.textContent = 'Sign In';
+            showDashboard();
+            loadAllData();
+            return;
+
         } catch(fbErr){
-            console.warn('Firebase login failed, trying offline:', fbErr.message);
-            recordFailedLogin();
+            console.warn('Firebase login error:', fbErr.code, fbErr.message);
+
+            if(fbErr.code === 'auth/user-not-found' || fbErr.code === 'auth/wrong-password' || fbErr.code === 'auth/invalid-credential' || fbErr.code === 'auth/invalid-email'){
+                recordFailedLogin();
+                showError('Invalid email or password.');
+                btn.disabled = false; btnText.textContent = 'Sign In';
+                return;
+            }
+
+            if(fbErr.code === 'auth/network-request-failed' || !navigator.onLine){
+                console.log('Network issue, will attempt offline fallback if available');
+            } else {
+                showError('Login failed: ' + fbErr.message);
+                btn.disabled = false; btnText.textContent = 'Sign In';
+                return;
+            }
         }
     }
 
-    // Fallback: offline login from localStorage
-    if(!firebaseSuccess){
+    // ========== OFFLINE FALLBACK (Only when browser is offline) ==========
+    if(!firebaseSuccess && !navigator.onLine){
         try {
-            const hospitals = JSON.parse(localStorage.getItem('medicare_hospitals') || '[]');
+            const hospitals = secureGet('medicare_hospitals', '[]');
             const hospital = hospitals.find(h => h.hospitalId === hospitalId);
-            if(!hospital) throw new Error('Hospital not found. Please register first or check your Hospital ID.');
+            if(!hospital) throw new Error('Hospital not found in offline storage.');
 
+            const passwordHash = await sha256(password);
             let user = null;
             const hospUsers = secureGet(getStorageKey('users', hospitalId), '[]');
             user = hospUsers.find(u => u.email === email && (u.passwordHash === passwordHash || u.password === password));
@@ -1613,24 +1601,40 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
                 const users = secureGet('medicare_users_local', '[]');
                 user = users.find(u => u.email === email && u.hospitalId === hospitalId && (u.passwordHash === passwordHash || u.password === password));
             }
-            if(!user){ recordFailedLogin(); }
 
-            if(!user) throw new Error('Invalid email/password or not authorized for this hospital.');
+            if(!user) throw new Error('Invalid offline credentials.');
+            if(user.hospitalId !== hospitalId) throw new Error('Hospital mismatch in offline data.');
+
             currentUser = {email: user.email, displayName: user.name, uid: user.uid || user.id};
             userRole = user.role || 'staff';
             currentHospital = hospital;
+
             secureSet('medicare_currentHospital', currentHospital);
-            secureSet('medicare_currentUser', {role: userRole, email: email, uid: user.uid || user.id});
+            secureSet('medicare_currentUser', {
+                role: userRole,
+                email,
+                uid: user.uid || user.id,
+                hospitalId,
+                checksum: computeChecksum({role: userRole, email, uid: user.uid || user.id, hospitalId})
+            });
+
             isOnline = false;
             document.getElementById('offlineBadge').style.display = 'inline-flex';
             btn.disabled = false; btnText.textContent = 'Sign In';
-            logSecurityEvent('LOGIN_SUCCESS', {email: email, hospitalId: hospitalId, method: 'offline'});
-            showDashboard(); loadAllData();
-        } catch(err){ showError(err.message); btn.disabled=false; btnText.textContent='Sign In'; }
+            logSecurityEvent('LOGIN_SUCCESS', {email, hospitalId, method: 'offline'});
+            showDashboard();
+            loadAllData();
+        } catch(err){
+            showError(err.message);
+            btn.disabled = false;
+            btnText.textContent = 'Sign In';
+        }
+    } else if(!firebaseSuccess){
+        showError('Authentication failed. Please check your credentials and try again.');
+        btn.disabled = false;
+        btnText.textContent = 'Sign In';
     }
-});
-
-// ==================== REGISTRATION FORM ====================
+});// ==================== REGISTRATION FORM ====================
 document.getElementById('hospitalRegForm').addEventListener('submit', async (e) => {
     e.preventDefault();
 
@@ -2585,6 +2589,12 @@ function renderUsers(){
 
 function renderSettings(){
     if(!currentHospital) return;
+
+    const secSettings = secureGet('medicare_security_settings', '{}');
+    const enableDemo = typeof secSettings.enableDemo === 'boolean' ? secSettings.enableDemo : ENABLE_DEMO_ACCOUNTS;
+    const enableReg = typeof secSettings.enableRegistration === 'boolean' ? secSettings.enableRegistration : ENABLE_HOSPITAL_REGISTRATION;
+    const enableRepair = typeof secSettings.enableRepair === 'boolean' ? secSettings.enableRepair : ENABLE_ACCOUNT_REPAIR;
+
     document.getElementById('hospitalProfileForm').innerHTML = `
         <div class="form-row"><div class="form-group"><label>Hospital Name</label><input type="text" id="set_hosp_name" value="${currentHospital.name || ''}"></div><div class="form-group"><label>Hospital ID</label><input type="text" value="${currentHospital.hospitalId || currentHospital.id || ''}" disabled></div></div>
         <div class="form-group"><label>Address</label><input type="text" id="set_hosp_address" value="${currentHospital.address || ''}"></div>
@@ -2593,7 +2603,6 @@ function renderSettings(){
         <button class="btn btn-primary" style="width:auto;padding:10px 24px" onclick="saveHospitalSettings()">Save Changes</button>
     `;
 
-    // Add security settings section
     const securitySection = document.getElementById('settingsSecuritySection') || document.createElement('div');
     securitySection.id = 'settingsSecuritySection';
     securitySection.innerHTML = `
@@ -2601,29 +2610,29 @@ function renderSettings(){
         <div class="card-body">
             <div class="form-group">
                 <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-                    <input type="checkbox" id="set_enable_demo" ${ENABLE_DEMO_ACCOUNTS ? 'checked' : ''} onchange="toggleSetting('ENABLE_DEMO_ACCOUNTS', this.checked)">
+                    <input type="checkbox" id="set_enable_demo" ${enableDemo ? 'checked' : ''}>
                     <span>Enable Demo Accounts (login screen shortcuts)</span>
                 </label>
                 <p style="font-size:12px;color:var(--gray);margin-top:4px">Disable in production to prevent unauthorized access.</p>
             </div>
             <div class="form-group">
                 <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-                    <input type="checkbox" id="set_enable_reg" ${ENABLE_HOSPITAL_REGISTRATION ? 'checked' : ''} onchange="toggleSetting('ENABLE_HOSPITAL_REGISTRATION', this.checked)">
+                    <input type="checkbox" id="set_enable_reg" ${enableReg ? 'checked' : ''}>
                     <span>Enable Hospital Registration (new hospitals can register)</span>
                 </label>
-                <p style="font-size:12px;color:var(--gray);margin-top:4px">Disable after initial setup to prevent unauthorized hospital creation.</p>
+                <p style="font-size:12px;color:var(--gray);margin-top:4px">Disable after initial setup.</p>
             </div>
             <div class="form-group">
                 <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
-                    <input type="checkbox" id="set_enable_repair" ${ENABLE_ACCOUNT_REPAIR ? 'checked' : ''} onchange="toggleSetting('ENABLE_ACCOUNT_REPAIR', this.checked)">
+                    <input type="checkbox" id="set_enable_repair" ${enableRepair ? 'checked' : ''}>
                     <span>Enable Account Repair (login screen repair button)</span>
                 </label>
-                <p style="font-size:12px;color:var(--gray);margin-top:4px">Disable in production. Only enable when fixing broken accounts.</p>
+                <p style="font-size:12px;color:var(--gray);margin-top:4px">Disable in production.</p>
             </div>
             <div class="form-group">
                 <label>Change Private Registration Code</label>
                 <input type="password" id="set_private_code" placeholder="Leave blank to keep current" minlength="8">
-                <p style="font-size:12px;color:var(--gray);margin-top:4px">Minimum 8 characters. Required for new hospital registration.</p>
+                <p style="font-size:12px;color:var(--gray);margin-top:4px">Minimum 8 characters.</p>
             </div>
             <button class="btn btn-primary" style="width:auto;padding:10px 24px" onclick="saveSecuritySettings()">Save Security Settings</button>
         </div></div>
@@ -2648,7 +2657,6 @@ async function saveSecuritySettings(){
     const newCode = document.getElementById('set_private_code').value.trim();
     if(newCode && newCode.length < 8){ toast('Private code must be at least 8 characters', 'error'); return; }
 
-    // Save settings to localStorage (in production, save to Firestore settings collection)
     const securitySettings = {
         enableDemo: document.getElementById('set_enable_demo').checked,
         enableRegistration: document.getElementById('set_enable_reg').checked,
@@ -2657,15 +2665,31 @@ async function saveSecuritySettings(){
         updatedAt: new Date().toISOString(),
         updatedBy: currentUser ? currentUser.uid : 'unknown'
     };
+
     secureSet('medicare_security_settings', securitySettings);
 
-    // Update runtime values
+    if(db && currentHospital && auth.currentUser){
+        const hospId = currentHospital.hospitalId || currentHospital.id;
+        try {
+            await db.collection('hospitals').doc(hospId).collection('settings').doc('security').set({
+                ...securitySettings,
+                cloudSyncedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            toast('Security settings saved and synced to cloud', 'success');
+        } catch(e) {
+            console.warn('Cloud settings save failed:', e);
+            toast('Settings saved locally. Cloud sync failed - check Firestore rules.', 'warning');
+        }
+    } else {
+        toast('Security settings saved locally', 'success');
+    }
+
     ENABLE_DEMO_ACCOUNTS = securitySettings.enableDemo;
     ENABLE_HOSPITAL_REGISTRATION = securitySettings.enableRegistration;
     ENABLE_ACCOUNT_REPAIR = securitySettings.enableRepair;
     if(newCode) PRIVATE_REGISTRATION_CODE = newCode;
 
-    toast('Security settings saved', 'success');
+    logSecurityEvent('SETTINGS_CHANGED', {settings: Object.keys(securitySettings), by: currentUser?.uid});
 }
 
 // ==================== SECURITY AUDIT LOG ====================
@@ -3052,121 +3076,7 @@ function openModal(type, editId){
             break;
         case 'user':
             if(userRole !== 'admin'){ toast('Admin only', 'error'); closeModal(); return; }
-            title.textContent = isEdit ? 'Edit User' : 'Add Hospital User';
-            body.innerHTML = `<div class="form-row"><div class="form-group"><label>Full Name *</label><input type="text" id="m_user_name" value="${item.name || ''}" required></div><div class="form-group"><label>Email *</label><input type="email" id="m_user_email" value="${item.email || ''}" required></div></div><div class="form-row"><div class="form-group"><label>Phone</label><input type="tel" id="m_user_phone" value="${item.phone || ''}"></div><div class="form-group"><label>Role *</label><select id="m_user_role" required><option value="doctor" ${item.role === 'doctor' ? 'selected' : ''}>Doctor</option><option value="nurse" ${item.role === 'nurse' ? 'selected' : ''}>Nurse</option><option value="receptionist" ${item.role === 'receptionist' ? 'selected' : ''}>Receptionist</option><option value="admin" ${item.role === 'admin' ? 'selected' : ''}>Administrator</option></select></div></div>${!isEdit ? `<div class="form-group"><label>Initial Password *</label><input type="password" id="m_user_password" placeholder="Min 6 characters" required minlength="6"></div>` : `<div class="form-group"><label>New Password <span style="color:var(--gray);font-size:12px">(leave blank to keep current)</span></label><input type="password" id="m_user_password" placeholder="Min 6 characters" minlength="6"></div>`}<div class="form-group"><label>Notes</label><textarea id="m_user_notes">${item.notes || ''}</textarea></div>`;
-            break;
-    }
-    overlay.classList.add('active');
-}
-
-function closeModal(){
-    document.getElementById('modalOverlay').classList.remove('active');
-    currentModalType = '';
-    currentEditId = null;
-}
-
-function updateBedOptions(selectedBed){
-    const wardId = document.getElementById('m_admit_ward').value;
-    const bedSelect = document.getElementById('m_admit_bed');
-    if(!wardId){ bedSelect.innerHTML = '<option value="">Select Ward First</option>'; return; }
-    const ward = dataCache.wards.find(w => w.id === wardId);
-    if(!ward || !ward.beds){ bedSelect.innerHTML = '<option value="">No beds available</option>'; return; }
-    const availableBeds = ward.beds.filter(b => b.status === 'available');
-    if(availableBeds.length === 0 && !selectedBed){ bedSelect.innerHTML = '<option value="">No available beds</option>'; return; }
-    let html = '';
-    if(selectedBed) html += `<option value="${selectedBed}" selected>Bed ${selectedBed} (Current)</option>`;
-    html += availableBeds.filter(b => String(b.number) !== String(selectedBed)).map(b => `<option value="${b.number}">Bed ${b.number}</option>`).join('');
-    bedSelect.innerHTML = html || '<option value="">No available beds</option>';
-}
-
-function updateInsuranceInfo(){
-    const patientId = document.getElementById('m_bill_patient').value;
-    const box = document.getElementById('insuranceInfoBox');
-    if(!patientId || !box) return;
-    const patient = dataCache.patients.find(p => p.id === patientId);
-    if(patient && patient.insuranceProvider && patient.insuranceStatus === 'Active'){
-        box.style.display = 'block';
-        box.innerHTML = `<i class="fas fa-shield-alt"></i> <strong>${patient.name}</strong> has active insurance with <strong>${patient.insuranceProvider}</strong> (Policy: ${patient.policyNumber || 'N/A'}, Coverage: ${patient.insuranceCoverage || 0}%)`;
-    } else {
-        box.style.display = 'none';
-    }
-}
-
-async function saveModal(){
-    const btn = document.getElementById('modalSaveBtn');
-    btn.innerHTML = '<span class="loading-spinner"></span>';
-    btn.disabled = true;
-    let data = {};
-    switch(currentModalType){
-        case 'patient':
-            data = {id:currentEditId, name:document.getElementById('m_patient_name').value, phone:document.getElementById('m_patient_phone').value, age:document.getElementById('m_patient_age').value, gender:document.getElementById('m_patient_gender').value, address:document.getElementById('m_patient_address').value, notes:document.getElementById('m_patient_notes').value, lastVisit:new Date().toISOString().split('T')[0],
-                insuranceProvider: document.getElementById('m_patient_insurance_provider').value,
-                policyNumber: document.getElementById('m_patient_policy_number').value,
-                insuranceCoverage: document.getElementById('m_patient_coverage').value,
-                insuranceStatus: document.getElementById('m_patient_insurance_status').value
-            };
-            break;
-        case 'admission':
-            const admitPatientId = document.getElementById('m_admit_patient').value;
-            const admitWardId = document.getElementById('m_admit_ward').value;
-            const admitBedNum = document.getElementById('m_admit_bed').value;
-            // If editing, free the old bed first
-            if(currentEditId){
-                const oldAdm = dataCache.admissions.find(a => a.id === currentEditId);
-                if(oldAdm){
-                    const oldWard = dataCache.wards.find(w => w.id === oldAdm.wardId);
-                    if(oldWard && oldWard.beds){
-                        const oldBed = oldWard.beds.find(b => b.number == oldAdm.bedNumber);
-                        if(oldBed){ oldBed.status = 'available'; oldBed.patientId = ''; oldBed.patientName = ''; await saveData('wards', oldWard); }
-                    }
-                }
-            }
-            data = {id:currentEditId, patientId:admitPatientId, doctorId:document.getElementById('m_admit_doctor').value, wardId:admitWardId, bedNumber:admitBedNum, admissionDate:document.getElementById('m_admit_date').value, expectedDischarge:document.getElementById('m_admit_discharge').value, admissionReason:document.getElementById('m_admit_reason').value, notes:document.getElementById('m_admit_notes').value, status:'Admitted'};
-            const ward = dataCache.wards.find(w => w.id === admitWardId);
-            if(ward && ward.beds){
-                const bed = ward.beds.find(b => b.number == admitBedNum);
-                if(bed){ bed.status = 'occupied'; bed.patientId = admitPatientId; bed.patientName = dataCache.patients.find(p => p.id === admitPatientId)?.name || ''; await saveData('wards', ward); }
-            }
-            break;
-        case 'appointment':
-            data = {id:currentEditId, patientId:document.getElementById('m_appt_patient').value, doctorId:document.getElementById('m_appt_doctor').value, date:document.getElementById('m_appt_date').value, time:document.getElementById('m_appt_time').value, reason:document.getElementById('m_appt_reason').value, status:document.getElementById('m_appt_status').value, notes:document.getElementById('m_appt_notes').value};
-            break;
-        case 'ward':
-            const wardName = document.getElementById('m_ward_name').value;
-            const wardType = document.getElementById('m_ward_type').value;
-            const numBeds = parseInt(document.getElementById('m_ward_beds').value) || 10;
-            let beds = [];
-            if(currentEditId){
-                const existing = dataCache.wards.find(w => w.id === currentEditId);
-                if(existing && existing.beds) beds = existing.beds.slice(0, numBeds);
-            }
-            while(beds.length < numBeds) beds.push({number: beds.length + 1, status: 'available', patientId: '', patientName: ''});
-            data = {id:currentEditId, name:wardName, type:wardType, beds:beds, description:document.getElementById('m_ward_desc').value};
-            break;
-        case 'doctor':
-            data = {id:currentEditId, name:document.getElementById('m_doctor_name').value, specialization:document.getElementById('m_doctor_spec').value, phone:document.getElementById('m_doctor_phone').value, email:document.getElementById('m_doctor_email').value, bio:document.getElementById('m_doctor_bio').value};
-            break;
-        case 'prescription':
-            data = {id:currentEditId, patientId:document.getElementById('m_pres_patient').value, doctorId:document.getElementById('m_pres_doctor').value, diagnosis:document.getElementById('m_pres_diagnosis').value, medications:document.getElementById('m_pres_meds').value.split('\n').filter(m => m.trim()), instructions:document.getElementById('m_pres_instructions').value, date:new Date().toISOString().split('T')[0]};
-            break;
-
-
-        case 'lab':
-            data = {id:currentEditId, patientId:document.getElementById('m_lab_patient').value, doctorId:document.getElementById('m_lab_doctor').value, testType:document.getElementById('m_lab_type').value, status:document.getElementById('m_lab_status').value, dateOrdered:document.getElementById('m_lab_date_ordered').value, dateCompleted:document.getElementById('m_lab_date_completed').value, results:document.getElementById('m_lab_results').value, notes:document.getElementById('m_lab_notes').value};
-            break;
-        case 'billing':
-            const billPatientId = document.getElementById('m_bill_patient').value;
-            const billAmount = parseFloat(document.getElementById('m_bill_amount').value) || 0;
-            const billInsurance = parseFloat(document.getElementById('m_bill_insurance').value) || 0;
-            const billStatus = document.getElementById('m_bill_status').value;
-            data = {id:currentEditId, patientId:billPatientId, date:document.getElementById('m_bill_date').value, services:document.getElementById('m_bill_services').value.split(',').map(s => s.trim()).filter(s => s), amount:billAmount, insuranceAmount:billInsurance, status:billStatus, dueDate:document.getElementById('m_bill_due_date').value, notes:document.getElementById('m_bill_notes').value, invoiceNumber: currentEditId ? (dataCache.billing.find(b => b.id === currentEditId) || {}).invoiceNumber : 'INV-' + Date.now().toString().slice(-6)};
-            break;
-        case 'inventory':
-            data = {id:currentEditId, name:document.getElementById('m_inv_name').value, category:document.getElementById('m_inv_category').value, quantity:document.getElementById('m_inv_qty').value, unit:document.getElementById('m_inv_unit').value, price:document.getElementById('m_inv_price').value, minQuantity:document.getElementById('m_inv_min').value, expiryDate:document.getElementById('m_inv_expiry').value, notes:document.getElementById('m_inv_notes').value};
-            break;
-        case 'user':
-            if(userRole !== 'admin'){ toast('Admin only', 'error'); closeModal(); return; }
-            const userEmail = document.getElementById('m_user_email').value.trim();
+            const userEmail = document.getElementById('m_user_email').value.trim().toLowerCase();
             const userPasswordEl = document.getElementById('m_user_password');
             const userName = document.getElementById('m_user_name').value.trim();
             const userRoleVal = document.getElementById('m_user_role').value;
@@ -3174,16 +3084,14 @@ async function saveModal(){
             const userNotes = document.getElementById('m_user_notes').value;
             const userHospId = currentHospital ? (currentHospital.hospitalId || currentHospital.id) : '';
 
-            // STRICT VALIDATION
-            if(userRole !== 'admin'){ toast('Only administrators can create user accounts.', 'error'); btn.innerHTML = 'Save'; btn.disabled = false; return; }
             if(!userName || userName.length < 2){ toast('Full name is required (min 2 characters).', 'error'); btn.innerHTML = 'Save'; btn.disabled = false; return; }
-            if(!userEmail || !userEmail.includes('@')){ toast('Valid email is required.', 'error'); btn.innerHTML = 'Save'; btn.disabled = false; return; }
+            if(!userEmail || !validateEmail(userEmail)){ toast('Valid email is required.', 'error'); btn.innerHTML = 'Save'; btn.disabled = false; return; }
             if(!currentEditId && (!userPasswordEl || !userPasswordEl.value || userPasswordEl.value.length < 6)){
                 toast('Password must be at least 6 characters.', 'error'); btn.innerHTML = 'Save'; btn.disabled = false; return;
             }
-            // Prevent creating accounts for existing emails in the same hospital
-            const existingEmailUser = dataCache.users.find(u => u.email === userEmail && u.hospitalId === userHospId && u.id !== currentEditId);
-            if(existingEmailUser && !currentEditId){
+
+            const duplicateEmail = dataCache.users.find(u => u.email === userEmail && u.hospitalId === userHospId && u.id !== currentEditId && u.uid !== currentEditId);
+            if(duplicateEmail){
                 toast('A user with this email already exists in this hospital.', 'error'); btn.innerHTML = 'Save'; btn.disabled = false; return;
             }
 
@@ -3193,7 +3101,6 @@ async function saveModal(){
             let userUid = currentEditId;
             let authCreated = false;
 
-            // If editing, preserve existing uid/id
             if(currentEditId){
                 const existingUser = dataCache.users.find(u => u.id === currentEditId || u.uid === currentEditId);
                 if(existingUser){
@@ -3201,20 +3108,17 @@ async function saveModal(){
                     userUid = existingUser.uid || existingUser.id || currentEditId;
                 }
             } else {
-                // NEW USER: Create real Firebase Auth account via REST API (does NOT sign out current admin)
-                if(isOnline && navigator.onLine){
+                if(navigator.onLine && auth){
                     const authRes = await createAuthUserREST(userEmail, password);
                     if(authRes.success){
                         userUid = authRes.uid;
                         userId = authRes.uid;
                         authCreated = true;
-                        console.log('Auth user created via REST API:', authRes.uid, authRes.existed ? '(existed)' : '(new)');
                     } else {
-                        console.warn('Auth REST API failed:', authRes.error, '- falling back to offline UID');
+                        console.warn('Auth REST API failed:', authRes.error);
                     }
                 }
                 if(!authCreated){
-                    // Offline or REST API failed: use local fake UID
                     userId = 'usr-' + Date.now().toString();
                     userUid = userId;
                 }
@@ -3232,8 +3136,7 @@ async function saveModal(){
                 updatedAt: new Date().toISOString()
             };
 
-            // Save to Firestore (hospitalUsers root collection)
-            if(db && isOnline && userUid){
+            if(db && navigator.onLine && userUid){
                 try{
                     const docRef = db.collection('hospitalUsers').doc(userUid);
                     const docSnap = await docRef.get();
@@ -3245,17 +3148,23 @@ async function saveModal(){
                             createdAt: firebase.firestore.FieldValue.serverTimestamp()
                         });
                     }
-                    if(authCreated) toast('User created with cloud account', 'success');
-                    else toast('User saved to cloud', 'success');
                 } catch(e){
                     console.warn('Firestore user save failed:', e);
                     toast('Cloud save failed, saved locally', 'warning');
                 }
             }
 
-            // Save to localStorage for offline login capability
             const localUsers = JSON.parse(localStorage.getItem('medicare_users_local') || '[]');
-            const existingLocalIdx = localUsers.findIndex(u => u.email === userEmail && u.hospitalId === userHospId);
+            const existingLocalIdx = localUsers.findIndex(u => 
+                (u.uid === userUid || u.id === userId || u.uid === userId) && u.hospitalId === userHospId
+            );
+
+            const cleanedUsers = localUsers.filter(u => {
+                const sameUid = (u.uid === userUid || u.id === userId);
+                const sameEmailSameHosp = (u.email === userEmail && u.hospitalId === userHospId);
+                return sameUid || sameEmailSameHosp || u.hospitalId !== userHospId;
+            });
+
             const localUserEntry = {
                 uid: userUid,
                 id: userId,
@@ -3267,16 +3176,13 @@ async function saveModal(){
                 phone: userPhone,
                 updatedAt: new Date().toISOString()
             };
-            if(existingLocalIdx >= 0){
-                localUsers[existingLocalIdx] = {...localUsers[existingLocalIdx], ...localUserEntry};
-            } else {
-                localUsers.push(localUserEntry);
-            }
-            secureSet('medicare_users_local', localUsers);
+            cleanedUsers.push(localUserEntry);
+            secureSet('medicare_users_local', cleanedUsers);
 
-            // Update dataCache
-            dataCache.users = dataCache.users.filter(u => u.id !== userId && u.uid !== userId);
-            dataCache.users.push({...userData, passwordHash: passwordHash || (existingLocalIdx >= 0 ? (localUsers[existingLocalIdx].passwordHash || localUsers[existingLocalIdx].password) : '')});
+            dataCache.users = dataCache.users.filter(u => 
+                (u.id !== userId && u.uid !== userId && u.uid !== userUid) || u.hospitalId !== userHospId
+            );
+            dataCache.users.push({...userData, passwordHash: localUserEntry.passwordHash});
             secureSet(getStorageKey('users'), dataCache.users);
 
             closeModal();
@@ -3285,8 +3191,7 @@ async function saveModal(){
             btn.innerHTML = 'Save'; btn.disabled = false;
             toast('User saved successfully', 'success');
             logSecurityEvent('USER_CREATED', {email: userEmail, name: userName, role: userRoleVal, hospitalId: userHospId, by: currentUser?.uid});
-            return; // skip the generic saveData path below
-    }
+            return;    }
     try {
         if(currentModalType === 'user'){
             // User already saved manually above
@@ -3655,32 +3560,37 @@ async function deleteUser(id){
     if(!confirm('Delete this user? This will revoke their access immediately.')) return; 
 
     const userToDelete = dataCache.users.find(u => u.id === id || u.uid === id);
-    const userEmail = userToDelete ? userToDelete.email : null;
+    if(!userToDelete){ toast('User not found', 'error'); return; }
+
+    const userEmail = userToDelete.email;
     const userHospId = currentHospital ? (currentHospital.hospitalId || currentHospital.id) : '';
 
-    // Remove from dataCache
     dataCache.users = dataCache.users.filter(u => u.id !== id && u.uid !== id);
     secureSet(getStorageKey('users'), dataCache.users);
 
-    // Remove from offline auth cache
     const localUsers = JSON.parse(localStorage.getItem('medicare_users_local') || '[]');
-    const updatedLocal = localUsers.filter(u => u.uid !== id && u.id !== id && !(userEmail && u.email === userEmail && u.hospitalId === userHospId));
+    const updatedLocal = localUsers.filter(u => {
+        const sameUid = (u.uid === id || u.id === id);
+        const sameEmailHosp = (u.email === userEmail && u.hospitalId === userHospId);
+        return !sameUid && !sameEmailHosp;
+    });
     secureSet('medicare_users_local', updatedLocal);
 
-    // Remove from Firestore hospitalUsers
-    if(db && isOnline && id){
+    if(db && navigator.onLine && id){
         try{
             await db.collection('hospitalUsers').doc(id).set({
                 deletedAt: new Date().toISOString(),
-                deletedBy: currentUser ? currentUser.uid : 'unknown'
+                deletedBy: currentUser ? currentUser.uid : 'unknown',
+                deletedReason: 'admin_action'
             }, {merge: true});
             setTimeout(async () => {
                 try { await db.collection('hospitalUsers').doc(id).delete(); } catch(e){}
             }, 5000);
         } catch(e){ console.warn('Firebase user delete failed:', e); }
     }
+
     renderUsers(); 
-    logSecurityEvent('USER_DELETED', {userId: id, by: currentUser?.uid, hospitalId: currentHospital?.hospitalId});
+    logSecurityEvent('USER_DELETED', {userId: id, email: userEmail, by: currentUser?.uid, hospitalId: userHospId});
     toast('User deleted and access revoked', 'info'); 
 }
 
