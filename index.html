@@ -303,6 +303,10 @@ body{font-family:'Inter',sans-serif;background:var(--light);color:var(--dark)}
 
 <!-- REGISTRATION FORM -->
 <form id="hospitalRegForm" style="display:none;">
+    <div style="text-align:center;margin-bottom:20px;padding-bottom:16px;border-bottom:2px solid var(--border)">
+        <div style="font-size:18px;font-weight:600;color:var(--dark);margin-bottom:4px"><i class="fas fa-hospital-user" style="color:var(--primary)"></i> New Hospital Registration</div>
+        <div style="font-size:12px;color:var(--gray)">Create a new hospital and become the administrator</div>
+    </div>
     <div class="form-group"><label>Private Registration Code *</label><input type="password" id="regPrivateCode" placeholder="Enter admin registration code" required></div>
     <div class="form-group"><label>Hospital Name *</label><input type="text" id="regHospName" placeholder="Aga Khan University Hospital" required></div>
     <div class="form-row">
@@ -320,9 +324,10 @@ body{font-family:'Inter',sans-serif;background:var(--light);color:var(--dark)}
 </form>
 
 <!-- TOGGLE BUTTONS -->
-<div style="text-align:center;margin-top:20px">
-    <button type="button" class="btn btn-secondary" id="showSignUpBtn" onclick="showSignUp()" style="margin-top:0"><i class="fas fa-user-plus"></i> Sign Up</button>
-    <button type="button" class="btn btn-secondary" id="showSignInBtn" onclick="showSignIn()" style="margin-top:0;display:none"><i class="fas fa-sign-in-alt"></i> Back to Sign In</button>
+<div style="text-align:center;margin-top:24px">
+    <div style="font-size:12px;color:var(--gray);margin-bottom:10px">Don't have an account?</div>
+    <button type="button" class="btn btn-secondary" id="showSignUpBtn" onclick="showSignUp()" style="margin-top:0;width:auto;padding:10px 28px"><i class="fas fa-hospital-user"></i> Register New Hospital</button>
+    <button type="button" class="btn btn-secondary" id="showSignInBtn" onclick="showSignIn()" style="margin-top:0;display:none;width:auto;padding:10px 28px"><i class="fas fa-sign-in-alt"></i> Back to Sign In</button>
 </div>
 
 <div style="text-align:center;margin-top:14px;display:none"><span class="offline-badge" id="offlineBadge"><i class="fas fa-wifi-slash"></i> Offline Mode</span></div>
