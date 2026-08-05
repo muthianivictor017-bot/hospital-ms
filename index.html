@@ -287,7 +287,8 @@ body{font-family:'Inter',sans-serif;background:var(--light);color:var(--dark)}
 
 <!-- LOGIN SCREEN -->
 <div class="login-screen" id="loginScreen">
-<div class="login-box"><div class="logo"><i class="fas fa-hospital"></i></div>
+<div class="login-box">
+<div class="logo"><i class="fas fa-hospital"></i></div>
 <h1>MediCare Hospital</h1>
 <p class="subtitle">Hospital Management System</p>
 <div class="error-msg" id="loginError"></div>
@@ -331,6 +332,8 @@ body{font-family:'Inter',sans-serif;background:var(--light);color:var(--dark)}
 </div>
 
 <div style="text-align:center;margin-top:14px;display:none"><span class="offline-badge" id="offlineBadge"><i class="fas fa-wifi-slash"></i> Offline Mode</span></div>
+</div>
+</div>
 
 <!-- DASHBOARD -->
 <div class="dashboard" id="dashboard">
@@ -3081,6 +3084,120 @@ function openModal(type, editId){
             break;
         case 'user':
             if(userRole !== 'admin'){ toast('Admin only', 'error'); closeModal(); return; }
+            title.textContent = isEdit ? 'Edit User' : 'Add Hospital User';
+            body.innerHTML = `<div class="form-row"><div class="form-group"><label>Full Name *</label><input type="text" id="m_user_name" value="${item.name || ''}" required></div><div class="form-group"><label>Email *</label><input type="email" id="m_user_email" value="${item.email || ''}" required></div></div><div class="form-row"><div class="form-group"><label>Phone</label><input type="tel" id="m_user_phone" value="${item.phone || ''}"></div><div class="form-group"><label>Role *</label><select id="m_user_role" required><option value="doctor" ${item.role === 'doctor' ? 'selected' : ''}>Doctor</option><option value="nurse" ${item.role === 'nurse' ? 'selected' : ''}>Nurse</option><option value="receptionist" ${item.role === 'receptionist' ? 'selected' : ''}>Receptionist</option><option value="admin" ${item.role === 'admin' ? 'selected' : ''}>Administrator</option></select></div></div>${!isEdit ? `<div class="form-group"><label>Initial Password *</label><input type="password" id="m_user_password" placeholder="Min 6 characters" required minlength="6"></div>` : `<div class="form-group"><label>New Password <span style="color:var(--gray);font-size:12px">(leave blank to keep current)</span></label><input type="password" id="m_user_password" placeholder="Min 6 characters" minlength="6"></div>`}<div class="form-group"><label>Notes</label><textarea id="m_user_notes">${item.notes || ''}</textarea></div>`;
+            break;
+    }
+    overlay.classList.add('active');
+}
+
+function closeModal(){
+    document.getElementById('modalOverlay').classList.remove('active');
+    currentModalType = '';
+    currentEditId = null;
+}
+
+function updateBedOptions(selectedBed){
+    const wardId = document.getElementById('m_admit_ward').value;
+    const bedSelect = document.getElementById('m_admit_bed');
+    if(!wardId){ bedSelect.innerHTML = '<option value="">Select Ward First</option>'; return; }
+    const ward = dataCache.wards.find(w => w.id === wardId);
+    if(!ward || !ward.beds){ bedSelect.innerHTML = '<option value="">No beds available</option>'; return; }
+    const availableBeds = ward.beds.filter(b => b.status === 'available');
+    if(availableBeds.length === 0 && !selectedBed){ bedSelect.innerHTML = '<option value="">No available beds</option>'; return; }
+    let html = '';
+    if(selectedBed) html += `<option value="${selectedBed}" selected>Bed ${selectedBed} (Current)</option>`;
+    html += availableBeds.filter(b => String(b.number) !== String(selectedBed)).map(b => `<option value="${b.number}">Bed ${b.number}</option>`).join('');
+    bedSelect.innerHTML = html || '<option value="">No available beds</option>';
+}
+
+function updateInsuranceInfo(){
+    const patientId = document.getElementById('m_bill_patient').value;
+    const box = document.getElementById('insuranceInfoBox');
+    if(!patientId || !box) return;
+    const patient = dataCache.patients.find(p => p.id === patientId);
+    if(patient && patient.insuranceProvider && patient.insuranceStatus === 'Active'){
+        box.style.display = 'block';
+        box.innerHTML = `<i class="fas fa-shield-alt"></i> <strong>${patient.name}</strong> has active insurance with <strong>${patient.insuranceProvider}</strong> (Policy: ${patient.policyNumber || 'N/A'}, Coverage: ${patient.insuranceCoverage || 0}%)`;
+    } else {
+        box.style.display = 'none';
+    }
+}
+
+async function saveModal(){
+    const btn = document.getElementById('modalSaveBtn');
+    btn.innerHTML = '<span class="loading-spinner"></span>';
+    btn.disabled = true;
+    let data = {};
+    switch(currentModalType){
+        case 'patient':
+            data = {id:currentEditId, name:document.getElementById('m_patient_name').value, phone:document.getElementById('m_patient_phone').value, age:document.getElementById('m_patient_age').value, gender:document.getElementById('m_patient_gender').value, address:document.getElementById('m_patient_address').value, notes:document.getElementById('m_patient_notes').value, lastVisit:new Date().toISOString().split('T')[0],
+                insuranceProvider: document.getElementById('m_patient_insurance_provider').value,
+                policyNumber: document.getElementById('m_patient_policy_number').value,
+                insuranceCoverage: document.getElementById('m_patient_coverage').value,
+                insuranceStatus: document.getElementById('m_patient_insurance_status').value
+            };
+            break;
+        case 'admission':
+            const admitPatientId = document.getElementById('m_admit_patient').value;
+            const admitWardId = document.getElementById('m_admit_ward').value;
+            const admitBedNum = document.getElementById('m_admit_bed').value;
+            // If editing, free the old bed first
+            if(currentEditId){
+                const oldAdm = dataCache.admissions.find(a => a.id === currentEditId);
+                if(oldAdm){
+                    const oldWard = dataCache.wards.find(w => w.id === oldAdm.wardId);
+                    if(oldWard && oldWard.beds){
+                        const oldBed = oldWard.beds.find(b => b.number == oldAdm.bedNumber);
+                        if(oldBed){ oldBed.status = 'available'; oldBed.patientId = ''; oldBed.patientName = ''; await saveData('wards', oldWard); }
+                    }
+                }
+            }
+            data = {id:currentEditId, patientId:admitPatientId, doctorId:document.getElementById('m_admit_doctor').value, wardId:admitWardId, bedNumber:admitBedNum, admissionDate:document.getElementById('m_admit_date').value, expectedDischarge:document.getElementById('m_admit_discharge').value, admissionReason:document.getElementById('m_admit_reason').value, notes:document.getElementById('m_admit_notes').value, status:'Admitted'};
+            const ward = dataCache.wards.find(w => w.id === admitWardId);
+            if(ward && ward.beds){
+                const bed = ward.beds.find(b => b.number == admitBedNum);
+                if(bed){ bed.status = 'occupied'; bed.patientId = admitPatientId; bed.patientName = dataCache.patients.find(p => p.id === admitPatientId)?.name || ''; await saveData('wards', ward); }
+            }
+            break;
+        case 'appointment':
+            data = {id:currentEditId, patientId:document.getElementById('m_appt_patient').value, doctorId:document.getElementById('m_appt_doctor').value, date:document.getElementById('m_appt_date').value, time:document.getElementById('m_appt_time').value, reason:document.getElementById('m_appt_reason').value, status:document.getElementById('m_appt_status').value, notes:document.getElementById('m_appt_notes').value};
+            break;
+        case 'ward':
+            const wardName = document.getElementById('m_ward_name').value;
+            const wardType = document.getElementById('m_ward_type').value;
+            const numBeds = parseInt(document.getElementById('m_ward_beds').value) || 10;
+            let beds = [];
+            if(currentEditId){
+                const existing = dataCache.wards.find(w => w.id === currentEditId);
+                if(existing && existing.beds) beds = existing.beds.slice(0, numBeds);
+            }
+            while(beds.length < numBeds) beds.push({number: beds.length + 1, status: 'available', patientId: '', patientName: ''});
+            data = {id:currentEditId, name:wardName, type:wardType, beds:beds, description:document.getElementById('m_ward_desc').value};
+            break;
+        case 'doctor':
+            data = {id:currentEditId, name:document.getElementById('m_doctor_name').value, specialization:document.getElementById('m_doctor_spec').value, phone:document.getElementById('m_doctor_phone').value, email:document.getElementById('m_doctor_email').value, bio:document.getElementById('m_doctor_bio').value};
+            break;
+        case 'prescription':
+            data = {id:currentEditId, patientId:document.getElementById('m_pres_patient').value, doctorId:document.getElementById('m_pres_doctor').value, diagnosis:document.getElementById('m_pres_diagnosis').value, medications:document.getElementById('m_pres_meds').value.split('\n').filter(m => m.trim()), instructions:document.getElementById('m_pres_instructions').value, date:new Date().toISOString().split('T')[0]};
+            break;
+
+
+        case 'lab':
+            data = {id:currentEditId, patientId:document.getElementById('m_lab_patient').value, doctorId:document.getElementById('m_lab_doctor').value, testType:document.getElementById('m_lab_type').value, status:document.getElementById('m_lab_status').value, dateOrdered:document.getElementById('m_lab_date_ordered').value, dateCompleted:document.getElementById('m_lab_date_completed').value, results:document.getElementById('m_lab_results').value, notes:document.getElementById('m_lab_notes').value};
+            break;
+        case 'billing':
+            const billPatientId = document.getElementById('m_bill_patient').value;
+            const billAmount = parseFloat(document.getElementById('m_bill_amount').value) || 0;
+            const billInsurance = parseFloat(document.getElementById('m_bill_insurance').value) || 0;
+            const billStatus = document.getElementById('m_bill_status').value;
+            data = {id:currentEditId, patientId:billPatientId, date:document.getElementById('m_bill_date').value, services:document.getElementById('m_bill_services').value.split(',').map(s => s.trim()).filter(s => s), amount:billAmount, insuranceAmount:billInsurance, status:billStatus, dueDate:document.getElementById('m_bill_due_date').value, notes:document.getElementById('m_bill_notes').value, invoiceNumber: currentEditId ? (dataCache.billing.find(b => b.id === currentEditId) || {}).invoiceNumber : 'INV-' + Date.now().toString().slice(-6)};
+            break;
+        case 'inventory':
+            data = {id:currentEditId, name:document.getElementById('m_inv_name').value, category:document.getElementById('m_inv_category').value, quantity:document.getElementById('m_inv_qty').value, unit:document.getElementById('m_inv_unit').value, price:document.getElementById('m_inv_price').value, minQuantity:document.getElementById('m_inv_min').value, expiryDate:document.getElementById('m_inv_expiry').value, notes:document.getElementById('m_inv_notes').value};
+            break;
+        case 'user':
+            if(userRole !== 'admin'){ toast('Admin only', 'error'); closeModal(); return; }
             const userEmail = document.getElementById('m_user_email').value.trim().toLowerCase();
             const userPasswordEl = document.getElementById('m_user_password');
             const userName = document.getElementById('m_user_name').value.trim();
@@ -3196,7 +3313,8 @@ function openModal(type, editId){
             btn.innerHTML = 'Save'; btn.disabled = false;
             toast('User saved successfully', 'success');
             logSecurityEvent('USER_CREATED', {email: userEmail, name: userName, role: userRoleVal, hospitalId: userHospId, by: currentUser?.uid});
-            return;    }
+            return;
+    }
     try {
         if(currentModalType === 'user'){
             // User already saved manually above
@@ -3565,37 +3683,32 @@ async function deleteUser(id){
     if(!confirm('Delete this user? This will revoke their access immediately.')) return; 
 
     const userToDelete = dataCache.users.find(u => u.id === id || u.uid === id);
-    if(!userToDelete){ toast('User not found', 'error'); return; }
-
-    const userEmail = userToDelete.email;
+    const userEmail = userToDelete ? userToDelete.email : null;
     const userHospId = currentHospital ? (currentHospital.hospitalId || currentHospital.id) : '';
 
+    // Remove from dataCache
     dataCache.users = dataCache.users.filter(u => u.id !== id && u.uid !== id);
     secureSet(getStorageKey('users'), dataCache.users);
 
+    // Remove from offline auth cache
     const localUsers = JSON.parse(localStorage.getItem('medicare_users_local') || '[]');
-    const updatedLocal = localUsers.filter(u => {
-        const sameUid = (u.uid === id || u.id === id);
-        const sameEmailHosp = (u.email === userEmail && u.hospitalId === userHospId);
-        return !sameUid && !sameEmailHosp;
-    });
+    const updatedLocal = localUsers.filter(u => u.uid !== id && u.id !== id && !(userEmail && u.email === userEmail && u.hospitalId === userHospId));
     secureSet('medicare_users_local', updatedLocal);
 
-    if(db && navigator.onLine && id){
+    // Remove from Firestore hospitalUsers
+    if(db && isOnline && id){
         try{
             await db.collection('hospitalUsers').doc(id).set({
                 deletedAt: new Date().toISOString(),
-                deletedBy: currentUser ? currentUser.uid : 'unknown',
-                deletedReason: 'admin_action'
+                deletedBy: currentUser ? currentUser.uid : 'unknown'
             }, {merge: true});
             setTimeout(async () => {
                 try { await db.collection('hospitalUsers').doc(id).delete(); } catch(e){}
             }, 5000);
         } catch(e){ console.warn('Firebase user delete failed:', e); }
     }
-
     renderUsers(); 
-    logSecurityEvent('USER_DELETED', {userId: id, email: userEmail, by: currentUser?.uid, hospitalId: userHospId});
+    logSecurityEvent('USER_DELETED', {userId: id, by: currentUser?.uid, hospitalId: currentHospital?.hospitalId});
     toast('User deleted and access revoked', 'info'); 
 }
 
