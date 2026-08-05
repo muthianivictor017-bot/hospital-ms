@@ -866,6 +866,34 @@ function sanitizeLocalStorage(){
 }
 
 // ==================== PERFORMANCE UTILITIES ====================
+function checkPasswordStrength(password){
+    const bar = document.getElementById('passwordStrengthBar');
+    const text = document.getElementById('passwordStrengthText');
+    const container = document.getElementById('passwordStrength');
+    if(!bar || !text || !container) return;
+    if(!password){ container.style.display = 'none'; text.style.display = 'none'; return; }
+    container.style.display = 'block'; text.style.display = 'block';
+    let score = 0;
+    if(password.length >= 8) score++;
+    if(password.length >= 12) score++;
+    if(/[A-Z]/.test(password)) score++;
+    if(/[0-9]/.test(password)) score++;
+    if(/[^A-Za-z0-9]/.test(password)) score++;
+    const levels = [
+        {width:'0%',color:'var(--border)',text:''},
+        {width:'20%',color:'#dc2626',text:'Very Weak'},
+        {width:'40%',color:'#ea580c',text:'Weak'},
+        {width:'60%',color:'#ca8a04',text:'Fair'},
+        {width:'80%',color:'#16a34a',text:'Strong'},
+        {width:'100%',color:'#15803d',text:'Very Strong'}
+    ];
+    const level = levels[Math.min(score, 5)];
+    bar.style.width = level.width;
+    bar.style.background = level.color;
+    text.textContent = level.text;
+    text.style.color = level.color;
+}
+
 function debounce(fn, ms){
     let timer;
     return function(...args){
