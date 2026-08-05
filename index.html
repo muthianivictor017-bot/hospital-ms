@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://fonts.googleapis.com https://www.gstatic.com https://cdn.jsdelivr.net 'unsafe-inline'; style-src 'self' https://cdnjs.cloudflare.com https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' https://*.googleapis.com https://identitytoolkit.googleapis.com; img-src 'self' data:;">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://fonts.googleapis.com https://www.gstatic.com https://cdn.jsdelivr.net 'unsafe-inline'; style-src 'self' https://cdnjs.cloudflare.com https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' https://*.googleapis.com https://identitytoolkit.googleapis.com https://www.gstatic.com https://cdn.jsdelivr.net; img-src 'self' data:;">
 <title>MediCare Clinic - Hospital Management System</title>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -881,7 +881,6 @@ function sanitizeLocalStorage(){
         }
     });
 }
-sanitizeLocalStorage();
 
 // ==================== PERFORMANCE UTILITIES ====================
 function debounce(fn, ms){
@@ -1458,7 +1457,7 @@ async function loginDemo(role){
     }
 
     let user = null;
-    const hospUsers = JSON.parse(localStorage.getItem(getStorageKey('users', 'DEMO')) || '[]');
+    const hospUsers = secureGet(getStorageKey('users', 'DEMO'), []);
     user = hospUsers.find(u => u.email === email && u.password === password);
 
     if(!user){
@@ -2026,7 +2025,7 @@ async function loadAllData(){
                 try {
                     const snap = await promiseTimeout(db.collection('hospitals').doc(hospitalId).collection(col).get(), 5000);
                     const cloudData = snap.docs.map(d => ({id:d.id, ...d.data()})).filter(d => !d.deletedAt);
-                    const localData = JSON.parse(localStorage.getItem(getStorageKey(col)) || '[]');
+                    const localData = secureGet(getStorageKey(col), []);
                     const merged = mergeData(cloudData, localData);
                     dataCache[col] = merged;
                     secureSet(getStorageKey(col), merged);
@@ -2034,8 +2033,8 @@ async function loadAllData(){
                 } catch(colErr) {
                     console.warn('Failed to load', col, ':', colErr.code);
                     if(colErr.code === 'permission-denied') permissionDenied = true;
-                    const localData = JSON.parse(localStorage.getItem(getStorageKey(col)) || '[]');
-                    dataCache[col] = localData.filter(d => !d.deletedAt);
+                    const localData = secureGet(getStorageKey(col), []);
+                    dataCache[col] = Array.isArray(localData) ? localData.filter(d => !d.deletedAt) : [];
                     return {col, ok: false, err: colErr.code};
                 }
             });
@@ -2124,6 +2123,8 @@ function mergeData(cloud, local){
 
 // ==================== SECURE LOCALSTORAGE ====================
 const STORAGE_KEY = 'medicare_secure_key_v2';
+// Now safe to call since STORAGE_KEY is initialized
+sanitizeLocalStorage();
 function getStorageKey(collection, hospId){
     const id = hospId || (currentHospital ? (currentHospital.hospitalId || currentHospital.id) : 'global');
     return 'medicare_' + id + '_' + collection;
@@ -4047,11 +4048,11 @@ function loadDemoData(){
 
 loadDemoData();
 // Load saved security settings
-const savedSecurity = JSON.parse(localStorage.getItem('medicare_security_settings') || '{}');
-if(savedSecurity.privateCode) PRIVATE_REGISTRATION_CODE = savedSecurity.privateCode;
-if(typeof savedSecurity.enableDemo === 'boolean') ENABLE_DEMO_ACCOUNTS = savedSecurity.enableDemo;
-if(typeof savedSecurity.enableRegistration === 'boolean') ENABLE_HOSPITAL_REGISTRATION = savedSecurity.enableRegistration;
-if(typeof savedSecurity.enableRepair === 'boolean') ENABLE_ACCOUNT_REPAIR = savedSecurity.enableRepair;
+const savedSecurity = secureGet('medicare_security_settings', {});
+if(savedSecurity && savedSecurity.privateCode) PRIVATE_REGISTRATION_CODE = savedSecurity.privateCode;
+if(savedSecurity && typeof savedSecurity.enableDemo === 'boolean') ENABLE_DEMO_ACCOUNTS = savedSecurity.enableDemo;
+if(savedSecurity && typeof savedSecurity.enableRegistration === 'boolean') ENABLE_HOSPITAL_REGISTRATION = savedSecurity.enableRegistration;
+if(savedSecurity && typeof savedSecurity.enableRepair === 'boolean') ENABLE_ACCOUNT_REPAIR = savedSecurity.enableRepair;
 if(!auth) showLogin();
 
 // ==================== CROSS-TAB SYNC ====================
@@ -4127,7 +4128,12 @@ if(typeof BroadcastChannel !== 'undefined'){
                 let parsedData = null;
                 if(rawData) {
                     const decrypted = simpleDecrypt(rawData, STORAGE_KEY);
-                    try { parsedData = JSON.parse(decrypted || rawData); } catch(e) { parsedData = null; }
+                    if(decrypted) {
+                        try { parsedData = JSON.parse(decrypted); } catch(e) { parsedData = null; }
+                    }
+                    if(!parsedData) {
+                        try { parsedData = JSON.parse(rawData); } catch(e) { parsedData = null; }
+                    }
                 }
                 const newData = Array.isArray(parsedData) ? parsedData.filter(i => !i.deletedAt) : [];
                 dataCache[msg.collection] = newData;
