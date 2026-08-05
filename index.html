@@ -772,17 +772,6 @@ let isOnline = true;
 
 // ==================== SECURITY UTILITIES ====================
 // Simple SHA-256 for client-side password hashing (NOT a replacement for server-side hashing)
-async function sha256(message) {
-    const msgBuffer = new TextEncoder().encode(message);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-}
-function simpleEncrypt(text, key) {
-    if(!text) return '';
-    const k = key.split('').reduce((a,b)=>a+b.charCodeAt(0),0);
-    return btoa(text.split('').map((c,i)=>String.fromCharCode(c.charCodeAt(0)^((k+i)%256))).join(''));
-}
 function simpleDecrypt(text, key) {
     if(!text) return '';
     try {
@@ -803,12 +792,6 @@ function validateHospitalId(id) {
     return /^[A-Z0-9\-]{3,20}$/i.test(id);
 }
 // Data integrity checksum
-function computeChecksum(obj) {
-    const str = JSON.stringify(obj);
-    let hash = 0;
-    for(let i=0;i<str.length;i++){ const c=str.charCodeAt(i); hash=((hash<<5)-hash)+c; hash|=0; }
-    return hash.toString(16);
-}
 // Schema version for migrations
 const DATA_SCHEMA_VERSION = '2.0';
 function checkSchemaVersion() {
@@ -1458,11 +1441,11 @@ async function loginDemo(role){
 
     let user = null;
     const hospUsers = secureGet(getStorageKey('users', 'DEMO'), []);
-    user = hospUsers.find(u => u.email === email && u.password === password);
+    for(const u of hospUsers){ if(u.email === email && u.passwordHash){ const valid = await verifyPassword(password, u.passwordHash); if(valid){ user = u; break; } } }
 
     if(!user){
         const users = secureGet('medicare_users_local', []);
-        user = users.find(u => u.email === email && u.password === password && u.hospitalId === hospitalId);
+        for(const u of users){ if(u.email === email && u.hospitalId === hospitalId && u.passwordHash){ const valid = await verifyPassword(password, u.passwordHash); if(valid){ user = u; break; } } }
     }
 
     if(!user){
@@ -1578,7 +1561,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
                 email: email,
                 uid: cred.user.uid,
                 hospitalId: hospitalId,
-                checksum: computeChecksum({role: userRole, email, uid: cred.user.uid, hospitalId})
+                hmac: await computeHMAC({role: userRole, email, uid: cred.user.uid, hospitalId})
             });
 
             // Sync user to local auth cache
@@ -1634,14 +1617,14 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
             const hospital = hospitals.find(h => h.hospitalId === hospitalId);
             if(!hospital) throw new Error('Hospital not found in offline storage.');
 
-            const passwordHash = await sha256(password);
+            const passwordHash = await hashPassword(password);
             let user = null;
             const hospUsers = secureGet(getStorageKey('users', hospitalId), []);
-            user = hospUsers.find(u => u.email === email && (u.passwordHash === passwordHash || u.password === password));
+            for(const u of hospUsers){ if(u.email === email && u.passwordHash){ const valid = await verifyPassword(password, u.passwordHash); if(valid){ user = u; break; } } }
 
             if(!user){
                 const users = secureGet('medicare_users_local', []);
-                user = users.find(u => u.email === email && u.hospitalId === hospitalId && (u.passwordHash === passwordHash || u.password === password));
+                for(const u of users){ if(u.email === email && u.hospitalId === hospitalId && u.passwordHash){ const valid = await verifyPassword(password, u.passwordHash); if(valid){ user = u; break; } } }
             }
 
             if(!user) throw new Error('Invalid offline credentials.');
@@ -1657,7 +1640,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
                 email,
                 uid: user.uid || user.id,
                 hospitalId,
-                checksum: computeChecksum({role: userRole, email, uid: user.uid || user.id, hospitalId})
+                hmac: await computeHMAC({role: userRole, email, uid: user.uid || user.id, hospitalId})
             });
 
             isOnline = false;
@@ -3275,7 +3258,7 @@ async function saveModal(){
             }
 
             const password = userPasswordEl ? userPasswordEl.value : '';
-            const passwordHash = password ? await sha256(password) : '';
+            const passwordHash = password ? await hashPassword(password) : null;
             let userId = currentEditId;
             let userUid = currentEditId;
             let authCreated = false;
