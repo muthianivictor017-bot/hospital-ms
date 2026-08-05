@@ -324,6 +324,17 @@ body{font-family:'Inter',sans-serif;background:var(--light);color:var(--dark)}
     <button type="submit" class="btn btn-primary" id="regBtn"><span id="regBtnText">Register Hospital</span></button>
 </form>
 
+<!-- DEMO LOGIN BUTTONS -->
+<div style="text-align:center;margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
+    <div style="font-size:11px;color:var(--gray);margin-bottom:10px;text-transform:uppercase;letter-spacing:1px">Quick Demo Login</div>
+    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
+        <button type="button" class="btn-sm btn-primary" onclick="fillDemoLogin('admin')" style="padding:6px 14px;font-size:12px"><i class="fas fa-user-shield"></i> Admin</button>
+        <button type="button" class="btn-sm btn-success" onclick="fillDemoLogin('doctor')" style="padding:6px 14px;font-size:12px"><i class="fas fa-user-md"></i> Doctor</button>
+        <button type="button" class="btn-sm btn-warning" onclick="fillDemoLogin('nurse')" style="padding:6px 14px;font-size:12px"><i class="fas fa-user-nurse"></i> Nurse</button>
+        <button type="button" class="btn-sm btn-info" onclick="fillDemoLogin('receptionist')" style="padding:6px 14px;font-size:12px"><i class="fas fa-user"></i> Reception</button>
+    </div>
+</div>
+
 <!-- TOGGLE BUTTONS -->
 <div style="text-align:center;margin-top:24px">
     <div style="font-size:12px;color:var(--gray);margin-bottom:10px">Don't have an account?</div>
@@ -850,6 +861,27 @@ function ensureDataCache() {
   if(!dataCache) dataCache = { patients:[], admissions:[], appointments:[], doctors:[], prescriptions:[], billing:[], inventory:[], wards:[], users:[], labs:[] };
   ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','users','labs'].forEach(c => { if(!Array.isArray(dataCache[c])) dataCache[c] = []; });
 }
+// Clear any previously corrupted localStorage entries
+function sanitizeLocalStorage(){
+    const keysToCheck = ['medicare_users_local','medicare_currentHospital','medicare_currentUser','medicare_security_settings','medicare_audit_log'];
+    keysToCheck.forEach(key => {
+        const raw = localStorage.getItem(key);
+        if(!raw) return;
+        const decrypted = simpleDecrypt(raw, STORAGE_KEY);
+        let isValid = false;
+        if(decrypted) {
+            try { JSON.parse(decrypted); isValid = true; } catch(e) { isValid = false; }
+        }
+        if(!isValid) {
+            try { JSON.parse(raw); isValid = true; } catch(e) { isValid = false; }
+        }
+        if(!isValid) {
+            console.warn('Removing corrupted localStorage key:', key);
+            localStorage.removeItem(key);
+        }
+    });
+}
+sanitizeLocalStorage();
 
 // ==================== PERFORMANCE UTILITIES ====================
 function debounce(fn, ms){
@@ -1192,8 +1224,8 @@ async function loadHospitalAndUser(){
 
     // Fallback to localStorage if Firestore didn't give us data
     if(!currentHospital){
-        const localHosp = secureGet('medicare_currentHospital', '{}');
-        const localUser = secureGet('medicare_currentUser', '{}');
+        const localHosp = secureGet('medicare_currentHospital', {});
+        const localUser = secureGet('medicare_currentUser', {});
         if(localHosp.id || localHosp.hospitalId) currentHospital = localHosp;
         if(localUser.role) {
             // Validate checksum to detect tampering
@@ -1224,7 +1256,7 @@ async function loadCloudSettings(){
     try {
         const hospId = currentHospital.hospitalId || currentHospital.id;
         const secSnap = await db.collection('hospitals').doc(hospId).collection('settings').doc('security').get();
-        const localSettings = secureGet('medicare_security_settings', '{}');
+        const localSettings = secureGet('medicare_security_settings', {});
         const localTime = localSettings.updatedAt ? new Date(localSettings.updatedAt).getTime() : 0;
 
         if(secSnap.exists){
@@ -1353,10 +1385,10 @@ async function repairAccount(){
         if(!userDoc.exists){
             // SECURITY: Look up role from localStorage, NEVER default to admin
             let localUser = null;
-            const localUsers = secureGet('medicare_users_local', '[]');
+            const localUsers = secureGet('medicare_users_local', []);
             localUser = localUsers.find(u => u.email === email && u.hospitalId === hospitalId);
             if(!localUser){
-                const hospUsers = secureGet(getStorageKey('users', hospitalId), '[]');
+                const hospUsers = secureGet(getStorageKey('users', hospitalId), []);
                 localUser = hospUsers.find(u => u.email === email);
             }
             const verifiedRole = (localUser && ['admin','doctor','nurse','receptionist'].includes(localUser.role)) ? localUser.role : 'staff';
@@ -1374,7 +1406,7 @@ async function repairAccount(){
         }
 
         if(!hospDoc.exists){
-            const localHosp = secureGet('medicare_currentHospital', '{}');
+            const localHosp = secureGet('medicare_currentHospital', {});
             await db.collection('hospitals').doc(hospitalId).set({
                 name: localHosp.name || hospitalId,
                 hospitalId: hospitalId,
@@ -1417,7 +1449,7 @@ async function loginDemo(role){
     const email = c.email;
     const password = c.password;
 
-    const hospitals = JSON.parse(localStorage.getItem('medicare_hospitals') || '[]');
+    const hospitals = secureGet('medicare_hospitals', []);
     let hospital = hospitals.find(h => h.hospitalId === hospitalId);
     if(!hospital){
         hospital = {name:'MediCare Demo Hospital Kenya',hospitalId:'DEMO',license:'DEMO-LIC-001',address:'Mama Ngina Street, Nairobi',phone:'+254-20-222-DEMO',email:'admin@medicare.co.ke'};
@@ -1430,7 +1462,7 @@ async function loginDemo(role){
     user = hospUsers.find(u => u.email === email && u.password === password);
 
     if(!user){
-        const users = JSON.parse(localStorage.getItem('medicare_users_local') || '[]');
+        const users = secureGet('medicare_users_local', []);
         user = users.find(u => u.email === email && u.password === password && u.hospitalId === hospitalId);
     }
 
@@ -1532,7 +1564,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
             currentUser = cred.user;
 
             // 4. Cross-check localStorage consistency (if exists)
-            const localUsers = secureGet('medicare_users_local', '[]');
+            const localUsers = secureGet('medicare_users_local', []);
             const localUser = localUsers.find(u => u.email === email && u.hospitalId === hospitalId);
             if(localUser && localUser.role && localUser.role !== userRole){
                 localUser.role = userRole;
@@ -1599,17 +1631,17 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     // ========== OFFLINE FALLBACK (Only when browser is offline) ==========
     if(!firebaseSuccess && !navigator.onLine){
         try {
-            const hospitals = secureGet('medicare_hospitals', '[]');
+            const hospitals = secureGet('medicare_hospitals', []);
             const hospital = hospitals.find(h => h.hospitalId === hospitalId);
             if(!hospital) throw new Error('Hospital not found in offline storage.');
 
             const passwordHash = await sha256(password);
             let user = null;
-            const hospUsers = secureGet(getStorageKey('users', hospitalId), '[]');
+            const hospUsers = secureGet(getStorageKey('users', hospitalId), []);
             user = hospUsers.find(u => u.email === email && (u.passwordHash === passwordHash || u.password === password));
 
             if(!user){
-                const users = secureGet('medicare_users_local', '[]');
+                const users = secureGet('medicare_users_local', []);
                 user = users.find(u => u.email === email && u.hospitalId === hospitalId && (u.passwordHash === passwordHash || u.password === password));
             }
 
@@ -1731,18 +1763,18 @@ document.getElementById('hospitalRegForm').addEventListener('submit', async (e) 
             if(fbErr.code === 'permission-denied' && cred && cred.user){
                 // Auth account WAS created, but Firestore is blocked. Save locally and let user in.
                 showSuccess('Account created! Firestore rules block cloud sync. Saving locally...');
-                const hospitals = JSON.parse(localStorage.getItem('medicare_hospitals') || '[]');
+                const hospitals = secureGet('medicare_hospitals', []);
                 if(!hospitals.find(h => h.hospitalId === hospId)){
                     hospitals.push({name: hospName, hospitalId: hospId, license: hospLicense, address: hospAddress, phone: hospPhone, email: hospEmail});
                     secureSet('medicare_hospitals', hospitals);
                 }
                 const uid = cred.user.uid;
-                const hospUsers = JSON.parse(localStorage.getItem(getStorageKey('users', hospId)) || '[]');
+                const hospUsers = secureGet(getStorageKey('users', hospId), []);
                 if(!hospUsers.find(u => u.email === hospEmail)){
                     hospUsers.push({id: uid, uid: uid, hospitalId: hospId, name: adminName, email: hospEmail, password: adminPassword, role: 'admin'});
-                    localStorage.setItem(getStorageKey('users', hospId), JSON.stringify(hospUsers));
+                    secureSet(getStorageKey('users', hospId), hospUsers);
                 }
-                const users = JSON.parse(localStorage.getItem('medicare_users_local') || '[]');
+                const users = secureGet('medicare_users_local', []);
                 if(!users.find(u => u.email === hospEmail && u.hospitalId === hospId)){
                     users.push({uid, hospitalId: hospId, name: adminName, email: hospEmail, password: adminPassword, role: 'admin'});
                     secureSet('medicare_users_local', users);
@@ -1765,15 +1797,15 @@ document.getElementById('hospitalRegForm').addEventListener('submit', async (e) 
     // Offline fallback
     if(!firebaseSuccess){
         try {
-            const hospitals = JSON.parse(localStorage.getItem('medicare_hospitals') || '[]');
+            const hospitals = secureGet('medicare_hospitals', []);
             if(hospitals.find(h => h.hospitalId === hospId)) throw new Error('Hospital ID already exists');
             hospitals.push({name: hospName, hospitalId: hospId, license: hospLicense, address: hospAddress, phone: hospPhone, email: hospEmail});
             secureSet('medicare_hospitals', hospitals);
             const uid = Date.now().toString();
-            const hospUsers = JSON.parse(localStorage.getItem(getStorageKey('users', hospId)) || '[]');
+            const hospUsers = secureGet(getStorageKey('users', hospId), []);
             hospUsers.push({id: uid, uid: uid, hospitalId: hospId, name: adminName, email: hospEmail, password: adminPassword, role: 'admin'});
-            localStorage.setItem(getStorageKey('users', hospId), JSON.stringify(hospUsers));
-            const users = JSON.parse(localStorage.getItem('medicare_users_local') || '[]');
+            secureSet(getStorageKey('users', hospId), hospUsers);
+            const users = secureGet('medicare_users_local', []);
             users.push({uid, hospitalId: hospId, name: adminName, email: hospEmail, password: adminPassword, role: 'admin'});
             secureSet('medicare_users_local', users);
             currentUser = {email: hospEmail, displayName: adminName, uid};
@@ -1890,7 +1922,7 @@ function setupRealtimeListeners(){
             .onSnapshot(snap => {
                 const cloudData = snap.docs.map(d => ({id:d.id, ...d.data()})).filter(d => !d.deletedAt);
                 dataCache[col] = mergeData(cloudData, dataCache[col]);
-                localStorage.setItem(getStorageKey(col), JSON.stringify(dataCache[col]));
+                secureSet(getStorageKey(col), dataCache[col]);
                 throttledRefresh(col);
             }, err => {
                 console.warn('Realtime listener error for', col, err.code, err.message);
@@ -1907,8 +1939,8 @@ function setupRealtimeListeners(){
         .onSnapshot(snap => {
             const users = snap.docs.map(d => ({id: d.id, uid: d.id, ...d.data()})).filter(d => !d.deletedAt);
             dataCache.users = users;
-            localStorage.setItem(getStorageKey('users'), JSON.stringify(users));
-            const localAuthUsers = JSON.parse(localStorage.getItem('medicare_users_local') || '[]');
+            secureSet(getStorageKey('users'), users);
+            const localAuthUsers = secureGet('medicare_users_local', []);
             users.forEach(u => {
                 const idx = localAuthUsers.findIndex(x => x.email === u.email && x.hospitalId === hospId);
                 const entry = {
@@ -1997,7 +2029,7 @@ async function loadAllData(){
                     const localData = JSON.parse(localStorage.getItem(getStorageKey(col)) || '[]');
                     const merged = mergeData(cloudData, localData);
                     dataCache[col] = merged;
-                    localStorage.setItem(getStorageKey(col), JSON.stringify(merged));
+                    secureSet(getStorageKey(col), merged);
                     return {col, ok: true};
                 } catch(colErr) {
                     console.warn('Failed to load', col, ':', colErr.code);
@@ -2013,11 +2045,11 @@ async function loadAllData(){
             try {
                 const hospUsersSnap = await promiseTimeout(db.collection('hospitalUsers').where('hospitalId', '==', hospitalId).get(), 5000);
                 const hospUsers = hospUsersSnap.docs.map(d => ({id: d.id, uid: d.id, ...d.data()})).filter(d => !d.deletedAt);
-                const localUsersData = secureGet(getStorageKey('users'), '[]');
+                const localUsersData = secureGet(getStorageKey('users'), []);
                 const mergedUsers = mergeData(hospUsers, localUsersData);
                 dataCache.users = mergedUsers;
-                localStorage.setItem(getStorageKey('users'), JSON.stringify(mergedUsers));
-                const localAuthUsers = JSON.parse(localStorage.getItem('medicare_users_local') || '[]');
+                secureSet(getStorageKey('users'), mergedUsers);
+                const localAuthUsers = secureGet('medicare_users_local', []);
                 mergedUsers.forEach(u => {
                     const idx = localAuthUsers.findIndex(x => x.email === u.email && x.hospitalId === hospitalId);
                     const entry = {
@@ -2108,9 +2140,20 @@ function secureGet(key, defaultValue){
         const raw = localStorage.getItem(key);
         if(!raw) return defaultValue;
         const decrypted = simpleDecrypt(raw, STORAGE_KEY);
-        if(decrypted) return JSON.parse(decrypted);
-        // fallback to unencrypted
-        return JSON.parse(raw);
+        if(decrypted) {
+            try {
+                return JSON.parse(decrypted);
+            } catch(e) {
+                // decrypted string is not valid JSON, return default
+                return defaultValue;
+            }
+        }
+        // fallback: try parsing raw as unencrypted JSON (legacy/plain data)
+        try {
+            return JSON.parse(raw);
+        } catch(e) {
+            return defaultValue;
+        }
     } catch(e) { return defaultValue; }
 }
 
@@ -2722,7 +2765,7 @@ function logSecurityEvent(event, details){
         userAgent: navigator.userAgent,
         ip: 'client-side' // Server would log real IP
     };
-    let auditLog = JSON.parse(localStorage.getItem('medicare_audit_log') || '[]');
+    let auditLog = secureGet('medicare_audit_log', []);
     auditLog.unshift(logEntry);
     if(auditLog.length > 500) auditLog = auditLog.slice(0, 500); // Keep last 500
     secureSet('medicare_audit_log', auditLog);
@@ -2730,7 +2773,7 @@ function logSecurityEvent(event, details){
 }
 
 function renderAuditLog(){
-    const auditLog = JSON.parse(localStorage.getItem('medicare_audit_log') || '[]');
+    const auditLog = secureGet('medicare_audit_log', []);
     const container = document.getElementById('auditLogContainer');
     if(!container) return;
     if(auditLog.length === 0){
@@ -3289,7 +3332,7 @@ async function saveModal(){
                 }
             }
 
-            const localUsers = JSON.parse(localStorage.getItem('medicare_users_local') || '[]');
+            const localUsers = secureGet('medicare_users_local', []);
             const existingLocalIdx = localUsers.findIndex(u => 
                 (u.uid === userUid || u.id === userId || u.uid === userId) && u.hospitalId === userHospId
             );
@@ -3695,7 +3738,7 @@ async function deleteUser(id){
     secureSet(getStorageKey('users'), dataCache.users);
 
     // Remove from offline auth cache
-    const localUsers = JSON.parse(localStorage.getItem('medicare_users_local') || '[]');
+    const localUsers = secureGet('medicare_users_local', []);
     const updatedLocal = localUsers.filter(u => u.uid !== id && u.id !== id && !(userEmail && u.email === userEmail && u.hospitalId === userHospId));
     secureSet('medicare_users_local', updatedLocal);
 
@@ -3818,7 +3861,7 @@ async function updateAdminPassword(){
         try{ 
             await currentUser.updatePassword(newPass); 
             // Mirror to localStorage so offline login still works
-            const localUsers = JSON.parse(localStorage.getItem('medicare_users_local') || '[]');
+            const localUsers = secureGet('medicare_users_local', []);
             const me = localUsers.find(u => u.email === currentUser.email);
             if(me) { me.password = newPass; secureSet('medicare_users_local', localUsers); }
             toast('Password updated', 'success'); 
@@ -3872,29 +3915,30 @@ function seedNewHospitalData(hospitalId){
         {id:'w-'+(ts+1),name:'ICU',type:'ICU',hospitalId:hospitalId,beds:[{number:1,status:'available'},{number:2,status:'available'},{number:3,status:'available'}],description:'Intensive Care Unit'},
         {id:'w-'+(ts+2),name:'Emergency',type:'Emergency',hospitalId:hospitalId,beds:[{number:1,status:'available'},{number:2,status:'available'},{number:3,status:'available'},{number:4,status:'available'}],description:'Emergency observation ward'}
     ];
-    localStorage.setItem(getStorageKey('wards', hospitalId), JSON.stringify(defaultWards));
+    secureSet(getStorageKey('wards', hospitalId), defaultWards);
     // All other collections start empty
     const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','labs','users'];
-    cols.forEach(c => localStorage.setItem(getStorageKey(c, hospitalId), JSON.stringify([])));
+    cols.forEach(c => secureSet(getStorageKey(c, hospitalId), []));
 }
 function loadDemoData(){
     const today = new Date().toISOString().split('T')[0];
 
     // DEMO HOSPITAL (always ensure it exists for login)
     const demoHospital = {name:'MediCare Demo Hospital Kenya',hospitalId:'DEMO',license:'DEMO-LIC-001',address:'Mama Ngina Street, Nairobi',phone:'+254-20-222-DEMO',email:'admin@medicare.co.ke'};
-    let hospitals = JSON.parse(localStorage.getItem('medicare_hospitals') || '[]');
+    let hospitals = secureGet('medicare_hospitals', []);
+    if(!Array.isArray(hospitals)) hospitals = [];
     if(!hospitals.find(h => h.hospitalId === 'DEMO')){
         hospitals.push(demoHospital);
         secureSet('medicare_hospitals', hospitals);
     }
 
     // DEMO USERS with passwords (always ensure they exist for login)
-    let users = secureGet('medicare_users_local', '[]');
+    let users = secureGet('medicare_users_local', []);
     const demoUsers = [
-        {uid:'demo-admin',hospitalId:'DEMO',name:'Admin John Smith',email:'admin@medicare.co.ke',password:'demo123',role:'admin'},
-        {uid:'demo-doctor',hospitalId:'DEMO',name:'Dr. James Anderson',email:'doctor@medicare.co.ke',password:'demo123',role:'doctor'},
-        {uid:'demo-nurse',hospitalId:'DEMO',name:'Nurse Mary Williams',email:'nurse@medicare.co.ke',password:'demo123',role:'nurse'},
-        {uid:'demo-reception',hospitalId:'DEMO',name:'Receptionist Jane Doe',email:'reception@medicare.co.ke',password:'demo123',role:'receptionist'}
+        {uid:'demo-admin',hospitalId:'DEMO',name:'Admin John Smith',email:'admin@medicare.co.ke',password:'demo123',passwordHash:'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3',role:'admin'},
+        {uid:'demo-doctor',hospitalId:'DEMO',name:'Dr. James Anderson',email:'doctor@medicare.co.ke',password:'demo123',passwordHash:'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3',role:'doctor'},
+        {uid:'demo-nurse',hospitalId:'DEMO',name:'Nurse Mary Williams',email:'nurse@medicare.co.ke',password:'demo123',passwordHash:'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3',role:'nurse'},
+        {uid:'demo-reception',hospitalId:'DEMO',name:'Receptionist Jane Doe',email:'reception@medicare.co.ke',password:'demo123',passwordHash:'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3',role:'receptionist'}
     ];
     demoUsers.forEach(du => {
         if(!users.find(u => u.email === du.email && u.hospitalId === 'DEMO')){
@@ -3953,16 +3997,7 @@ function loadDemoData(){
         {id:'i5',hospitalId:'DEMO',name:'Insulin Glargine',category:'Medication',quantity:8,unit:'vials',minQuantity:5,price:'85.00',expiryDate:'2026-12-01',notes:'Long-acting insulin'}
     ];
 
-    const demoKeyPrefix = 'medicare_DEMO_';
-    const hasDemoData = localStorage.getItem(demoKeyPrefix + 'patients') || localStorage.getItem('medicare_patients');
-    let existingPatients = [];
-    try {
-        const raw = localStorage.getItem(demoKeyPrefix + 'patients') || localStorage.getItem('medicare_patients');
-        if(raw) {
-            const decrypted = simpleDecrypt(raw, STORAGE_KEY);
-            existingPatients = JSON.parse(decrypted || raw);
-        }
-    } catch(e) {}
+    let existingPatients = secureGet(getStorageKey('patients', 'DEMO'), []);
     if(!Array.isArray(existingPatients) || existingPatients.length === 0){
         secureSet(getStorageKey('patients', 'DEMO'), demoPatients);
         secureSet(getStorageKey('doctors', 'DEMO'), demoDoctors);
@@ -3976,22 +4011,21 @@ function loadDemoData(){
 
     // Sync demo users to medicare_users for user management display
     // Only seed demo users if no real users exist
-    const hasRealUsers = users.some(u => u.hospitalId !== 'DEMO');
+    const hasRealUsers = Array.isArray(users) && users.some(u => u.hospitalId !== 'DEMO');
     if(hasRealUsers) { console.log('Real users exist, skipping demo data seed'); return; }
     const demoUsersForCache = [
-        {id:'demo-admin', uid:'demo-admin', hospitalId:'DEMO', name:'Admin John Smith', email:'admin@medicare.co.ke', password:'demo123', role:'admin'},
-        {id:'demo-doctor', uid:'demo-doctor', hospitalId:'DEMO', name:'Dr. James Anderson', email:'doctor@medicare.co.ke', password:'demo123', role:'doctor'},
-        {id:'demo-nurse', uid:'demo-nurse', hospitalId:'DEMO', name:'Nurse Mary Williams', email:'nurse@medicare.co.ke', password:'demo123', role:'nurse'},
-        {id:'demo-reception', uid:'demo-reception', hospitalId:'DEMO', name:'Receptionist Jane Doe', email:'reception@medicare.co.ke', password:'demo123', role:'receptionist'}
+        {id:'demo-admin', uid:'demo-admin', hospitalId:'DEMO', name:'Admin John Smith', email:'admin@medicare.co.ke', password:'demo123', passwordHash:'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', role:'admin'},
+        {id:'demo-doctor', uid:'demo-doctor', hospitalId:'DEMO', name:'Dr. James Anderson', email:'doctor@medicare.co.ke', password:'demo123', passwordHash:'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', role:'doctor'},
+        {id:'demo-nurse', uid:'demo-nurse', hospitalId:'DEMO', name:'Nurse Mary Williams', email:'nurse@medicare.co.ke', password:'demo123', passwordHash:'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', role:'nurse'},
+        {id:'demo-reception', uid:'demo-reception', hospitalId:'DEMO', name:'Receptionist Jane Doe', email:'reception@medicare.co.ke', password:'demo123', passwordHash:'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', role:'receptionist'}
     ];
-    let existingDemoUsers = [];
-    try {
-        const raw = localStorage.getItem('medicare_users');
-        if(raw) {
-            const decrypted = simpleDecrypt(raw, STORAGE_KEY);
-            existingDemoUsers = JSON.parse(decrypted || raw);
-        }
-    } catch(e) {}
+    // Seed into per-hospital key so dataCache.users loads correctly
+    let existingDemoHospUsers = secureGet(getStorageKey('users', 'DEMO'), []);
+    if(!Array.isArray(existingDemoHospUsers) || existingDemoHospUsers.length === 0){
+        secureSet(getStorageKey('users', 'DEMO'), demoUsersForCache);
+    }
+    // Also keep in legacy medicare_users for compatibility
+    let existingDemoUsers = secureGet('medicare_users', []);
     if(!Array.isArray(existingDemoUsers) || existingDemoUsers.length === 0){
         secureSet('medicare_users', demoUsersForCache);
     }
@@ -4005,14 +4039,7 @@ function loadDemoData(){
         {id:'l5',hospitalId:'DEMO',patientId:'p3',doctorId:'d1',testType:'Blood Test',status:'Pending',dateOrdered:'2026-07-24',dateCompleted:'',results:'',notes:'CBC, CMP, D-dimer ordered for chest discomfort workup'},
         {id:'l6',hospitalId:'DEMO',patientId:'p2',doctorId:'d2',testType:'Urine Analysis',status:'Pending',dateOrdered:'2026-07-24',dateCompleted:'',results:'',notes:'UTI screening'}
     ];
-    let existingLabs = [];
-    try {
-        const raw = localStorage.getItem(demoKeyPrefix + 'labs') || localStorage.getItem('medicare_labs');
-        if(raw) {
-            const decrypted = simpleDecrypt(raw, STORAGE_KEY);
-            existingLabs = JSON.parse(decrypted || raw);
-        }
-    } catch(e) {}
+    let existingLabs = secureGet(getStorageKey('labs', 'DEMO'), []);
     if(!Array.isArray(existingLabs) || existingLabs.length === 0){
         secureSet(getStorageKey('labs', 'DEMO'), demoLabs);
     }
@@ -4070,7 +4097,13 @@ window.addEventListener('storage', (e) => {
         try {
             let raw = e.newValue || '{}';
             let decrypted = simpleDecrypt(raw, STORAGE_KEY);
-            const newHosp = JSON.parse(decrypted || raw);
+            let newHosp = null;
+            if(decrypted) {
+                try { newHosp = JSON.parse(decrypted); } catch(e) { newHosp = null; }
+            }
+            if(!newHosp && raw) {
+                try { newHosp = JSON.parse(raw); } catch(e) { newHosp = null; }
+            }
             if(newHosp.id || newHosp.hospitalId){
                 currentHospital = newHosp;
                 if(currentHospital){
@@ -4090,7 +4123,13 @@ if(typeof BroadcastChannel !== 'undefined'){
         if(msg && msg.type === 'data_changed' && msg.hospitalId){
             const myHospId = currentHospital ? (currentHospital.hospitalId || currentHospital.id) : null;
             if(msg.hospitalId === myHospId && msg.collection && dataCache.hasOwnProperty(msg.collection)){
-                const newData = JSON.parse(localStorage.getItem(getStorageKey(msg.collection)) || '[]').filter(i => !i.deletedAt);
+                const rawData = localStorage.getItem(getStorageKey(msg.collection));
+                let parsedData = null;
+                if(rawData) {
+                    const decrypted = simpleDecrypt(rawData, STORAGE_KEY);
+                    try { parsedData = JSON.parse(decrypted || rawData); } catch(e) { parsedData = null; }
+                }
+                const newData = Array.isArray(parsedData) ? parsedData.filter(i => !i.deletedAt) : [];
                 dataCache[msg.collection] = newData;
                 refreshPageData(
                     msg.collection === 'patients' ? 'patients' :
