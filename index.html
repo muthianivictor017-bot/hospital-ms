@@ -808,7 +808,6 @@ function checkSchemaVersion() {
     }
 }
 checkSchemaVersion();
-    _offlineWriteQueue = secureGet('medicare_offline_queue', []);
 
 
 // ==================== SECURITY CONFIGURATION ====================
@@ -841,12 +840,16 @@ let lastActivity = Date.now();
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOGIN_LOCKOUT_MS = 15 * 60 * 1000; // 15 minutes
-let _offlineWriteQueue = [];
+let _offlineWriteQueue = secureGet('medicare_offline_queue', []);
 let _sessionTimer = null;
 
 let dataCache = {
   patients:[], admissions:[], appointments:[], doctors:[], prescriptions:[], billing:[], inventory:[], wards:[], users:[], labs:[]
 };
+function ensureDataCache() {
+  if(!dataCache) dataCache = { patients:[], admissions:[], appointments:[], doctors:[], prescriptions:[], billing:[], inventory:[], wards:[], users:[], labs:[] };
+  ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','users','labs'].forEach(c => { if(!Array.isArray(dataCache[c])) dataCache[c] = []; });
+}
 
 // ==================== PERFORMANCE UTILITIES ====================
 function debounce(fn, ms){
@@ -1641,6 +1644,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
         showError('Authentication failed. Please check your credentials and try again.');
         btn.disabled = false;
         btnText.textContent = 'Sign In';
+        recordFailedLogin();
     }
 });// ==================== REGISTRATION FORM ====================
 document.getElementById('hospitalRegForm').addEventListener('submit', async (e) => {
@@ -2064,13 +2068,15 @@ async function loadAllData(){
 // Merge cloud + local data: keep whichever has newer updatedAt
 function mergeData(cloud, local){
     const merged = {};
+    const cloudArr = Array.isArray(cloud) ? cloud : [];
+    const localArr = Array.isArray(local) ? local : [];
     // Process cloud first
-    cloud.forEach(item => {
-        if(item.deletedAt) return; // skip tombstones
+    cloudArr.forEach(item => {
+        if(!item || item.deletedAt) return; // skip tombstones
         merged[item.id] = item;
     });
-    local.forEach(item => {
-        if(item.deletedAt) return; // skip local tombstones too
+    localArr.forEach(item => {
+        if(!item || item.deletedAt) return; // skip local tombstones too
         const existing = merged[item.id];
         if(!existing){
             merged[item.id] = item;
@@ -2112,7 +2118,12 @@ function secureGet(key, defaultValue){
 function loadFromLocalStorage(){
     const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','users','labs'];
     for(const col of cols){
-        dataCache[col] = secureGet(getStorageKey(col), '[]').filter(i => !i.deletedAt);
+        try {
+            const data = secureGet(getStorageKey(col), []);
+            dataCache[col] = Array.isArray(data) ? data.filter(i => !i.deletedAt) : [];
+        } catch(e) {
+            dataCache[col] = [];
+        }
     }
 }
 
@@ -2123,7 +2134,7 @@ async function saveData(collection, data){
         return null;
     }
     const id = data.id || Date.now().toString();
-    const item = {...data, id, updatedAt: new Date().toISOString(), hospitalId: currentHospital ? (currentHospital.hospitalId || currentHospital.id) : ''};
+    const item = JSON.parse(JSON.stringify({...data, id, updatedAt: new Date().toISOString(), hospitalId: currentHospital ? (currentHospital.hospitalId || currentHospital.id) : ''}));
     delete item.deletedAt;
     delete item.deletedBy;
     const existing = dataCache[collection].find(i => i.id === id);
@@ -2198,10 +2209,12 @@ function updateSyncStatus(status){
 }
 
 function refreshAllPages(){
+  ensureDataCache();
     ['dashboard','patients','admissions','appointments','wards','doctors','prescriptions','billing','labs','inventory','users'].forEach(refreshPageData);
 }
 
 function refreshPageData(page){
+  ensureDataCache();
     switch(page){
         case 'dashboard': renderDashboard(); break;
         case 'patients': renderPatients(); break;
@@ -3316,26 +3329,17 @@ async function saveModal(){
             return;
     }
     try {
-        if(currentModalType === 'user'){
-            // User already saved manually above
-            closeModal();
-            renderUsers();
-            updateStats();
+        const collection = getCollectionName(currentModalType);
+        const saved = await saveData(collection, data);
+        if(!saved){
             btn.innerHTML = 'Save'; btn.disabled = false;
-            toast('User saved successfully', 'success');
-        } else {
-            const collection = getCollectionName(currentModalType);
-            const saved = await saveData(collection, data);
-            if(!saved){
-                btn.innerHTML = 'Save'; btn.disabled = false;
-                return;
-            }
-            closeModal();
-            refreshPageData(currentModalType === 'patient' ? 'patients' : currentModalType === 'admission' ? 'admissions' : currentModalType === 'appointment' ? 'appointments' : currentModalType === 'ward' ? 'wards' : currentModalType === 'doctor' ? 'doctors' : currentModalType === 'prescription' ? 'prescriptions' : currentModalType === 'billing' ? 'billing' : currentModalType === 'inventory' ? 'inventory' : 'users');
-            updateStats();
-            btn.innerHTML = 'Save'; btn.disabled = false;
-            toast('Saved successfully', 'success');
+            return;
         }
+        closeModal();
+        refreshPageData(currentModalType === 'patient' ? 'patients' : currentModalType === 'admission' ? 'admissions' : currentModalType === 'appointment' ? 'appointments' : currentModalType === 'ward' ? 'wards' : currentModalType === 'doctor' ? 'doctors' : currentModalType === 'prescription' ? 'prescriptions' : currentModalType === 'billing' ? 'billing' : currentModalType === 'inventory' ? 'inventory' : 'users');
+        updateStats();
+        btn.innerHTML = 'Save'; btn.disabled = false;
+        toast('Saved successfully', 'success');
     } catch(err) {
         console.error('saveModal error:', err);
         btn.innerHTML = 'Save'; btn.disabled = false;
@@ -3949,7 +3953,17 @@ function loadDemoData(){
         {id:'i5',hospitalId:'DEMO',name:'Insulin Glargine',category:'Medication',quantity:8,unit:'vials',minQuantity:5,price:'85.00',expiryDate:'2026-12-01',notes:'Long-acting insulin'}
     ];
 
-    if(!localStorage.getItem('medicare_patients') || JSON.parse(localStorage.getItem('medicare_patients')).length === 0){
+    const demoKeyPrefix = 'medicare_DEMO_';
+    const hasDemoData = localStorage.getItem(demoKeyPrefix + 'patients') || localStorage.getItem('medicare_patients');
+    let existingPatients = [];
+    try {
+        const raw = localStorage.getItem(demoKeyPrefix + 'patients') || localStorage.getItem('medicare_patients');
+        if(raw) {
+            const decrypted = simpleDecrypt(raw, STORAGE_KEY);
+            existingPatients = JSON.parse(decrypted || raw);
+        }
+    } catch(e) {}
+    if(!Array.isArray(existingPatients) || existingPatients.length === 0){
         secureSet(getStorageKey('patients', 'DEMO'), demoPatients);
         secureSet(getStorageKey('doctors', 'DEMO'), demoDoctors);
         secureSet(getStorageKey('wards', 'DEMO'), demoWards);
@@ -3970,7 +3984,15 @@ function loadDemoData(){
         {id:'demo-nurse', uid:'demo-nurse', hospitalId:'DEMO', name:'Nurse Mary Williams', email:'nurse@medicare.co.ke', password:'demo123', role:'nurse'},
         {id:'demo-reception', uid:'demo-reception', hospitalId:'DEMO', name:'Receptionist Jane Doe', email:'reception@medicare.co.ke', password:'demo123', role:'receptionist'}
     ];
-    if(!localStorage.getItem('medicare_users') || JSON.parse(localStorage.getItem('medicare_users')).length === 0){
+    let existingDemoUsers = [];
+    try {
+        const raw = localStorage.getItem('medicare_users');
+        if(raw) {
+            const decrypted = simpleDecrypt(raw, STORAGE_KEY);
+            existingDemoUsers = JSON.parse(decrypted || raw);
+        }
+    } catch(e) {}
+    if(!Array.isArray(existingDemoUsers) || existingDemoUsers.length === 0){
         secureSet('medicare_users', demoUsersForCache);
     }
 
@@ -3983,7 +4005,15 @@ function loadDemoData(){
         {id:'l5',hospitalId:'DEMO',patientId:'p3',doctorId:'d1',testType:'Blood Test',status:'Pending',dateOrdered:'2026-07-24',dateCompleted:'',results:'',notes:'CBC, CMP, D-dimer ordered for chest discomfort workup'},
         {id:'l6',hospitalId:'DEMO',patientId:'p2',doctorId:'d2',testType:'Urine Analysis',status:'Pending',dateOrdered:'2026-07-24',dateCompleted:'',results:'',notes:'UTI screening'}
     ];
-    if(!localStorage.getItem('medicare_labs') || JSON.parse(localStorage.getItem('medicare_labs')).length === 0){
+    let existingLabs = [];
+    try {
+        const raw = localStorage.getItem(demoKeyPrefix + 'labs') || localStorage.getItem('medicare_labs');
+        if(raw) {
+            const decrypted = simpleDecrypt(raw, STORAGE_KEY);
+            existingLabs = JSON.parse(decrypted || raw);
+        }
+    } catch(e) {}
+    if(!Array.isArray(existingLabs) || existingLabs.length === 0){
         secureSet(getStorageKey('labs', 'DEMO'), demoLabs);
     }
 }
