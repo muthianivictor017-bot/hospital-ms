@@ -1118,16 +1118,16 @@ try {
     app = firebase.initializeApp(firebaseConfig);
     auth = firebase.auth();
     db = firebase.firestore();
-    // Enable offline persistence (new API for Firebase v10.12+)
-    try {
-        db.settings({
-            localCache: firebase.firestore.PersistentCacheSettings({
-                tabManager: firebase.firestore.PersistentMultipleTabManager()
-            })
-        });
-    } catch(e) {
-        console.warn('Persistent cache setup failed:', e);
-    }
+    // Enable offline persistence (compat SDK)
+    db.enablePersistence({synchronizeTabs:true}).catch(err => {
+        if(err.code === 'failed-precondition'){
+            console.warn('Persistence failed: multiple tabs open');
+        } else if(err.code === 'unimplemented'){
+            console.warn('Persistence not supported in this browser');
+        } else {
+            console.warn('Persistence setup warning:', err.message);
+        }
+    });
     console.log("Firebase initialized");
 } catch(e) {
     console.warn("Firebase init failed:", e);
@@ -2001,7 +2001,7 @@ async function loadAllData(){
                 try {
                     const snap = await promiseTimeout(db.collection('hospitals').doc(hospitalId).collection(col).get(), 5000);
                     const cloudData = snap.docs.map(d => ({id:d.id, ...d.data()})).filter(d => !d.deletedAt);
-                    const localData = JSON.parse(localStorage.getItem(getStorageKey(col)) || '[]');
+                    const localData = secureGet(getStorageKey(col), []);
                     const merged = mergeData(cloudData, localData);
                     dataCache[col] = merged;
                     secureSet(getStorageKey(col), merged);
@@ -2009,7 +2009,7 @@ async function loadAllData(){
                 } catch(colErr) {
                     console.warn('Failed to load', col, ':', colErr.code);
                     if(colErr.code === 'permission-denied') permissionDenied = true;
-                    const localData = JSON.parse(localStorage.getItem(getStorageKey(col)) || '[]');
+                    const localData = secureGet(getStorageKey(col), []);
                     dataCache[col] = localData.filter(d => !d.deletedAt);
                     return {col, ok: false, err: colErr.code};
                 }
@@ -4131,7 +4131,7 @@ if(typeof BroadcastChannel !== 'undefined'){
         if(msg && msg.type === 'data_changed' && msg.hospitalId){
             const myHospId = currentHospital ? (currentHospital.hospitalId || currentHospital.id) : null;
             if(msg.hospitalId === myHospId && msg.collection && dataCache.hasOwnProperty(msg.collection)){
-                const newData = JSON.parse(localStorage.getItem(getStorageKey(msg.collection)) || '[]').filter(i => !i.deletedAt);
+                const newData = secureGet(getStorageKey(msg.collection), []).filter(i => !i.deletedAt);
                 dataCache[msg.collection] = newData;
                 refreshPageData(
                     msg.collection === 'patients' ? 'patients' :
