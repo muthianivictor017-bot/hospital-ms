@@ -1292,15 +1292,18 @@ async function loadHospitalAndUser(){
         const localUser = secureGet('medicare_currentUser', {});
         if(localHosp.id || localHosp.hospitalId) currentHospital = localHosp;
         if(localUser.role) {
-            // Validate checksum to detect tampering
-            if(!localUser.hmac){
-                console.warn('Session missing HMAC - possible tampering or legacy data');
-                logout();
-                return;
+            // Validate HMAC to detect tampering (skip for legacy sessions without HMAC)
+            if(localUser.hmac){
+                const validHmac = await verifyHMAC({role: localUser.role, email: localUser.email, uid: localUser.uid, hospitalId: localUser.hospitalId || (currentHospital ? (currentHospital.hospitalId || currentHospital.id) : '')}, localUser.hmac);
+                if(!validHmac){
+                    console.warn('Session HMAC mismatch - possible tampering');
+                    logout();
+                    return;
+                }
+            } else {
+                console.log('Legacy session without HMAC - allowing login but consider re-authenticating');
             }
-            const validHmac = await verifyHMAC({role: localUser.role, email: localUser.email, uid: localUser.uid, hospitalId: localUser.hospitalId || (currentHospital ? (currentHospital.hospitalId || currentHospital.id) : '')}, localUser.hmac);
-            if(validHmac){
-                userRole = localUser.role;
+            userRole = localUser.role;
             } else {
                 console.warn('Role checksum mismatch - possible tampering detected');
                 userRole = 'staff'; // safest fallback
@@ -1357,6 +1360,11 @@ async function loadCloudSettings(){
 }
 
 function showDashboard(){
+    if(!currentUser){
+        console.warn('showDashboard called with no currentUser');
+        showLogin();
+        return;
+    }
     document.getElementById('loginScreen').style.display='none';
     document.getElementById('dashboard').style.display='block';
     updateSyncStatus('syncing');
@@ -1471,27 +1479,31 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
 
             userRole = userData.role || 'staff';
 
-            // 3. MUST have hospitals doc
+            // 3. Try to load hospital doc from Firestore, fallback to localStorage
             let hospDoc = null;
             try {
                 hospDoc = await promiseTimeout(db.collection('hospitals').doc(hospitalId).get(), 5000);
             } catch(e) {
                 console.warn('hospitals read failed:', e.code);
-                showError('Cannot verify hospital data. Network error.');
-                await auth.signOut();
-                btn.disabled = false; btnText.textContent = 'Sign In';
-                return;
             }
 
-            if(!hospDoc || !hospDoc.exists){
-                showError('Hospital data not found. Contact administrator.');
-                await auth.signOut();
-                btn.disabled = false; btnText.textContent = 'Sign In';
-                logSecurityEvent('LOGIN_FAIL', {reason: 'hospital doc missing', email, hospitalId});
-                return;
+            if(hospDoc && hospDoc.exists){
+                currentHospital = {id: hospitalId, ...hospDoc.data()};
+            } else {
+                // Fallback to localStorage hospital data
+                const localHospitals = secureGet('medicare_hospitals', []);
+                const localHosp = localHospitals.find(h => h.hospitalId === hospitalId);
+                if(localHosp){
+                    currentHospital = localHosp;
+                    console.log('Using localStorage hospital fallback');
+                } else {
+                    showError('Hospital data not found. Contact administrator.');
+                    await auth.signOut();
+                    btn.disabled = false; btnText.textContent = 'Sign In';
+                    logSecurityEvent('LOGIN_FAIL', {reason: 'hospital doc missing', email, hospitalId});
+                    return;
+                }
             }
-
-            currentHospital = {id: hospitalId, ...hospDoc.data()};
             currentUser = cred.user;
 
             // 4. Cross-check localStorage consistency (if exists)
@@ -1998,6 +2010,11 @@ async function loadAllData(){
             } catch(e) { 
                 console.warn('Could not load hospitalUsers:', e); 
                 if(e.code === 'permission-denied') permissionDenied = true;
+            }
+            // If permission denied, ensure we still have local data
+            if(permissionDenied && dataCache.users.length === 0){
+                const localUsers = secureGet(getStorageKey('users'), []);
+                dataCache.users = Array.isArray(localUsers) ? localUsers.filter(i => !i.deletedAt) : [];
             }
 
             firestoreSuccess = true;
