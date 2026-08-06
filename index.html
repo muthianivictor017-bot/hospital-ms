@@ -1227,6 +1227,18 @@ window.addEventListener('offline', () => {
 if(auth) {
     auth.onAuthStateChanged(async user => {
         if(user){
+            // SECURITY GATE: Only allow auto-login if this browser session was explicitly authenticated
+            const sessionActive = sessionStorage.getItem('medicare_session_active') === 'true';
+            const sessionEmail = sessionStorage.getItem('medicare_session_email');
+            const sessionHospital = sessionStorage.getItem('medicare_session_hospital');
+
+            if(!sessionActive || (sessionEmail && sessionEmail !== user.email)){
+                console.log('Auto-login blocked: no active session flag or email mismatch. Forcing sign out.');
+                await auth.signOut();
+                showLogin();
+                return;
+            }
+
             currentUser = user;
             isOnline = true;
             // Force fresh token before any Firestore operations
@@ -1585,6 +1597,10 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
             secureSet('medicare_users_local', localAuthUsers);
 
             firebaseSuccess = true;
+            // Mark this browser session as authenticated
+            sessionStorage.setItem('medicare_session_active', 'true');
+            sessionStorage.setItem('medicare_session_email', email);
+            sessionStorage.setItem('medicare_session_hospital', hospitalId);
             logSecurityEvent('LOGIN_SUCCESS', {email, hospitalId, method: 'firebase', role: userRole});
             btn.disabled = false; btnText.textContent = 'Sign In';
             showDashboard();
@@ -1646,6 +1662,9 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
             isOnline = false;
             document.getElementById('offlineBadge').style.display = 'inline-flex';
             btn.disabled = false; btnText.textContent = 'Sign In';
+            sessionStorage.setItem('medicare_session_active', 'true');
+            sessionStorage.setItem('medicare_session_email', email);
+            sessionStorage.setItem('medicare_session_hospital', hospitalId);
             logSecurityEvent('LOGIN_SUCCESS', {email, hospitalId, method: 'offline'});
             showDashboard();
             loadAllData();
@@ -1804,7 +1823,10 @@ document.getElementById('hospitalRegForm').addEventListener('submit', async (e) 
 });
 
 function lockScreen(){
-    // Clear sensitive session data but keep remember-me preferences
+    // Clear sensitive session data and session flag
+    sessionStorage.removeItem('medicare_session_active');
+    sessionStorage.removeItem('medicare_session_email');
+    sessionStorage.removeItem('medicare_session_hospital');
     dataCache = {patients:[], admissions:[], appointments:[], doctors:[], prescriptions:[], billing:[], inventory:[], wards:[], users:[], labs:[]};
     currentUser = null; currentHospital = null; userRole = ''; isOnline = false;
     loginAttempts = 0; loginLockoutUntil = 0;
@@ -1818,6 +1840,9 @@ function logout(){
     realtimeUnsubscribers = [];
     if(_connectivityTimer) clearInterval(_connectivityTimer);
     if(_sessionTimer) clearInterval(_sessionTimer);
+    sessionStorage.removeItem('medicare_session_active');
+    sessionStorage.removeItem('medicare_session_email');
+    sessionStorage.removeItem('medicare_session_hospital');
     logSecurityEvent('LOGOUT', {hospitalId: currentHospital?.hospitalId || currentHospital?.id});
     dataCache = {patients:[], admissions:[], appointments:[], doctors:[], prescriptions:[], billing:[], inventory:[], wards:[], users:[], labs:[]};
     currentUser = null; currentHospital = null; userRole = ''; isOnline = false;
