@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://fonts.googleapis.com https://www.gstatic.com https://cdn.jsdelivr.net 'unsafe-inline'; style-src 'self' https://cdnjs.cloudflare.com https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' https://*.googleapis.com https://identitytoolkit.googleapis.com https://www.gstatic.com https://cdn.jsdelivr.net; img-src 'self' data:;">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://fonts.googleapis.com https://www.gstatic.com https://cdn.jsdelivr.net 'unsafe-inline'; style-src 'self' https://cdnjs.cloudflare.com https://fonts.googleapis.com 'unsafe-inline'; font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; connect-src 'self' https://firestore.googleapis.com https://identitytoolkit.googleapis.com https://www.googleapis.com https://securetoken.googleapis.com; img-src 'self' data:;">
 <title>MediCare Clinic - Hospital Management System</title>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -324,14 +324,21 @@ body{font-family:'Inter',sans-serif;background:var(--light);color:var(--dark)}
     <button type="submit" class="btn btn-primary" id="regBtn"><span id="regBtnText">Register Hospital</span></button>
 </form>
 
-<!-- DEMO LOGIN BUTTONS -->
-<div style="text-align:center;margin-top:20px;padding-top:16px;border-top:2px solid var(--border)">
-    <div style="font-size:11px;color:var(--gray);margin-bottom:10px;text-transform:uppercase;letter-spacing:1px">Quick Demo Login</div>
-    <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap">
-        <button type="button" class="btn-sm btn-primary" onclick="fillDemoLogin('admin')" style="padding:6px 14px;font-size:12px"><i class="fas fa-user-shield"></i> Admin</button>
-        <button type="button" class="btn-sm btn-success" onclick="fillDemoLogin('doctor')" style="padding:6px 14px;font-size:12px"><i class="fas fa-user-md"></i> Doctor</button>
-        <button type="button" class="btn-sm btn-warning" onclick="fillDemoLogin('nurse')" style="padding:6px 14px;font-size:12px"><i class="fas fa-user-nurse"></i> Nurse</button>
-        <button type="button" class="btn-sm btn-info" onclick="fillDemoLogin('receptionist')" style="padding:6px 14px;font-size:12px"><i class="fas fa-user"></i> Reception</button>
+<!-- Security Instructions -->
+<div style="margin-top:24px;padding:16px;background:var(--card-bg);border:1px solid var(--border);border-radius:12px;border-left:4px solid var(--primary)">
+    <div style="font-size:13px;font-weight:600;color:var(--primary);margin-bottom:10px;display:flex;align-items:center;gap:8px">
+        <i class="fas fa-shield-alt"></i> Security Guidelines
+    </div>
+    <ul style="font-size:12px;color:var(--gray);margin:0;padding-left:18px;line-height:1.8">
+        <li>Never share your login credentials with anyone</li>
+        <li>Use a strong password (min 8 chars, mixed case, numbers & symbols)</li>
+        <li>Ensure you are on <strong>HTTPS</strong> before logging in</li>
+        <li>Log out when finished, especially on shared devices</li>
+        <li>Report suspicious activity to your administrator immediately</li>
+        <li>Session expires after <strong>30 minutes</strong> of inactivity</li>
+    </ul>
+    <div id="httpsWarning" style="display:none;margin-top:10px;padding:8px 12px;background:#fef2f2;border:1px solid #fecaca;border-radius:8px;color:#dc2626;font-size:12px;font-weight:600">
+        <i class="fas fa-exclamation-triangle"></i> Warning: Connection is not secure (HTTP). Do not enter credentials.
     </div>
 </div>
 
@@ -771,13 +778,51 @@ let app, auth, db;
 let isOnline = true;
 
 // ==================== SECURITY UTILITIES ====================
-// Simple SHA-256 for client-side password hashing (NOT a replacement for server-side hashing)
-function simpleDecrypt(text, key) {
+// PBKDF2 password hashing with random salt
+async function hashPassword(password) {
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const enc = new TextEncoder();
+    const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), {name: 'PBKDF2'}, false, ['deriveBits']);
+    const derived = await crypto.subtle.deriveBits(
+        {name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256'},
+        keyMaterial, 256
+    );
+    return {
+        hash: Array.from(new Uint8Array(derived)).map(b => b.toString(16).padStart(2,'0')).join(''),
+        salt: Array.from(salt).map(b => b.toString(16).padStart(2,'0')).join('')
+    };
+}
+async function verifyPassword(password, stored) {
+    if(!stored || !stored.salt || !stored.hash) return false;
+    const salt = Uint8Array.from(stored.salt.match(/.{2}/g).map(b => parseInt(b, 16)));
+    const enc = new TextEncoder();
+    const keyMaterial = await crypto.subtle.importKey('raw', enc.encode(password), {name: 'PBKDF2'}, false, ['deriveBits']);
+    const derived = await crypto.subtle.deriveBits(
+        {name: 'PBKDF2', salt, iterations: 100000, hash: 'SHA-256'},
+        keyMaterial, 256
+    );
+    const hash = Array.from(new Uint8Array(derived)).map(b => b.toString(16).padStart(2,'0')).join('');
+    return hash === stored.hash;
+}
+// Legacy XOR encryption for localStorage (fast, synchronous)
+function legacyEncrypt(text, key) {
+    if(!text) return '';
+    const k = key.split('').reduce((a,b)=>a+b.charCodeAt(0),0);
+    return btoa(text.split('').map((c,i)=>String.fromCharCode(c.charCodeAt(0)^((k+i)%256))).join(''));
+}
+function legacyDecrypt(text, key) {
     if(!text) return '';
     try {
         const k = key.split('').reduce((a,b)=>a+b.charCodeAt(0),0);
         return atob(text).split('').map((c,i)=>String.fromCharCode(c.charCodeAt(0)^((k+i)%256))).join('');
     } catch(e) { return ''; }
+}
+// XSS sanitization
+function sanitizeHTML(str) {
+    if(typeof str !== 'string') return '';
+    return str.replace(/[&<>"']/g, function(m) {
+        return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m];
+    });
 }
 function sanitizeInput(str) {
     if(typeof str !== 'string') return str;
@@ -791,7 +836,18 @@ function validateEmail(email) {
 function validateHospitalId(id) {
     return /^[A-Z0-9\-]{3,20}$/i.test(id);
 }
-// Data integrity checksum
+// HMAC-SHA256 for data integrity
+async function computeHMAC(data) {
+    const enc = new TextEncoder();
+    const keyData = enc.encode(STORAGE_KEY.padEnd(32).slice(0,32));
+    const cryptoKey = await crypto.subtle.importKey('raw', keyData, {name: 'HMAC', hash: 'SHA-256'}, false, ['sign']);
+    const signature = await crypto.subtle.sign('HMAC', cryptoKey, enc.encode(JSON.stringify(data)));
+    return Array.from(new Uint8Array(signature)).map(b => b.toString(16).padStart(2,'0')).join('');
+}
+async function verifyHMAC(data, expectedHmac) {
+    const actual = await computeHMAC(data);
+    return actual === expectedHmac;
+}
 // Schema version for migrations
 const DATA_SCHEMA_VERSION = '2.0';
 function checkSchemaVersion() {
@@ -807,13 +863,21 @@ checkSchemaVersion();
 // ==================== SECURITY CONFIGURATION ====================
 // Only users with this code can register a new hospital.
 // CHANGE THIS IMMEDIATELY after first deployment.
-let PRIVATE_REGISTRATION_CODE = 'MEDICARE-ADMIN-2026';
+let PRIVATE_REGISTRATION_CODE = (() => {
+    const saved = localStorage.getItem('medicare_reg_code');
+    if(saved) return saved;
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let code = 'MEDICARE-';
+    for(let i=0;i<12;i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
+    localStorage.setItem('medicare_reg_code', code);
+    return code;
+})();
 let _registrationCodeLoaded = false;
 
 // Feature flags - disable these in production after setup
 const ENABLE_DEMO_ACCOUNTS = false;      // Set to false to hide demo login buttons
 const ENABLE_HOSPITAL_REGISTRATION = true; // Set to false to disable new hospital registration
-const ENABLE_ACCOUNT_REPAIR = true;        // Set to false to disable repair button
+// Account repair removed for security - use Firebase Console instead        // Set to false to disable repair button
 
 // ==================== ACCOUNT CREATION POLICY ====================
 // Accounts can ONLY be created through these two paths:
@@ -840,30 +904,6 @@ let _sessionTimer = null;
 let dataCache = {
   patients:[], admissions:[], appointments:[], doctors:[], prescriptions:[], billing:[], inventory:[], wards:[], users:[], labs:[]
 };
-function ensureDataCache() {
-  if(!dataCache) dataCache = { patients:[], admissions:[], appointments:[], doctors:[], prescriptions:[], billing:[], inventory:[], wards:[], users:[], labs:[] };
-  ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','users','labs'].forEach(c => { if(!Array.isArray(dataCache[c])) dataCache[c] = []; });
-}
-// Clear any previously corrupted localStorage entries
-function sanitizeLocalStorage(){
-    const keysToCheck = ['medicare_users_local','medicare_currentHospital','medicare_currentUser','medicare_security_settings','medicare_audit_log'];
-    keysToCheck.forEach(key => {
-        const raw = localStorage.getItem(key);
-        if(!raw) return;
-        const decrypted = simpleDecrypt(raw, STORAGE_KEY);
-        let isValid = false;
-        if(decrypted) {
-            try { JSON.parse(decrypted); isValid = true; } catch(e) { isValid = false; }
-        }
-        if(!isValid) {
-            try { JSON.parse(raw); isValid = true; } catch(e) { isValid = false; }
-        }
-        if(!isValid) {
-            console.warn('Removing corrupted localStorage key:', key);
-            localStorage.removeItem(key);
-        }
-    });
-}
 
 // ==================== PERFORMANCE UTILITIES ====================
 function checkPasswordStrength(password){
@@ -946,6 +986,20 @@ function startSessionTimer(){
 ['click','keypress','scroll','mousemove'].forEach(evt => {
     document.addEventListener(evt, resetActivity, true);
 });
+
+// HTTPS enforcement
+function enforceHTTPS(){
+    if(window.location.protocol !== 'https:' && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1'){
+        const warning = document.createElement('div');
+        warning.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#dc2626;color:white;padding:12px;text-align:center;z-index:99999;font-weight:bold;';
+        warning.innerHTML = 'INSECURE CONNECTION: This app must be served over HTTPS in production. <a href="' + window.location.href.replace('http:','https:') + '" style="color:white;text-decoration:underline;">Switch to HTTPS</a>';
+        document.body.appendChild(warning);
+        console.error('SECURITY WARNING: App is running over HTTP. All data is vulnerable to interception.');
+        const boxWarning = document.getElementById('httpsWarning');
+        if(boxWarning) boxWarning.style.display = 'block';
+    }
+}
+document.addEventListener('DOMContentLoaded', enforceHTTPS);
 // Rate limiting check
 function isLoginLockedOut(){
     if(loginLockoutUntil && Date.now() < loginLockoutUntil){
@@ -1239,8 +1293,13 @@ async function loadHospitalAndUser(){
         if(localHosp.id || localHosp.hospitalId) currentHospital = localHosp;
         if(localUser.role) {
             // Validate checksum to detect tampering
-            const expectedChecksum = computeChecksum({role: localUser.role, email: localUser.email, uid: localUser.uid, hospitalId: localUser.hospitalId || (currentHospital ? (currentHospital.hospitalId || currentHospital.id) : '')});
-            if(localUser.checksum === expectedChecksum){
+            if(!localUser.hmac){
+                console.warn('Session missing HMAC - possible tampering or legacy data');
+                logout();
+                return;
+            }
+            const validHmac = await verifyHMAC({role: localUser.role, email: localUser.email, uid: localUser.uid, hospitalId: localUser.hospitalId || (currentHospital ? (currentHospital.hospitalId || currentHospital.id) : '')}, localUser.hmac);
+            if(validHmac){
                 userRole = localUser.role;
             } else {
                 console.warn('Role checksum mismatch - possible tampering detected');
@@ -1354,144 +1413,6 @@ function showSignIn(){
 }
 
 // Demo account quick-login
-async function repairAccount(){
-    if(!ENABLE_ACCOUNT_REPAIR){ showError('Account repair is disabled.'); return; }
-    if(userRole !== 'admin' && currentUser){
-        showError('Only administrators can repair accounts.');
-        return;
-    }
-    const email = sanitizeInput(document.getElementById('loginEmail').value.trim().toLowerCase());
-    const password = document.getElementById('loginPassword').value;
-    const hospitalId = sanitizeInput(document.getElementById('loginHospitalId').value.trim().toUpperCase());
-
-    if(!email || !password || !hospitalId){
-        showError('Please fill in Hospital ID, Email, and Password first.');
-        return;
-    }
-    if(!validateEmail(email) || !validateHospitalId(hospitalId)){
-        showError('Invalid email or hospital ID format.');
-        return;
-    }
-
-    if(!auth || !db){
-        showError('Firebase not initialized.');
-        return;
-    }
-
-    const btn = document.getElementById('loginBtn');
-    const btnText = document.getElementById('loginBtnText');
-    btn.disabled = true; btnText.innerHTML = '<span class="loading-spinner"></span> Repairing...';
-
-    try {
-        const cred = await auth.signInWithEmailAndPassword(email, password);
-        await cred.user.getIdToken(true);
-
-        // Check what exists
-        const userDoc = await db.collection('hospitalUsers').doc(cred.user.uid).get();
-        const hospDoc = await db.collection('hospitals').doc(hospitalId).get();
-
-        let repairs = [];
-
-        if(!userDoc.exists){
-            // SECURITY: Look up role from localStorage, NEVER default to admin
-            let localUser = null;
-            const localUsers = secureGet('medicare_users_local', []);
-            localUser = localUsers.find(u => u.email === email && u.hospitalId === hospitalId);
-            if(!localUser){
-                const hospUsers = secureGet(getStorageKey('users', hospitalId), []);
-                localUser = hospUsers.find(u => u.email === email);
-            }
-            const verifiedRole = (localUser && ['admin','doctor','nurse','receptionist'].includes(localUser.role)) ? localUser.role : 'staff';
-
-            await db.collection('hospitalUsers').doc(cred.user.uid).set({
-                hospitalId: hospitalId,
-                name: localUser ? localUser.name : (cred.user.displayName || email.split('@')[0]),
-                email: email,
-                role: verifiedRole,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                manuallyRepaired: true,
-                repairedAt: new Date().toISOString()
-            });
-            repairs.push('Created hospitalUsers profile (role: ' + verifiedRole + ')');
-        }
-
-        if(!hospDoc.exists){
-            const localHosp = secureGet('medicare_currentHospital', {});
-            await db.collection('hospitals').doc(hospitalId).set({
-                name: localHosp.name || hospitalId,
-                hospitalId: hospitalId,
-                address: localHosp.address || '',
-                phone: localHosp.phone || '',
-                email: email,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                manuallyRepaired: true
-            });
-            repairs.push('Created hospital document');
-        }
-
-        if(repairs.length === 0){
-            showSuccess('Account looks healthy! Both hospitalUsers and hospitals docs exist.');
-        } else {
-            showSuccess('Repair complete: ' + repairs.join(', ') + '. Please log in normally now.');
-        }
-        logSecurityEvent('ACCOUNT_REPAIR', {email: email, hospitalId: hospitalId, repairs: repairs});
-
-        await auth.signOut();
-    } catch(e) {
-        showError('Repair failed: ' + e.message);
-        logSecurityEvent('ACCOUNT_REPAIR_FAIL', {email: email, error: e.message});
-    }
-
-    btn.disabled = false; btnText.textContent = 'Sign In';
-}
-
-async function loginDemo(role){
-    const creds = {
-        admin: {email:'admin@medicare.co.ke', password:'demo123'},
-        doctor: {email:'doctor@medicare.co.ke', password:'demo123'},
-        nurse: {email:'nurse@medicare.co.ke', password:'demo123'},
-        receptionist: {email:'reception@medicare.co.ke', password:'demo123'}
-    };
-    const c = creds[role];
-    if(!c) return;
-
-    const hospitalId = 'DEMO';
-    const email = c.email;
-    const password = c.password;
-
-    const hospitals = secureGet('medicare_hospitals', []);
-    let hospital = hospitals.find(h => h.hospitalId === hospitalId);
-    if(!hospital){
-        hospital = {name:'MediCare Demo Hospital Kenya',hospitalId:'DEMO',license:'DEMO-LIC-001',address:'Mama Ngina Street, Nairobi',phone:'+254-20-222-DEMO',email:'admin@medicare.co.ke'};
-        hospitals.push(hospital);
-        secureSet('medicare_hospitals', hospitals);
-    }
-
-    let user = null;
-    const hospUsers = secureGet(getStorageKey('users', 'DEMO'), []);
-    for(const u of hospUsers){ if(u.email === email && u.passwordHash){ const valid = await verifyPassword(password, u.passwordHash); if(valid){ user = u; break; } } }
-
-    if(!user){
-        const users = secureGet('medicare_users_local', []);
-        for(const u of users){ if(u.email === email && u.hospitalId === hospitalId && u.passwordHash){ const valid = await verifyPassword(password, u.passwordHash); if(valid){ user = u; break; } } }
-    }
-
-    if(!user){
-        showError('Demo account not found. Please refresh the page and try again.');
-        return;
-    }
-
-    currentUser = {email: user.email, displayName: user.name, uid: user.uid || user.id};
-    userRole = user.role || 'staff';
-    currentHospital = hospital;
-    isOnline = false;
-    secureSet('medicare_currentHospital', currentHospital);
-    secureSet('medicare_currentUser', {role: userRole, email: email, uid: user.uid || user.id});
-    showDashboard();
-    loadAllData();
-    updateSyncStatus('synced');
-}
-
 // ==================== LOGIN FORM ====================
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -1584,12 +1505,13 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
 
             // Save verified session
             secureSet('medicare_currentHospital', currentHospital);
+            const sessionHmac = await computeHMAC({role: userRole, email, uid: cred.user.uid, hospitalId});
             secureSet('medicare_currentUser', {
                 role: userRole,
                 email: email,
                 uid: cred.user.uid,
                 hospitalId: hospitalId,
-                hmac: await computeHMAC({role: userRole, email, uid: cred.user.uid, hospitalId})
+                hmac: sessionHmac
             });
 
             // Sync user to local auth cache
@@ -1645,7 +1567,6 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
             const hospital = hospitals.find(h => h.hospitalId === hospitalId);
             if(!hospital) throw new Error('Hospital not found in offline storage.');
 
-            const passwordHash = await hashPassword(password);
             let user = null;
             const hospUsers = secureGet(getStorageKey('users', hospitalId), []);
             for(const u of hospUsers){ if(u.email === email && u.passwordHash){ const valid = await verifyPassword(password, u.passwordHash); if(valid){ user = u; break; } } }
@@ -1686,7 +1607,6 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
         showError('Authentication failed. Please check your credentials and try again.');
         btn.disabled = false;
         btnText.textContent = 'Sign In';
-        recordFailedLogin();
     }
 });// ==================== REGISTRATION FORM ====================
 document.getElementById('hospitalRegForm').addEventListener('submit', async (e) => {
@@ -2036,7 +1956,7 @@ async function loadAllData(){
                 try {
                     const snap = await promiseTimeout(db.collection('hospitals').doc(hospitalId).collection(col).get(), 5000);
                     const cloudData = snap.docs.map(d => ({id:d.id, ...d.data()})).filter(d => !d.deletedAt);
-                    const localData = secureGet(getStorageKey(col), []);
+                    const localData = JSON.parse(localStorage.getItem(getStorageKey(col)) || '[]');
                     const merged = mergeData(cloudData, localData);
                     dataCache[col] = merged;
                     secureSet(getStorageKey(col), merged);
@@ -2044,8 +1964,8 @@ async function loadAllData(){
                 } catch(colErr) {
                     console.warn('Failed to load', col, ':', colErr.code);
                     if(colErr.code === 'permission-denied') permissionDenied = true;
-                    const localData = secureGet(getStorageKey(col), []);
-                    dataCache[col] = Array.isArray(localData) ? localData.filter(d => !d.deletedAt) : [];
+                    const localData = JSON.parse(localStorage.getItem(getStorageKey(col)) || '[]');
+                    dataCache[col] = localData.filter(d => !d.deletedAt);
                     return {col, ok: false, err: colErr.code};
                 }
             });
@@ -2110,15 +2030,13 @@ async function loadAllData(){
 // Merge cloud + local data: keep whichever has newer updatedAt
 function mergeData(cloud, local){
     const merged = {};
-    const cloudArr = Array.isArray(cloud) ? cloud : [];
-    const localArr = Array.isArray(local) ? local : [];
     // Process cloud first
-    cloudArr.forEach(item => {
-        if(!item || item.deletedAt) return; // skip tombstones
+    cloud.forEach(item => {
+        if(item.deletedAt) return; // skip tombstones
         merged[item.id] = item;
     });
-    localArr.forEach(item => {
-        if(!item || item.deletedAt) return; // skip local tombstones too
+    local.forEach(item => {
+        if(item.deletedAt) return; // skip local tombstones too
         const existing = merged[item.id];
         if(!existing){
             merged[item.id] = item;
@@ -2134,8 +2052,6 @@ function mergeData(cloud, local){
 
 // ==================== SECURE LOCALSTORAGE ====================
 const STORAGE_KEY = 'medicare_secure_key_v2';
-// Now safe to call since STORAGE_KEY is initialized
-sanitizeLocalStorage();
 function getStorageKey(collection, hospId){
     const id = hospId || (currentHospital ? (currentHospital.hospitalId || currentHospital.id) : 'global');
     return 'medicare_' + id + '_' + collection;
@@ -2143,29 +2059,26 @@ function getStorageKey(collection, hospId){
 function secureSet(key, value){
     try {
         const json = JSON.stringify(value);
-        const encrypted = simpleEncrypt(json, STORAGE_KEY);
-        localStorage.setItem(key, encrypted);
+        const encrypted = legacyEncrypt(json, STORAGE_KEY);
+        if(encrypted){
+            localStorage.setItem(key, encrypted);
+        } else {
+            localStorage.setItem(key, json);
+        }
     } catch(e) { localStorage.setItem(key, JSON.stringify(value)); }
 }
 function secureGet(key, defaultValue){
     try {
         const raw = localStorage.getItem(key);
         if(!raw) return defaultValue;
-        const decrypted = simpleDecrypt(raw, STORAGE_KEY);
-        if(decrypted) {
-            try {
-                return JSON.parse(decrypted);
-            } catch(e) {
-                // decrypted string is not valid JSON, return default
-                return defaultValue;
-            }
+        // Try plain JSON first (unencrypted data)
+        try { return JSON.parse(raw); } catch(e) {}
+        // Try legacy XOR decryption
+        const legacy = legacyDecrypt(raw, STORAGE_KEY);
+        if(legacy) {
+            try { return JSON.parse(legacy); } catch(e) {}
         }
-        // fallback: try parsing raw as unencrypted JSON (legacy/plain data)
-        try {
-            return JSON.parse(raw);
-        } catch(e) {
-            return defaultValue;
-        }
+        return defaultValue;
     } catch(e) { return defaultValue; }
 }
 
@@ -2173,12 +2086,7 @@ function secureGet(key, defaultValue){
 function loadFromLocalStorage(){
     const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','users','labs'];
     for(const col of cols){
-        try {
-            const data = secureGet(getStorageKey(col), []);
-            dataCache[col] = Array.isArray(data) ? data.filter(i => !i.deletedAt) : [];
-        } catch(e) {
-            dataCache[col] = [];
-        }
+        dataCache[col] = secureGet(getStorageKey(col), '[]').filter(i => !i.deletedAt);
     }
 }
 
@@ -2264,12 +2172,10 @@ function updateSyncStatus(status){
 }
 
 function refreshAllPages(){
-  ensureDataCache();
     ['dashboard','patients','admissions','appointments','wards','doctors','prescriptions','billing','labs','inventory','users'].forEach(refreshPageData);
 }
 
 function refreshPageData(page){
-  ensureDataCache();
     switch(page){
         case 'dashboard': renderDashboard(); break;
         case 'patients': renderPatients(); break;
@@ -3186,7 +3092,7 @@ function updateInsuranceInfo(){
     const patient = dataCache.patients.find(p => p.id === patientId);
     if(patient && patient.insuranceProvider && patient.insuranceStatus === 'Active'){
         box.style.display = 'block';
-        box.innerHTML = `<i class="fas fa-shield-alt"></i> <strong>${patient.name}</strong> has active insurance with <strong>${patient.insuranceProvider}</strong> (Policy: ${patient.policyNumber || 'N/A'}, Coverage: ${patient.insuranceCoverage || 0}%)`;
+        box.innerHTML = `<i class="fas fa-shield-alt"></i> <strong>${sanitizeHTML(patient.name)}</strong> has active insurance with <strong>${sanitizeHTML(patient.insuranceProvider)}</strong> (Policy: ${sanitizeHTML(patient.policyNumber || 'N/A')}, Coverage: ${patient.insuranceCoverage || 0}%)`;
     } else {
         box.style.display = 'none';
     }
@@ -3286,7 +3192,10 @@ async function saveModal(){
             }
 
             const password = userPasswordEl ? userPasswordEl.value : '';
-            const passwordHash = password ? await hashPassword(password) : null;
+            let passwordHash = null;
+            if(password){
+                passwordHash = await hashPassword(password);
+            }
             let userId = currentEditId;
             let userUid = currentEditId;
             let authCreated = false;
@@ -3361,7 +3270,7 @@ async function saveModal(){
                 hospitalId: userHospId,
                 name: userName,
                 email: userEmail,
-                passwordHash: passwordHash || (existingLocalIdx >= 0 ? (localUsers[existingLocalIdx].passwordHash || localUsers[existingLocalIdx].password) : ''),
+                passwordHash: passwordHash || (existingLocalIdx >= 0 ? localUsers[existingLocalIdx].passwordHash : null),
                 role: userRoleVal,
                 phone: userPhone,
                 updatedAt: new Date().toISOString()
@@ -3870,15 +3779,31 @@ async function updateAdminPassword(){
     const newPass = document.getElementById('settingsNewPassword').value;
     if(!newPass || newPass.length < 6){ toast('Password must be at least 6 characters', 'error'); return; }
     if(auth && currentUser){
-        try{ 
-            await currentUser.updatePassword(newPass); 
-            // Mirror to localStorage so offline login still works
-            const localUsers = secureGet('medicare_users_local', []);
-            const me = localUsers.find(u => u.email === currentUser.email);
-            if(me) { me.password = newPass; secureSet('medicare_users_local', localUsers); }
-            toast('Password updated', 'success'); 
+        try{ await currentUser.updatePassword(newPass); }
+        catch(e){ console.warn('Firebase password update failed:', e.message); }
+    }
+    try {
+        const passwordHash = await hashPassword(newPass);
+        const localUsers = secureGet('medicare_users_local', []);
+        const me = localUsers.find(u => u.email === (currentUser ? currentUser.email : (secureGet('medicare_currentUser',{}).email)));
+        if(me) { 
+            me.passwordHash = passwordHash; 
+            delete me.password;
+            secureSet('medicare_users_local', localUsers); 
         }
-        catch(e){ toast('Error: ' + e.message, 'error'); }
+        const hospId = currentHospital ? (currentHospital.hospitalId || currentHospital.id) : '';
+        if(hospId){
+            const hospUsers = secureGet(getStorageKey('users', hospId), []);
+            const meHosp = hospUsers.find(u => u.email === (currentUser ? currentUser.email : (secureGet('medicare_currentUser',{}).email)));
+            if(meHosp){
+                meHosp.passwordHash = passwordHash;
+                delete meHosp.password;
+                secureSet(getStorageKey('users', hospId), hospUsers);
+            }
+        }
+        toast('Password updated', 'success'); 
+    } catch(e) {
+        toast('Error updating password: ' + e.message, 'error');
     }
 }
 
@@ -3932,31 +3857,36 @@ function seedNewHospitalData(hospitalId){
     const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','labs','users'];
     cols.forEach(c => secureSet(getStorageKey(c, hospitalId), []));
 }
-function loadDemoData(){
+async function loadDemoData(){
     const today = new Date().toISOString().split('T')[0];
 
     // DEMO HOSPITAL (always ensure it exists for login)
     const demoHospital = {name:'MediCare Demo Hospital Kenya',hospitalId:'DEMO',license:'DEMO-LIC-001',address:'Mama Ngina Street, Nairobi',phone:'+254-20-222-DEMO',email:'admin@medicare.co.ke'};
     let hospitals = secureGet('medicare_hospitals', []);
-    if(!Array.isArray(hospitals)) hospitals = [];
     if(!hospitals.find(h => h.hospitalId === 'DEMO')){
         hospitals.push(demoHospital);
         secureSet('medicare_hospitals', hospitals);
     }
 
-    // DEMO USERS with passwords (always ensure they exist for login)
+    // DEMO USERS - hash passwords with PBKDF2 on first load
     let users = secureGet('medicare_users_local', []);
-    const demoUsers = [
-        {uid:'demo-admin',hospitalId:'DEMO',name:'Admin John Smith',email:'admin@medicare.co.ke',password:'demo123',passwordHash:'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3',role:'admin'},
-        {uid:'demo-doctor',hospitalId:'DEMO',name:'Dr. James Anderson',email:'doctor@medicare.co.ke',password:'demo123',passwordHash:'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3',role:'doctor'},
-        {uid:'demo-nurse',hospitalId:'DEMO',name:'Nurse Mary Williams',email:'nurse@medicare.co.ke',password:'demo123',passwordHash:'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3',role:'nurse'},
-        {uid:'demo-reception',hospitalId:'DEMO',name:'Receptionist Jane Doe',email:'reception@medicare.co.ke',password:'demo123',passwordHash:'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3',role:'receptionist'}
+    const demoUserDefs = [
+        {uid:'demo-admin',hospitalId:'DEMO',name:'Admin John Smith',email:'admin@medicare.co.ke',role:'admin'},
+        {uid:'demo-doctor',hospitalId:'DEMO',name:'Dr. James Anderson',email:'doctor@medicare.co.ke',role:'doctor'},
+        {uid:'demo-nurse',hospitalId:'DEMO',name:'Nurse Mary Williams',email:'nurse@medicare.co.ke',role:'nurse'},
+        {uid:'demo-reception',hospitalId:'DEMO',name:'Receptionist Jane Doe',email:'reception@medicare.co.ke',role:'receptionist'}
     ];
-    demoUsers.forEach(du => {
-        if(!users.find(u => u.email === du.email && u.hospitalId === 'DEMO')){
-            users.push(du);
+    for(const du of demoUserDefs){
+        const existing = users.find(u => u.email === du.email && u.hospitalId === 'DEMO');
+        if(!existing){
+            const hash = await hashPassword('demo123');
+            users.push({...du, passwordHash: hash});
+        } else if(existing.password || (existing.passwordHash && typeof existing.passwordHash === 'string')){
+            const hash = await hashPassword('demo123');
+            existing.passwordHash = hash;
+            delete existing.password;
         }
-    });
+    }
     secureSet('medicare_users_local', users);
 
     // DEMO DATA (only if empty)
@@ -4009,8 +3939,7 @@ function loadDemoData(){
         {id:'i5',hospitalId:'DEMO',name:'Insulin Glargine',category:'Medication',quantity:8,unit:'vials',minQuantity:5,price:'85.00',expiryDate:'2026-12-01',notes:'Long-acting insulin'}
     ];
 
-    let existingPatients = secureGet(getStorageKey('patients', 'DEMO'), []);
-    if(!Array.isArray(existingPatients) || existingPatients.length === 0){
+    if(!localStorage.getItem('medicare_patients') || JSON.parse(localStorage.getItem('medicare_patients')).length === 0){
         secureSet(getStorageKey('patients', 'DEMO'), demoPatients);
         secureSet(getStorageKey('doctors', 'DEMO'), demoDoctors);
         secureSet(getStorageKey('wards', 'DEMO'), demoWards);
@@ -4023,22 +3952,15 @@ function loadDemoData(){
 
     // Sync demo users to medicare_users for user management display
     // Only seed demo users if no real users exist
-    const hasRealUsers = Array.isArray(users) && users.some(u => u.hospitalId !== 'DEMO');
+    const hasRealUsers = users.some(u => u.hospitalId !== 'DEMO');
     if(hasRealUsers) { console.log('Real users exist, skipping demo data seed'); return; }
     const demoUsersForCache = [
-        {id:'demo-admin', uid:'demo-admin', hospitalId:'DEMO', name:'Admin John Smith', email:'admin@medicare.co.ke', password:'demo123', passwordHash:'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', role:'admin'},
-        {id:'demo-doctor', uid:'demo-doctor', hospitalId:'DEMO', name:'Dr. James Anderson', email:'doctor@medicare.co.ke', password:'demo123', passwordHash:'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', role:'doctor'},
-        {id:'demo-nurse', uid:'demo-nurse', hospitalId:'DEMO', name:'Nurse Mary Williams', email:'nurse@medicare.co.ke', password:'demo123', passwordHash:'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', role:'nurse'},
-        {id:'demo-reception', uid:'demo-reception', hospitalId:'DEMO', name:'Receptionist Jane Doe', email:'reception@medicare.co.ke', password:'demo123', passwordHash:'a665a45920422f9d417e4867efdc4fb8a04a1f3fff1fa07e998e86f7f7a27ae3', role:'receptionist'}
+        {id:'demo-admin', uid:'demo-admin', hospitalId:'DEMO', name:'Admin John Smith', email:'admin@medicare.co.ke', role:'admin'},
+        {id:'demo-doctor', uid:'demo-doctor', hospitalId:'DEMO', name:'Dr. James Anderson', email:'doctor@medicare.co.ke', role:'doctor'},
+        {id:'demo-nurse', uid:'demo-nurse', hospitalId:'DEMO', name:'Nurse Mary Williams', email:'nurse@medicare.co.ke', role:'nurse'},
+        {id:'demo-reception', uid:'demo-reception', hospitalId:'DEMO', name:'Receptionist Jane Doe', email:'reception@medicare.co.ke', role:'receptionist'}
     ];
-    // Seed into per-hospital key so dataCache.users loads correctly
-    let existingDemoHospUsers = secureGet(getStorageKey('users', 'DEMO'), []);
-    if(!Array.isArray(existingDemoHospUsers) || existingDemoHospUsers.length === 0){
-        secureSet(getStorageKey('users', 'DEMO'), demoUsersForCache);
-    }
-    // Also keep in legacy medicare_users for compatibility
-    let existingDemoUsers = secureGet('medicare_users', []);
-    if(!Array.isArray(existingDemoUsers) || existingDemoUsers.length === 0){
+    if(!localStorage.getItem('medicare_users') || JSON.parse(localStorage.getItem('medicare_users')).length === 0){
         secureSet('medicare_users', demoUsersForCache);
     }
 
@@ -4051,19 +3973,18 @@ function loadDemoData(){
         {id:'l5',hospitalId:'DEMO',patientId:'p3',doctorId:'d1',testType:'Blood Test',status:'Pending',dateOrdered:'2026-07-24',dateCompleted:'',results:'',notes:'CBC, CMP, D-dimer ordered for chest discomfort workup'},
         {id:'l6',hospitalId:'DEMO',patientId:'p2',doctorId:'d2',testType:'Urine Analysis',status:'Pending',dateOrdered:'2026-07-24',dateCompleted:'',results:'',notes:'UTI screening'}
     ];
-    let existingLabs = secureGet(getStorageKey('labs', 'DEMO'), []);
-    if(!Array.isArray(existingLabs) || existingLabs.length === 0){
+    if(!localStorage.getItem('medicare_labs') || JSON.parse(localStorage.getItem('medicare_labs')).length === 0){
         secureSet(getStorageKey('labs', 'DEMO'), demoLabs);
     }
 }
 
-loadDemoData();
+loadDemoData().then(() => console.log('Demo data loaded')).catch(e => console.error('Demo data load failed:', e));
 // Load saved security settings
-const savedSecurity = secureGet('medicare_security_settings', {});
-if(savedSecurity && savedSecurity.privateCode) PRIVATE_REGISTRATION_CODE = savedSecurity.privateCode;
-if(savedSecurity && typeof savedSecurity.enableDemo === 'boolean') ENABLE_DEMO_ACCOUNTS = savedSecurity.enableDemo;
-if(savedSecurity && typeof savedSecurity.enableRegistration === 'boolean') ENABLE_HOSPITAL_REGISTRATION = savedSecurity.enableRegistration;
-if(savedSecurity && typeof savedSecurity.enableRepair === 'boolean') ENABLE_ACCOUNT_REPAIR = savedSecurity.enableRepair;
+const savedSecurity = JSON.parse(localStorage.getItem('medicare_security_settings') || '{}');
+if(savedSecurity.privateCode) PRIVATE_REGISTRATION_CODE = savedSecurity.privateCode;
+if(typeof savedSecurity.enableDemo === 'boolean') ENABLE_DEMO_ACCOUNTS = savedSecurity.enableDemo;
+if(typeof savedSecurity.enableRegistration === 'boolean') ENABLE_HOSPITAL_REGISTRATION = savedSecurity.enableRegistration;
+if(typeof savedSecurity.enableRepair === 'boolean') ENABLE_ACCOUNT_REPAIR = savedSecurity.enableRepair;
 if(!auth) showLogin();
 
 // ==================== CROSS-TAB SYNC ====================
@@ -4109,13 +4030,7 @@ window.addEventListener('storage', (e) => {
         try {
             let raw = e.newValue || '{}';
             let decrypted = simpleDecrypt(raw, STORAGE_KEY);
-            let newHosp = null;
-            if(decrypted) {
-                try { newHosp = JSON.parse(decrypted); } catch(e) { newHosp = null; }
-            }
-            if(!newHosp && raw) {
-                try { newHosp = JSON.parse(raw); } catch(e) { newHosp = null; }
-            }
+            const newHosp = JSON.parse(decrypted || raw);
             if(newHosp.id || newHosp.hospitalId){
                 currentHospital = newHosp;
                 if(currentHospital){
@@ -4135,18 +4050,7 @@ if(typeof BroadcastChannel !== 'undefined'){
         if(msg && msg.type === 'data_changed' && msg.hospitalId){
             const myHospId = currentHospital ? (currentHospital.hospitalId || currentHospital.id) : null;
             if(msg.hospitalId === myHospId && msg.collection && dataCache.hasOwnProperty(msg.collection)){
-                const rawData = localStorage.getItem(getStorageKey(msg.collection));
-                let parsedData = null;
-                if(rawData) {
-                    const decrypted = simpleDecrypt(rawData, STORAGE_KEY);
-                    if(decrypted) {
-                        try { parsedData = JSON.parse(decrypted); } catch(e) { parsedData = null; }
-                    }
-                    if(!parsedData) {
-                        try { parsedData = JSON.parse(rawData); } catch(e) { parsedData = null; }
-                    }
-                }
-                const newData = Array.isArray(parsedData) ? parsedData.filter(i => !i.deletedAt) : [];
+                const newData = JSON.parse(localStorage.getItem(getStorageKey(msg.collection)) || '[]').filter(i => !i.deletedAt);
                 dataCache[msg.collection] = newData;
                 refreshPageData(
                     msg.collection === 'patients' ? 'patients' :
