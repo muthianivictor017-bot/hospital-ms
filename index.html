@@ -1118,14 +1118,16 @@ try {
     app = firebase.initializeApp(firebaseConfig);
     auth = firebase.auth();
     db = firebase.firestore();
-    // Enable offline persistence so Firestore works offline
-    db.enablePersistence({synchronizeTabs:true}).catch(err => {
-        if(err.code === 'failed-precondition'){
-            console.warn('Persistence failed: multiple tabs open');
-        } else if(err.code === 'unimplemented'){
-            console.warn('Persistence not supported in this browser');
-        }
-    });
+    // Enable offline persistence (new API for Firebase v10.12+)
+    try {
+        db.settings({
+            localCache: firebase.firestore.PersistentCacheSettings({
+                tabManager: firebase.firestore.PersistentMultipleTabManager()
+            })
+        });
+    } catch(e) {
+        console.warn('Persistent cache setup failed:', e);
+    }
     console.log("Firebase initialized");
 } catch(e) {
     console.warn("Firebase init failed:", e);
@@ -1386,9 +1388,16 @@ function showDashboard(){
         if(!banner){
             banner = document.createElement('div');
             banner.id = 'firestore-permission-banner';
-            banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#dc2626;color:white;padding:10px 16px;z-index:99999;font-size:13px;text-align:center;font-family:system-ui,sans-serif;';
-            banner.innerHTML = '🔥 <strong>Firestore Permission Denied</strong> — Your security rules block access. <a href="https://console.firebase.google.com/project/medicare-93413/firestore/rules" target="_blank" style="color:#fef08a;text-decoration:underline;font-weight:600;">Fix rules in Firebase Console</a> (use: <code style="background:rgba(0,0,0,0.3);padding:2px 6px;border-radius:4px;">allow read, write: if request.auth != null;</code>) <button onclick="this.parentElement.remove()" style="margin-left:12px;background:white;color:#dc2626;border:none;padding:2px 10px;border-radius:4px;cursor:pointer;font-weight:600;">Dismiss</button>';
+            banner.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#92400e;color:white;padding:10px 16px;z-index:99999;font-size:13px;text-align:center;font-family:system-ui,sans-serif;';
+            banner.innerHTML = '⚠️ <strong>LOCAL MODE ACTIVE</strong> — Firestore rules block cloud sync. Data is saved locally only. <a href="https://console.firebase.google.com/project/medicare-93413/firestore/rules" target="_blank" style="color:#fef08a;text-decoration:underline;font-weight:600;">Fix rules in Firebase Console</a> (use: <code style="background:rgba(0,0,0,0.3);padding:2px 6px;border-radius:4px;">allow read, write: if request.auth != null;</code>) <button onclick="this.parentElement.remove()" style="margin-left:12px;background:white;color:#92400e;border:none;padding:2px 10px;border-radius:4px;cursor:pointer;font-weight:600;">Dismiss</button>';
             document.body.prepend(banner);
+        }
+        // Also update sync status to show local mode
+        const syncEl = document.getElementById('syncStatus');
+        if(syncEl){
+            syncEl.className = 'sync-status offline';
+            syncEl.innerHTML = '<i class="fas fa-desktop"></i><span>Local Mode (No Cloud)</span>';
+            syncEl.title = 'Firestore rules block access. Data saves to this browser only.';
         }
     }
 }
@@ -1436,27 +1445,46 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
             const cred = await auth.signInWithEmailAndPassword(email, password);
             await cred.user.getIdToken(true);
 
-            // 1. MUST have hospitalUsers doc
+            // 1. Try to read hospitalUsers doc from Firestore
             let userDoc = null;
+            let firestoreBlocked = false;
             try {
                 userDoc = await promiseTimeout(db.collection('hospitalUsers').doc(cred.user.uid).get(), 5000);
             } catch(e) {
                 console.warn('hospitalUsers read failed:', e.code);
-                showError('Cannot verify account. ' + (e.code === 'permission-denied' ? 'Firestore rules block access.' : 'Network error.'));
-                await auth.signOut();
-                btn.disabled = false; btnText.textContent = 'Sign In';
-                return;
+                if(e.code === 'permission-denied' || e.message === 'Timeout'){
+                    firestoreBlocked = true;
+                    firestorePermissionError = e.code || 'timeout';
+                    console.log('Firestore access blocked, will use localStorage fallback');
+                } else {
+                    showError('Cannot verify account. Network error.');
+                    await auth.signOut();
+                    btn.disabled = false; btnText.textContent = 'Sign In';
+                    return;
+                }
             }
 
-            if(!userDoc || !userDoc.exists){
+            let userData = null;
+            if(userDoc && userDoc.exists){
+                userData = userDoc.data();
+            } else if(firestoreBlocked) {
+                // Firestore blocked by rules - try localStorage fallback
+                console.log('Attempting localStorage fallback for user verification');
+                const localUsers = secureGet('medicare_users_local', []);
+                const localUser = localUsers.find(u => u.email === email && u.hospitalId === hospitalId);
+                if(localUser){
+                    userData = localUser;
+                    console.log('Found user in localStorage fallback');
+                }
+            }
+
+            if(!userData){
                 showError('Account not registered in this hospital system. Contact your administrator.');
                 await auth.signOut();
                 btn.disabled = false; btnText.textContent = 'Sign In';
                 logSecurityEvent('LOGIN_FAIL', {reason: 'hospitalUsers doc missing', email, hospitalId});
                 return;
             }
-
-            const userData = userDoc.data();
 
             // 2. hospitalId MUST match exactly
             if(userData.hospitalId !== hospitalId){
@@ -1475,10 +1503,25 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
                 hospDoc = await promiseTimeout(db.collection('hospitals').doc(hospitalId).get(), 5000);
             } catch(e) {
                 console.warn('hospitals read failed:', e.code);
+                if(e.code === 'permission-denied') firestoreBlocked = true;
             }
 
             if(hospDoc && hospDoc.exists){
                 currentHospital = {id: hospitalId, ...hospDoc.data()};
+            } else if(firestoreBlocked) {
+                // Firestore blocked - use localStorage hospital data
+                const localHospitals = secureGet('medicare_hospitals', []);
+                const localHosp = localHospitals.find(h => h.hospitalId === hospitalId);
+                if(localHosp){
+                    currentHospital = localHosp;
+                    console.log('Using localStorage hospital fallback (Firestore rules blocked)');
+                } else {
+                    showError('Hospital data not found in local storage. Register this hospital first.');
+                    await auth.signOut();
+                    btn.disabled = false; btnText.textContent = 'Sign In';
+                    logSecurityEvent('LOGIN_FAIL', {reason: 'hospital doc missing', email, hospitalId});
+                    return;
+                }
             } else {
                 // Fallback to localStorage hospital data
                 const localHospitals = secureGet('medicare_hospitals', []);
@@ -2020,7 +2063,6 @@ async function loadAllData(){
         loadFromLocalStorage();
         if(permissionDenied){
             updateSyncStatus('synced');
-            toast('Firestore rules block some data. App works locally. Fix rules for cloud sync.', 'error');
             console.log('Permission denied on some collections. Using localStorage fallback. Rules need: allow read, write: if request.auth != null;');
         } else {
             updateSyncStatus('offline');
