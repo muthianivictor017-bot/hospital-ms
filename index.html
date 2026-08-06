@@ -1509,11 +1509,58 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
             }
 
             if(!userData){
-                showError('Account not registered in this hospital system. Contact your administrator.');
-                await auth.signOut();
-                btn.disabled = false; btnText.textContent = 'Sign In';
-                logSecurityEvent('LOGIN_FAIL', {reason: 'hospitalUsers doc missing', email, hospitalId});
-                return;
+                // CROSS-DEVICE FALLBACK: Valid Firebase Auth but no profile anywhere.
+                // This happens when registration was done offline on another device.
+                // If the hospital exists (in Firestore or localStorage), create a minimal profile.
+                const localHospitals = secureGet('medicare_hospitals', []);
+                const localHosp = localHospitals.find(h => h.hospitalId === hospitalId);
+
+                if(localHosp || (hospDoc && hospDoc.exists)){
+                    userData = {
+                        hospitalId: hospitalId,
+                        name: cred.user.displayName || email.split('@')[0],
+                        email: email,
+                        role: 'admin',
+                        uid: cred.user.uid
+                    };
+                    console.log('Cross-device login: created minimal user profile for', email);
+
+                    // Save to Firestore for future devices
+                    if(db && isOnline && !firestoreBlocked){
+                        try {
+                            await db.collection('hospitalUsers').doc(cred.user.uid).set({
+                                hospitalId: hospitalId,
+                                name: userData.name,
+                                email: email,
+                                role: 'admin',
+                                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                                autoCreated: true
+                            });
+                            console.log('Auto-created hospitalUsers doc in Firestore');
+                        } catch(e) {
+                            console.warn('Could not auto-create Firestore user doc:', e);
+                        }
+                    }
+
+                    // Save to localStorage for offline use
+                    const localUsers = secureGet('medicare_users_local', []);
+                    if(!localUsers.find(u => u.email === email && u.hospitalId === hospitalId)){
+                        localUsers.push({
+                            uid: cred.user.uid,
+                            hospitalId: hospitalId,
+                            name: userData.name,
+                            email: email,
+                            role: 'admin'
+                        });
+                        secureSet('medicare_users_local', localUsers);
+                    }
+                } else {
+                    showError('Account not registered in this hospital system. Contact your administrator.');
+                    await auth.signOut();
+                    btn.disabled = false; btnText.textContent = 'Sign In';
+                    logSecurityEvent('LOGIN_FAIL', {reason: 'hospitalUsers doc missing', email, hospitalId});
+                    return;
+                }
             }
 
             // 2. hospitalId MUST match exactly
@@ -1551,6 +1598,28 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
                     btn.disabled = false; btnText.textContent = 'Sign In';
                     logSecurityEvent('LOGIN_FAIL', {reason: 'hospital doc missing', email, hospitalId});
                     return;
+                }
+            }
+
+            // CROSS-DEVICE SYNC: If we have local user data but Firestore is accessible,
+            // push the local user record to cloud so other devices can find it
+            if(!firestoreBlocked && currentHospital){
+                const localAuthUsers = secureGet('medicare_users_local', []);
+                const localMe = localAuthUsers.find(u => u.email === email && u.hospitalId === hospitalId);
+                if(localMe && localMe.uid === cred.user.uid){
+                    try {
+                        await db.collection('hospitalUsers').doc(cred.user.uid).set({
+                            hospitalId: hospitalId,
+                            name: localMe.name || email.split('@')[0],
+                            email: email,
+                            role: localMe.role || 'staff',
+                            phone: localMe.phone || '',
+                            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                        }, {merge: true});
+                        console.log('Pushed local user record to Firestore for cross-device access');
+                    } catch(syncErr){
+                        console.warn('Could not push local user to Firestore:', syncErr.code);
+                    }
                 }
             }
             currentUser = cred.user;
@@ -1740,13 +1809,14 @@ document.getElementById('hospitalRegForm').addEventListener('submit', async (e) 
             showSuccess('Hospital registered! Signing you in...');
             logSecurityEvent('REGISTRATION_SUCCESS', {email: hospEmail, hospitalId: hospId, name: hospName});
 
+            const uid = cred.user.uid;
+
             // ALWAYS save to localStorage first (guaranteed to work)
             const hospitals = secureGet('medicare_hospitals', []);
             if(!hospitals.find(h => h.hospitalId === hospId)){
                 hospitals.push({name: hospName, hospitalId: hospId, license: hospLicense, address: hospAddress, phone: hospPhone, email: hospEmail});
                 secureSet('medicare_hospitals', hospitals);
             }
-            const uid = cred.user.uid;
             const hospUsers = secureGet(getStorageKey('users', hospId), []);
             if(!hospUsers.find(u => u.email === hospEmail)){
                 hospUsers.push({id: uid, uid: uid, hospitalId: hospId, name: adminName, email: hospEmail, password: adminPassword, role: 'admin'});
@@ -1763,17 +1833,49 @@ document.getElementById('hospitalRegForm').addEventListener('submit', async (e) 
             currentUser = cred.user;
             userRole = 'admin';
             secureSet('medicare_currentHospital', currentHospital);
-            secureSet('medicare_currentUser', {role: 'admin', email: hospEmail, uid: cred.user.uid});
+            secureSet('medicare_currentUser', {role: 'admin', email: hospEmail, uid: uid});
 
             // Mark session as active
             sessionStorage.setItem('medicare_session_active', 'true');
             sessionStorage.setItem('medicare_session_email', hospEmail);
             sessionStorage.setItem('medicare_session_hospital', hospId);
 
-            // Test Firestore access (non-blocking)
-            const accessOk = await testFirestoreAccess();
-            if(!accessOk){
-                console.warn('Firestore access test failed after registration. Using localStorage fallback.');
+            // AGGRESSIVE FIRESTORE SYNC: Try multiple times to write to cloud
+            let firestoreSyncOk = false;
+            for(let attempt = 0; attempt < 3; attempt++){
+                try {
+                    await cred.user.getIdToken(true);
+                    await db.collection('hospitals').doc(hospId).set({
+                        name: hospName, hospitalId: hospId, license: hospLicense,
+                        address: hospAddress, phone: hospPhone, email: hospEmail,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp(), createdBy: uid
+                    });
+                    await db.collection('hospitalUsers').doc(uid).set({
+                        hospitalId: hospId, name: adminName, email: hospEmail,
+                        role: 'admin', createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    firestoreSyncOk = true;
+                    console.log('Registration synced to Firestore on attempt', attempt + 1);
+                    break;
+                } catch(syncErr){
+                    console.warn('Firestore sync attempt', attempt + 1, 'failed:', syncErr.code);
+                    if(syncErr.code === 'permission-denied') break; // No point retrying if rules block
+                    await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
+                }
+            }
+
+            if(!firestoreSyncOk){
+                // Queue for background sync when rules are fixed
+                queueUserSync({
+                    uid: uid,
+                    name: adminName,
+                    email: hospEmail,
+                    role: 'admin',
+                    phone: hospPhone,
+                    hospitalId: hospId,
+                    createdByAdmin: false
+                });
+                console.warn('Registration saved locally. Cloud sync queued. Fix Firestore rules for multi-device access.');
             }
 
             showDashboard(); 
@@ -2035,10 +2137,163 @@ async function processOfflineQueue(){
     _offlineWriteQueue = remaining;
     secureSet('medicare_offline_queue', _offlineWriteQueue);
 }
+
+// ==================== USER SYNC QUEUE ====================
+// Special queue for user registrations that must sync across devices
+let _userSyncQueue = secureGet('medicare_user_sync_queue', []);
+
+function queueUserSync(userData){
+    const entry = {
+        ...userData,
+        _syncAttempts: 0,
+        _queuedAt: Date.now()
+    };
+    // Prevent duplicates
+    _userSyncQueue = _userSyncQueue.filter(u => u.uid !== userData.uid);
+    _userSyncQueue.push(entry);
+    secureSet('medicare_user_sync_queue', _userSyncQueue);
+    console.log('User queued for cloud sync:', userData.email);
+}
+
+async function processUserSyncQueue(){
+    if(!db || !auth.currentUser || _userSyncQueue.length === 0) return;
+    const hospId = currentHospital ? (currentHospital.hospitalId || currentHospital.id) : null;
+    if(!hospId) return;
+
+    const remaining = [];
+    for(const user of _userSyncQueue){
+        try {
+            // Write hospitalUsers doc
+            await db.collection('hospitalUsers').doc(user.uid).set({
+                hospitalId: hospId,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                phone: user.phone || '',
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, {merge: true});
+
+            // If this user was created by admin, also ensure hospital doc has reference
+            if(user.createdByAdmin){
+                await db.collection('hospitals').doc(hospId).collection('users').doc(user.uid).set({
+                    name: user.name,
+                    email: user.email,
+                    role: user.role,
+                    phone: user.phone || '',
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                }, {merge: true});
+            }
+
+            console.log('User synced to cloud:', user.email);
+        } catch(e) {
+            user._syncAttempts++;
+            if(user._syncAttempts < 20) remaining.push(user);
+            else console.warn('Dropping user sync after 20 attempts:', user.email);
+        }
+    }
+    _userSyncQueue = remaining;
+    secureSet('medicare_user_sync_queue', _userSyncQueue);
+}
+
+// Auto-process user sync queue when coming online
+window.addEventListener('online', () => {
+    setTimeout(processUserSyncQueue, 3000);
+    setTimeout(processOfflineQueue, 5000);
+});
+
+// Periodic background sync (every 60 seconds when online)
+setInterval(() => {
+    if(navigator.onLine && auth && auth.currentUser && _userSyncQueue.length > 0){
+        processUserSyncQueue();
+    }
+}, 60000);
 // Process queue when coming back online
 window.addEventListener('online', () => {
     setTimeout(processOfflineQueue, 2000);
 });
+
+// ==================== LOCAL TO CLOUD SYNC ====================
+// When Firestore becomes accessible, push any local-only data up so other devices can see it
+async function syncLocalToCloud(){
+    if(!db || !currentHospital || !auth.currentUser) return;
+    const hospId = currentHospital.hospitalId || currentHospital.id;
+    if(!hospId) return;
+
+    console.log('Checking for local data to sync to cloud...');
+    const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','labs'];
+    let syncedCount = 0;
+
+    for(const col of cols){
+        const localData = secureGet(getStorageKey(col, hospId), []);
+        if(!Array.isArray(localData) || localData.length === 0) continue;
+
+        try {
+            const snap = await promiseTimeout(db.collection('hospitals').doc(hospId).collection(col).get(), 5000);
+            const cloudIds = new Set(snap.docs.map(d => d.id));
+            const itemsToSync = localData.filter(item => item.id && !cloudIds.has(item.id) && !item.deletedAt);
+
+            if(itemsToSync.length > 0){
+                console.log(`Syncing ${itemsToSync.length} ${col} from localStorage to Firestore...`);
+                for(const item of itemsToSync){
+                    try {
+                        await db.collection('hospitals').doc(hospId).collection(col).doc(item.id).set(item);
+                        syncedCount++;
+                    } catch(e) {
+                        console.warn(`Failed to sync ${col} item ${item.id}:`, e.code);
+                    }
+                }
+            }
+        } catch(e) {
+            console.warn(`Could not check/sync ${col}:`, e.code || e.message);
+        }
+    }
+
+    // Sync hospital doc if missing
+    try {
+        const hospSnap = await promiseTimeout(db.collection('hospitals').doc(hospId).get(), 3000);
+        if(!hospSnap.exists && currentHospital){
+            await db.collection('hospitals').doc(hospId).set(currentHospital);
+            console.log('Synced hospital doc to Firestore');
+            syncedCount++;
+        }
+    } catch(e) {
+        console.warn('Could not sync hospital doc:', e.code || e.message);
+    }
+
+    // Sync users
+    try {
+        const localUsers = secureGet('medicare_users_local', []);
+        const hospUsers = localUsers.filter(u => u.hospitalId === hospId);
+        for(const u of hospUsers){
+            if(!u.uid) continue;
+            try {
+                const userSnap = await db.collection('hospitalUsers').doc(u.uid).get();
+                if(!userSnap.exists){
+                    await db.collection('hospitalUsers').doc(u.uid).set({
+                        hospitalId: hospId,
+                        name: u.name,
+                        email: u.email,
+                        role: u.role,
+                        phone: u.phone || '',
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        autoSynced: true
+                    });
+                    console.log('Synced user to Firestore:', u.email);
+                    syncedCount++;
+                }
+            } catch(e) {}
+        }
+    } catch(e) {
+        console.warn('Could not sync users:', e);
+    }
+
+    if(syncedCount > 0){
+        toast(`Synced ${syncedCount} items to cloud. Other devices can now access this data.`, 'success');
+        console.log(`Local-to-cloud sync complete: ${syncedCount} items`);
+    } else {
+        console.log('No local data needed syncing');
+    }
+}
 
 async function loadAllData(){
     updateSyncStatus('syncing');
@@ -2137,6 +2392,11 @@ async function loadAllData(){
     refreshAllPages(); updateStats();
     setupRealtimeListeners();
     startConnectivityCheck();
+
+    // If Firestore is working, sync any local-only data up to the cloud
+    if(firestoreSuccess && db && currentHospital){
+        syncLocalToCloud();
+    }
 }
 
 // Merge cloud + local data: keep whichever has newer updatedAt
@@ -2731,10 +2991,118 @@ function renderSettings(){
             <button class="btn btn-primary" style="width:auto;padding:10px 24px" onclick="saveSecuritySettings()">Save Security Settings</button>
         </div></div>
     `;
+
+    // Cloud Sync Section
+    const syncSection = document.createElement('div');
+    syncSection.className = 'card';
+    syncSection.style.marginTop = '20px';
+    syncSection.innerHTML = `
+        <div class="card-header"><h3><i class="fas fa-cloud-upload-alt"></i> Cloud Sync</h3></div>
+        <div class="card-body">
+            <p style="font-size:13px;color:var(--gray);margin-bottom:12px">
+                Push all locally-saved users and data to Firestore so other devices can access them.
+                Use this after fixing Firestore rules or when setting up a new device.
+            </p>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+                <button class="btn btn-primary" style="width:auto;padding:10px 24px" onclick="forceSyncAllUsers()">
+                    <i class="fas fa-users"></i> Sync All Users to Cloud
+                </button>
+                <button class="btn btn-secondary" style="width:auto;padding:10px 24px" onclick="forceSyncAllData()">
+                    <i class="fas fa-database"></i> Sync All Data to Cloud
+                </button>
+            </div>
+            <div id="syncStatusMessage" style="margin-top:12px;font-size:13px"></div>
+        </div>
+    `;
+
     const settingsContent = document.getElementById('settingsContent');
     if(settingsContent && !document.getElementById('settingsSecuritySection')){
         settingsContent.appendChild(securitySection);
+        settingsContent.appendChild(syncSection);
+    } else if(settingsContent) {
+        // If security section already exists, just add sync section if missing
+        if(!document.getElementById('syncStatusMessage')){
+            settingsContent.appendChild(syncSection);
+        }
     }
+}
+
+async function forceSyncAllUsers(){
+    if(userRole !== 'admin'){ toast('Admin only', 'error'); return; }
+    if(!db || !auth.currentUser){ toast('Not connected to cloud', 'error'); return; }
+
+    const statusEl = document.getElementById('syncStatusMessage');
+    if(statusEl) statusEl.innerHTML = '<span class="loading-spinner"></span> Syncing users...';
+
+    const hospId = currentHospital ? (currentHospital.hospitalId || currentHospital.id) : null;
+    if(!hospId){ toast('No hospital ID', 'error'); return; }
+
+    let synced = 0, failed = 0;
+    const allLocalUsers = secureGet('medicare_users_local', []);
+    const hospitalUsers = allLocalUsers.filter(u => u.hospitalId === hospId);
+
+    for(const user of hospitalUsers){
+        try {
+            await db.collection('hospitalUsers').doc(user.uid || user.id).set({
+                hospitalId: hospId,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                phone: user.phone || '',
+                updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, {merge: true});
+            synced++;
+        } catch(e) {
+            console.warn('Failed to sync user', user.email, e.code);
+            failed++;
+        }
+    }
+
+    // Also sync current admin's hospital doc
+    try {
+        await db.collection('hospitals').doc(hospId).set({
+            ...currentHospital,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, {merge: true});
+    } catch(e) {
+        console.warn('Failed to sync hospital doc:', e.code);
+    }
+
+    const msg = `Synced ${synced} user(s) to cloud. ${failed > 0 ? failed + ' failed (check Firestore rules).' : ''}`;
+    if(statusEl) statusEl.innerHTML = '<span style="color:var(--success)"><i class="fas fa-check-circle"></i> ' + msg + '</span>';
+    toast(msg, failed > 0 ? 'warning' : 'success');
+    logSecurityEvent('FORCE_SYNC_USERS', {synced, failed, hospitalId: hospId});
+}
+
+async function forceSyncAllData(){
+    if(userRole !== 'admin'){ toast('Admin only', 'error'); return; }
+    if(!db || !auth.currentUser){ toast('Not connected to cloud', 'error'); return; }
+
+    const statusEl = document.getElementById('syncStatusMessage');
+    if(statusEl) statusEl.innerHTML = '<span class="loading-spinner"></span> Syncing all data...';
+
+    const hospId = currentHospital ? (currentHospital.hospitalId || currentHospital.id) : null;
+    if(!hospId){ toast('No hospital ID', 'error'); return; }
+
+    const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','labs'];
+    let totalSynced = 0;
+
+    for(const col of cols){
+        const items = dataCache[col] || [];
+        for(const item of items){
+            try {
+                await db.collection('hospitals').doc(hospId).collection(col).doc(item.id).set(item);
+                totalSynced++;
+            } catch(e) {
+                // Skip failures, likely permission denied
+            }
+        }
+    }
+
+    const msg = `Synced ${totalSynced} records to cloud.`;
+    if(statusEl) statusEl.innerHTML = '<span style="color:var(--success)"><i class="fas fa-check-circle"></i> ' + msg + '</span>';
+    toast(msg, 'success');
+    logSecurityEvent('FORCE_SYNC_DATA', {totalSynced, hospitalId: hospId});
 }
 
 function toggleSetting(key, value){
@@ -3348,22 +3716,45 @@ async function saveModal(){
                 updatedAt: new Date().toISOString()
             };
 
+            // AGGRESSIVE CLOUD SYNC: Try Firestore with retries
+            let cloudSyncOk = false;
             if(db && navigator.onLine && userUid){
-                try{
-                    const docRef = db.collection('hospitalUsers').doc(userUid);
-                    const docSnap = await docRef.get();
-                    if(docSnap.exists){
-                        await docRef.set(userData, {merge: true});
-                    } else {
-                        await docRef.set({
-                            ...userData,
-                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                        });
+                for(let attempt = 0; attempt < 3; attempt++){
+                    try{
+                        await auth.currentUser.getIdToken(true);
+                        const docRef = db.collection('hospitalUsers').doc(userUid);
+                        const docSnap = await docRef.get();
+                        if(docSnap.exists){
+                            await docRef.set(userData, {merge: true});
+                        } else {
+                            await docRef.set({
+                                ...userData,
+                                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                            });
+                        }
+                        cloudSyncOk = true;
+                        console.log('User synced to Firestore:', userEmail);
+                        break;
+                    } catch(e){
+                        console.warn('Firestore user save attempt', attempt + 1, 'failed:', e.code);
+                        if(e.code === 'permission-denied') break;
+                        await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
                     }
-                } catch(e){
-                    console.warn('Firestore user save failed:', e);
-                    toast('Cloud save failed, saved locally', 'warning');
                 }
+            }
+
+            if(!cloudSyncOk && db){
+                // Queue for background sync
+                queueUserSync({
+                    uid: userUid,
+                    name: userName,
+                    email: userEmail,
+                    role: userRoleVal,
+                    phone: userPhone,
+                    hospitalId: userHospId,
+                    createdByAdmin: true
+                });
+                toast('User saved locally. Cloud sync queued for when rules allow.', 'warning');
             }
 
             const localUsers = secureGet('medicare_users_local', []);
