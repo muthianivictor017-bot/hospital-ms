@@ -366,6 +366,7 @@ body{font-family:'Inter',sans-serif;background:var(--light);color:var(--dark)}
 <div class="user-details">
 <div class="name" id="userNameDisplay">Admin</div>
 <div class="role" id="userRoleDisplay">Administrator</div>
+<div style="font-size:10px;color:var(--success);margin-top:2px"><i class="fas fa-shield-alt"></i> Session Active</div>
 </div>
 <div style="margin-left:auto;cursor:pointer;color:#ef4444;font-size:12px" onclick="logout()" title="Sign out"><i class="fas fa-sign-out-alt"></i></div>
 </div>
@@ -388,6 +389,7 @@ body{font-family:'Inter',sans-serif;background:var(--light);color:var(--dark)}
 <div class="nav-item admin-only-nav" data-page="settings" style="display:none"><i class="fas fa-cog"></i><span>Settings</span></div>
 </div>
 <div class="sidebar-footer">
+    <div class="logout-btn" onclick="lockScreen()" style="color:var(--warning);margin-bottom:8px"><i class="fas fa-lock"></i><span>Lock Screen</span></div>
     <div class="logout-btn" onclick="location.reload()" style="color:var(--success);margin-bottom:8px"><i class="fas fa-sync-alt"></i><span>Refresh Page</span></div>
     <div class="logout-btn" onclick="logout()" style="font-size:12px;opacity:0.7"><i class="fas fa-sign-out-alt"></i><span>Logout</span></div>
 </div>
@@ -1117,6 +1119,10 @@ let firestorePermissionError = null;
 try {
     app = firebase.initializeApp(firebaseConfig);
     auth = firebase.auth();
+    // SECURITY: Use SESSION persistence so users must re-authenticate after closing browser
+    auth.setPersistence(firebase.auth.Auth.Persistence.SESSION).catch(err => {
+        console.warn('Auth persistence setup failed:', err);
+    });
     db = firebase.firestore();
     // Enable offline persistence (compat SDK)
     db.enablePersistence({synchronizeTabs:true}).catch(err => {
@@ -1796,6 +1802,16 @@ document.getElementById('hospitalRegForm').addEventListener('submit', async (e) 
         } catch(err){ showError(err.message); btn.disabled=false; btnText.textContent='Register Hospital'; }
     }
 });
+
+function lockScreen(){
+    // Clear sensitive session data but keep remember-me preferences
+    dataCache = {patients:[], admissions:[], appointments:[], doctors:[], prescriptions:[], billing:[], inventory:[], wards:[], users:[], labs:[]};
+    currentUser = null; currentHospital = null; userRole = ''; isOnline = false;
+    loginAttempts = 0; loginLockoutUntil = 0;
+    if(auth) auth.signOut().catch(()=>{});
+    showLogin();
+    toast('Session locked. Please sign in again.', 'info');
+}
 
 function logout(){
     realtimeUnsubscribers.forEach(fn => fn());
