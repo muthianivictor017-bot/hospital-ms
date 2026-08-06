@@ -863,15 +863,7 @@ checkSchemaVersion();
 // ==================== SECURITY CONFIGURATION ====================
 // Only users with this code can register a new hospital.
 // CHANGE THIS IMMEDIATELY after first deployment.
-let PRIVATE_REGISTRATION_CODE = (() => {
-    const saved = localStorage.getItem('medicare_reg_code');
-    if(saved) return saved;
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let code = 'MEDICARE-';
-    for(let i=0;i<12;i++) code += chars.charAt(Math.floor(Math.random() * chars.length));
-    localStorage.setItem('medicare_reg_code', code);
-    return code;
-})();
+let PRIVATE_REGISTRATION_CODE = 'MEDICARE-ADMIN-2026';
 let _registrationCodeLoaded = false;
 
 // Feature flags - disable these in production after setup
@@ -4001,8 +3993,7 @@ async function loadDemoData(){
 
     // Sync demo users to medicare_users for user management display
     // Only seed demo users if no real users exist
-    const hasRealUsers = users.some(u => u.hospitalId !== 'DEMO');
-    if(hasRealUsers) { console.log('Real users exist, skipping demo data seed'); return; }
+    // Always ensure demo users exist for DEMO hospital, regardless of other hospitals
     const demoUsersForCache = [
         {id:'demo-admin', uid:'demo-admin', hospitalId:'DEMO', name:'Admin John Smith', email:'admin@medicare.co.ke', role:'admin'},
         {id:'demo-doctor', uid:'demo-doctor', hospitalId:'DEMO', name:'Dr. James Anderson', email:'doctor@medicare.co.ke', role:'doctor'},
@@ -4029,11 +4020,10 @@ async function loadDemoData(){
 
 loadDemoData().then(() => console.log('Demo data loaded')).catch(e => console.error('Demo data load failed:', e));
 // Load saved security settings
-const savedSecurity = JSON.parse(localStorage.getItem('medicare_security_settings') || '{}');
-if(savedSecurity.privateCode) PRIVATE_REGISTRATION_CODE = savedSecurity.privateCode;
-if(typeof savedSecurity.enableDemo === 'boolean') ENABLE_DEMO_ACCOUNTS = savedSecurity.enableDemo;
-if(typeof savedSecurity.enableRegistration === 'boolean') ENABLE_HOSPITAL_REGISTRATION = savedSecurity.enableRegistration;
-if(typeof savedSecurity.enableRepair === 'boolean') ENABLE_ACCOUNT_REPAIR = savedSecurity.enableRepair;
+const savedSecurity = secureGet('medicare_security_settings', {});
+if(savedSecurity && savedSecurity.privateCode) PRIVATE_REGISTRATION_CODE = savedSecurity.privateCode;
+if(savedSecurity && typeof savedSecurity.enableDemo === 'boolean') ENABLE_DEMO_ACCOUNTS = savedSecurity.enableDemo;
+if(savedSecurity && typeof savedSecurity.enableRegistration === 'boolean') ENABLE_HOSPITAL_REGISTRATION = savedSecurity.enableRegistration;
 if(!auth) showLogin();
 
 // ==================== CROSS-TAB SYNC ====================
