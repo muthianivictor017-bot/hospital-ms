@@ -1230,11 +1230,13 @@ if(auth) {
             // SECURITY GATE: Only allow auto-login if this browser session was explicitly authenticated
             const sessionActive = sessionStorage.getItem('medicare_session_active') === 'true';
             const sessionEmail = sessionStorage.getItem('medicare_session_email');
-            const sessionHospital = sessionStorage.getItem('medicare_session_hospital');
 
             if(!sessionActive || (sessionEmail && sessionEmail !== user.email)){
                 console.log('Auto-login blocked: no active session flag or email mismatch. Forcing sign out.');
-                await auth.signOut();
+                // Prevent rapid re-trigger by clearing Firebase's cached auth state
+                try { await auth.signOut(); } catch(e){}
+                // Clear any lingering local auth data
+                currentUser = null;
                 showLogin();
                 return;
             }
@@ -1497,6 +1499,16 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
             }
 
             if(!userData){
+                // Try hospital-specific localStorage as last resort
+                const hospUsers = secureGet(getStorageKey('users', hospitalId), []);
+                const hospUser = hospUsers.find(u => u.email === email);
+                if(hospUser){
+                    userData = hospUser;
+                    console.log('Found user in hospital-specific localStorage');
+                }
+            }
+
+            if(!userData){
                 showError('Account not registered in this hospital system. Contact your administrator.');
                 await auth.signOut();
                 btn.disabled = false; btnText.textContent = 'Sign In';
@@ -1526,29 +1538,15 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
 
             if(hospDoc && hospDoc.exists){
                 currentHospital = {id: hospitalId, ...hospDoc.data()};
-            } else if(firestoreBlocked) {
-                // Firestore blocked - use localStorage hospital data
-                const localHospitals = secureGet('medicare_hospitals', []);
-                const localHosp = localHospitals.find(h => h.hospitalId === hospitalId);
-                if(localHosp){
-                    currentHospital = localHosp;
-                    console.log('Using localStorage hospital fallback (Firestore rules blocked)');
-                } else {
-                    showError('Hospital data not found in local storage. Register this hospital first.');
-                    await auth.signOut();
-                    btn.disabled = false; btnText.textContent = 'Sign In';
-                    logSecurityEvent('LOGIN_FAIL', {reason: 'hospital doc missing', email, hospitalId});
-                    return;
-                }
             } else {
-                // Fallback to localStorage hospital data
+                // Fallback to localStorage hospital data (works for both blocked and missing cases)
                 const localHospitals = secureGet('medicare_hospitals', []);
                 const localHosp = localHospitals.find(h => h.hospitalId === hospitalId);
                 if(localHosp){
                     currentHospital = localHosp;
-                    console.log('Using localStorage hospital fallback');
+                    console.log('Using localStorage hospital fallback' + (firestoreBlocked ? ' (Firestore rules blocked)' : ''));
                 } else {
-                    showError('Hospital data not found. Contact administrator.');
+                    showError('Hospital data not found. Register this hospital first or contact administrator.');
                     await auth.signOut();
                     btn.disabled = false; btnText.textContent = 'Sign In';
                     logSecurityEvent('LOGIN_FAIL', {reason: 'hospital doc missing', email, hospitalId});
@@ -1741,17 +1739,41 @@ document.getElementById('hospitalRegForm').addEventListener('submit', async (e) 
 
             showSuccess('Hospital registered! Signing you in...');
             logSecurityEvent('REGISTRATION_SUCCESS', {email: hospEmail, hospitalId: hospId, name: hospName});
+
+            // ALWAYS save to localStorage first (guaranteed to work)
+            const hospitals = secureGet('medicare_hospitals', []);
+            if(!hospitals.find(h => h.hospitalId === hospId)){
+                hospitals.push({name: hospName, hospitalId: hospId, license: hospLicense, address: hospAddress, phone: hospPhone, email: hospEmail});
+                secureSet('medicare_hospitals', hospitals);
+            }
+            const uid = cred.user.uid;
+            const hospUsers = secureGet(getStorageKey('users', hospId), []);
+            if(!hospUsers.find(u => u.email === hospEmail)){
+                hospUsers.push({id: uid, uid: uid, hospitalId: hospId, name: adminName, email: hospEmail, password: adminPassword, role: 'admin'});
+                secureSet(getStorageKey('users', hospId), hospUsers);
+            }
+            const users = secureGet('medicare_users_local', []);
+            if(!users.find(u => u.email === hospEmail && u.hospitalId === hospId)){
+                users.push({uid, hospitalId: hospId, name: adminName, email: hospEmail, password: adminPassword, role: 'admin'});
+                secureSet('medicare_users_local', users);
+            }
             seedNewHospitalData(hospId);
+
             currentHospital = {name: hospName, hospitalId: hospId, license: hospLicense, address: hospAddress, phone: hospPhone, email: hospEmail};
-            currentUser = cred.user; // Use REAL Firebase user object, not a mock
+            currentUser = cred.user;
             userRole = 'admin';
             secureSet('medicare_currentHospital', currentHospital);
             secureSet('medicare_currentUser', {role: 'admin', email: hospEmail, uid: cred.user.uid});
 
-            // Test Firestore access before declaring success
+            // Mark session as active
+            sessionStorage.setItem('medicare_session_active', 'true');
+            sessionStorage.setItem('medicare_session_email', hospEmail);
+            sessionStorage.setItem('medicare_session_hospital', hospId);
+
+            // Test Firestore access (non-blocking)
             const accessOk = await testFirestoreAccess();
             if(!accessOk){
-                console.warn('Firestore access test failed after registration. Will use localStorage fallback.');
+                console.warn('Firestore access test failed after registration. Using localStorage fallback.');
             }
 
             showDashboard(); 
