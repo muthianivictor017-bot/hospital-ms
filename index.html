@@ -1304,11 +1304,9 @@ async function loadHospitalAndUser(){
                 console.log('Legacy session without HMAC - allowing login but consider re-authenticating');
             }
             userRole = localUser.role;
-            } else {
-                console.warn('Role checksum mismatch - possible tampering detected');
-                userRole = 'staff'; // safest fallback
-                logSecurityEvent('ROLE_TAMPER_DETECTED', {stored: localUser.checksum, expected: expectedChecksum});
-            }
+        } else {
+            console.warn('No role found in session - using staff fallback');
+            userRole = 'staff';
         }
     }
 
