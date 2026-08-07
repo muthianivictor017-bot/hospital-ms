@@ -404,6 +404,8 @@ body{font-family:'Inter',sans-serif;background:var(--light);color:var(--dark)}
 <div class="nav-item" data-page="labs"><i class="fas fa-flask"></i><span>Lab Services</span><span class="badge orange" id="labBadge">0</span></div>
 <div class="nav-item" data-page="inventory"><i class="fas fa-pills"></i><span>Inventory</span></div>
 <div class="nav-item" data-page="messaging"><i class="fas fa-comment-medical"></i><span>Messaging</span></div>
+<div class="nav-item" data-page="sha"><i class="fas fa-shield-heart"></i><span>SHA Claims</span><span class="badge orange" id="shaBadge">0</span></div>
+<div class="nav-item" data-page="sha"><i class="fas fa-shield-alt"></i><span>SHA Claims</span><span class="badge orange" id="shaBadge">0</span></div>
 <div class="nav-section-title admin-only-nav" style="display:none">Administration</div>
 <div class="nav-item admin-only-nav" data-page="users" style="display:none"><i class="fas fa-users-cog"></i><span>User Management</span></div>
 <div class="nav-item admin-only-nav" data-page="settings" style="display:none"><i class="fas fa-cog"></i><span>Settings</span></div>
@@ -434,6 +436,7 @@ body{font-family:'Inter',sans-serif;background:var(--light);color:var(--dark)}
 <div class="stat-card"><div class="stat-icon orange"><i class="fas fa-user-md"></i></div><div class="stat-info"><h3 id="statDoctors">0</h3><p>Doctors</p></div></div>
 <div class="stat-card"><div class="stat-icon indigo"><i class="fas fa-credit-card"></i></div><div class="stat-info"><h3 id="statPendingPayments">KSh0</h3><p>Pending Payments</p></div></div>
 <div class="stat-card"><div class="stat-icon teal"><i class="fas fa-flask"></i></div><div class="stat-info"><h3 id="statLabs">0</h3><p>Pending Lab Tests</p></div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:#dbeafe;color:#1e40af"><i class="fas fa-shield-heart"></i></div><div class="stat-info"><h3 id="statSHAPending">0</h3><p>SHA Claims Pending</p></div></div>
 </div>
 <div class="quick-actions">
 <div class="quick-action-btn" onclick="openModal('admission')"><i class="fas fa-user-plus"></i><span>Admit Patient</span></div>
@@ -674,6 +677,74 @@ body{font-family:'Inter',sans-serif;background:var(--light);color:var(--dark)}
 <div class="card-body" id="messageLogContainer"><div class="empty-state" style="padding:20px"><i class="fas fa-history"></i><p>No messages sent yet</p></div></div></div>
 </div>
 
+<!-- SHA CLAIMS PAGE -->
+<div class="page-section" id="page-sha">
+<div class="stats-grid" style="margin-bottom:16px">
+    <div class="stat-card"><div class="stat-icon blue"><i class="fas fa-file-invoice"></i></div><div class="stat-info"><h3 id="shaPendingClaims">0</h3><p>Pending Claims</p></div></div>
+    <div class="stat-card"><div class="stat-icon green"><i class="fas fa-check-circle"></i></div><div class="stat-info"><h3 id="shaApprovedClaims">0</h3><p>Approved</p></div></div>
+    <div class="stat-card"><div class="stat-icon orange"><i class="fas fa-clock"></i></div><div class="stat-info"><h3 id="shaProcessingClaims">0</h3><p>Processing</p></div></div>
+    <div class="stat-card"><div class="stat-icon red"><i class="fas fa-times-circle"></i></div><div class="stat-info"><h3 id="shaRejectedClaims">0</h3><p>Rejected</p></div></div>
+    <div class="stat-card"><div class="stat-icon teal"><i class="fas fa-money-bill-wave"></i></div><div class="stat-info"><h3 id="shaTotalClaimed">KSh 0</h3><p>Total Claimed</p></div></div>
+    <div class="stat-card"><div class="stat-icon purple"><i class="fas fa-users"></i></div><div class="stat-info"><h3 id="shaCoveredPatients">0</h3><p>SHA Patients</p></div></div>
+</div>
+<div class="search-bar">
+    <input type="text" id="shaSearch" placeholder="Search claims..." onkeyup="searchSHAClaims()">
+    <select id="shaStatusFilter" onchange="filterSHAClaims()">
+        <option value="">All Status</option>
+        <option value="Draft">Draft</option>
+        <option value="Submitted">Submitted</option>
+        <option value="Processing">Processing</option>
+        <option value="Approved">Approved</option>
+        <option value="Partially Paid">Partially Paid</option>
+        <option value="Rejected">Rejected</option>
+        <option value="Resubmitted">Resubmitted</option>
+    </select>
+    <input type="date" id="shaDateFrom" onchange="filterSHAClaims()" placeholder="From">
+    <input type="date" id="shaDateTo" onchange="filterSHAClaims()" placeholder="To">
+    <button class="btn-sm btn-primary" onclick="openSHAModal()"><i class="fas fa-plus"></i> New Claim</button>
+    <button class="btn-sm btn-gray" onclick="exportSHAClaimsCSV()"><i class="fas fa-download"></i> Export</button>
+</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+    <div class="card"><div class="card-header"><h3><i class="fas fa-file-invoice-dollar"></i> SHA Claims</h3></div>
+    <div class="card-body"><table class="data-table"><thead><tr><th>Claim #</th><th>Patient</th><th>SHA No.</th><th>Date</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead><tbody id="shaClaimsTable"></tbody></table></div>
+    </div>
+    <div class="card"><div class="card-header"><h3><i class="fas fa-user-shield"></i> SHA Patients</h3></div>
+    <div class="card-body"><table class="data-table"><thead><tr><th>Patient</th><th>SHA Number</th><th>Status</th><th>Tier</th><th>Actions</th></tr></thead><tbody id="shaPatientsTable"></tbody></table></div>
+    </div>
+</div>
+</div>
+
+<!-- SHA CLAIMS PAGE -->
+<div class="page-section" id="page-sha">
+<div class="stats-grid" style="margin-bottom:16px">
+    <div class="stat-card"><div class="stat-icon blue"><i class="fas fa-shield-heart"></i></div><div class="stat-info"><h3 id="shaTotalClaims">0</h3><p>Total Claims</p></div></div>
+    <div class="stat-card"><div class="stat-icon orange"><i class="fas fa-hourglass-half"></i></div><div class="stat-info"><h3 id="shaPendingClaims">0</h3><p>Pending</p></div></div>
+    <div class="stat-card"><div class="stat-icon green"><i class="fas fa-check-circle"></i></div><div class="stat-info"><h3 id="shaApprovedClaims">0</h3><p>Approved</p></div></div>
+    <div class="stat-card"><div class="stat-icon red"><i class="fas fa-times-circle"></i></div><div class="stat-info"><h3 id="shaRejectedClaims">0</h3><p>Rejected</p></div></div>
+    <div class="stat-card"><div class="stat-icon teal"><i class="fas fa-money-bill-wave"></i></div><div class="stat-info"><h3 id="shaClaimAmount">KSh 0</h3><p>Total Claimed</p></div></div>
+    <div class="stat-card"><div class="stat-icon purple"><i class="fas fa-hand-holding-usd"></i></div><div class="stat-info"><h3 id="shaPaidAmount">KSh 0</h3><p>Amount Paid</p></div></div>
+</div>
+<div class="search-bar">
+    <input type="text" id="shaSearch" placeholder="Search claims..." onkeyup="searchSHAClaims()">
+    <select id="shaStatusFilter" onchange="filterSHAClaims()">
+        <option value="">All Status</option>
+        <option value="Draft">Draft</option>
+        <option value="Submitted">Submitted</option>
+        <option value="Pending">Pending Review</option>
+        <option value="Approved">Approved</option>
+        <option value="Rejected">Rejected</option>
+        <option value="Paid">Paid</option>
+    </select>
+    <input type="date" id="shaDateFrom" onchange="filterSHAClaims()" placeholder="From">
+    <input type="date" id="shaDateTo" onchange="filterSHAClaims()" placeholder="To">
+    <button class="btn-sm btn-primary" onclick="openModal('shaClaim')"><i class="fas fa-plus"></i> New SHA Claim</button>
+</div>
+<div class="card"><div class="card-header"><h3><i class="fas fa-shield-heart"></i> SHA Claims</h3><button class="btn-sm btn-gray" onclick="exportSHACSV()"><i class="fas fa-download"></i> Export</button></div>
+<div class="card-body"><table class="data-table"><thead><tr><th>Claim #</th><th>Patient</th><th>SHA Number</th><th>Services</th><th>Amount</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead><tbody id="shaClaimsTable"></tbody></table></div></div>
+<div class="card" style="margin-top:20px"><div class="card-header"><h3><i class="fas fa-user-shield"></i> Patients with SHA</h3></div>
+<div class="card-body"><table class="data-table"><thead><tr><th>Patient</th><th>SHA Number</th><th>SHA Status</th><th>Employer Code</th><th>Last Verified</th><th>Actions</th></tr></thead><tbody id="shaPatientsTable"></tbody></table></div></div>
+</div>
+
 <!-- SETTINGS PAGE -->
 <div class="page-section" id="page-settings">
 <div class="access-denied" id="settingsAccessDenied">
@@ -737,6 +808,38 @@ body{font-family:'Inter',sans-serif;background:var(--light);color:var(--dark)}
     </div>
     <button class="btn btn-primary" style="width:auto;padding:10px 24px;margin-top:12px" onclick="saveMessagingSettings()">Save Messaging Settings</button>
 </div></div>
+<div class="card" style="margin-top:20px"><div class="card-header"><h3><i class="fas fa-shield-alt"></i> SHA (Social Health Authority) Integration</h3></div>
+<div class="card-body">
+    <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:14px;margin-bottom:16px;font-size:12px;color:#1e40af">
+        <i class="fas fa-info-circle"></i> <strong>Kenya SHA Integration</strong> — Connect your facility to the Social Health Authority for member eligibility checks and claims submission.
+    </div>
+    <div class="form-row">
+        <div class="form-group"><label>Facility Code (HF Code)</label><input type="text" id="set_sha_facility" placeholder="e.g., HF-12345"></div>
+        <div class="form-group"><label>Facility Name (as registered with SHA)</label><input type="text" id="set_sha_facility_name" placeholder="e.g., MediCare Hospital Nairobi"></div>
+    </div>
+    <div class="form-row">
+        <div class="form-group"><label>SHA API Client ID</label><input type="text" id="set_sha_client_id" placeholder="Your SHA portal Client ID"></div>
+        <div class="form-group"><label>SHA API Client Secret</label><input type="password" id="set_sha_client_secret" placeholder="Your SHA portal Client Secret"></div>
+    </div>
+    <div class="form-row">
+        <div class="form-group"><label>SHA API Base URL</label><input type="url" id="set_sha_base_url" placeholder="https://api.sha.go.ke" value="https://api.sha.go.ke"></div>
+        <div class="form-group"><label>Claim Submission Mode</label>
+            <select id="set_sha_mode">
+                <option value="manual">Manual — Generate claim file for portal upload</option>
+                <option value="api">API — Submit directly via SHA API (requires backend proxy)</option>
+            </select>
+        </div>
+    </div>
+    <div class="form-group">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer">
+            <input type="checkbox" id="set_sha_auto_check">
+            <span>Auto-check SHA eligibility when admitting patients</span>
+        </label>
+    </div>
+    <button class="btn btn-primary" style="width:auto;padding:10px 24px" onclick="saveSHASettings()">Save SHA Settings</button>
+    <button class="btn btn-secondary" style="width:auto;padding:10px 24px;margin-left:10px" onclick="testSHAConnection()"><i class="fas fa-plug"></i> Test Connection</button>
+    <div id="shaTestResult" style="margin-top:12px;font-size:13px"></div>
+</div></div>
 <div class="card" style="margin-top:20px"><div class="card-header"><h3><i class="fas fa-clipboard-list"></i> Security Audit Log</h3></div>
 <div class="card-body" id="auditLogContainer"><div class="empty-state" style="padding:20px"><i class="fas fa-clipboard-list"></i><p>Loading audit log...</p></div></div></div>
 </div>
@@ -776,6 +879,31 @@ body{font-family:'Inter',sans-serif;background:var(--light);color:var(--dark)}
 </div>
 </div>
 
+<!-- SHA CLAIM MODAL -->
+<div class="modal-overlay" id="shaModalOverlay">
+<div class="modal modal-wide" id="shaModal">
+<div class="modal-header"><h2 id="shaModalTitle">New SHA Claim</h2><button class="modal-close" onclick="closeSHAModal()">&times;</button></div>
+<div class="modal-body" id="shaModalBody"></div>
+<div class="modal-footer">
+    <button class="btn-sm btn-gray" onclick="closeSHAModal()">Cancel</button>
+    <button class="btn-sm btn-warning" onclick="saveSHAClaim('Draft')"><i class="fas fa-save"></i> Save Draft</button>
+    <button class="btn-sm btn-success" onclick="saveSHAClaim('Submitted')"><i class="fas fa-paper-plane"></i> Submit Claim</button>
+</div>
+</div>
+</div>
+
+<!-- SHA VERIFY MODAL -->
+<div class="modal-overlay" id="shaVerifyModalOverlay">
+<div class="modal" id="shaVerifyModal">
+<div class="modal-header"><h2><i class="fas fa-shield-heart"></i> SHA Member Verification</h2><button class="modal-close" onclick="closeSHAVerifyModal()">&times;</button></div>
+<div class="modal-body" id="shaVerifyModalBody"></div>
+<div class="modal-footer">
+    <button class="btn-sm btn-gray" onclick="closeSHAVerifyModal()">Close</button>
+    <button class="btn-sm btn-primary" onclick="manualSHAUpdate()"><i class="fas fa-edit"></i> Update Status Manually</button>
+</div>
+</div>
+</div>
+
 <!-- MESSAGE MODAL -->
 <div class="modal-overlay" id="messageModalOverlay">
 <div class="modal" id="messageModal">
@@ -785,6 +913,19 @@ body{font-family:'Inter',sans-serif;background:var(--light);color:var(--dark)}
     <button class="btn-sm btn-gray" onclick="closeMessageModal()">Cancel</button>
     <button class="btn-sm btn-success" id="msgSendWhatsAppBtn" onclick="sendMessageVia('whatsapp')"><i class="fab fa-whatsapp"></i> WhatsApp</button>
     <button class="btn-sm btn-info" id="msgSendSMSBtn" onclick="sendMessageVia('sms')"><i class="fas fa-sms"></i> SMS</button>
+</div>
+</div>
+</div>
+
+<!-- SHA CLAIM MODAL -->
+<div class="modal-overlay" id="shaModalOverlay">
+<div class="modal modal-wide" id="shaModal">
+<div class="modal-header"><h2 id="shaModalTitle">SHA Claim</h2><button class="modal-close" onclick="closeSHAModal()">&times;</button></div>
+<div class="modal-body" id="shaModalBody"></div>
+<div class="modal-footer">
+    <button class="btn-sm btn-gray" onclick="closeSHAModal()">Cancel</button>
+    <button class="btn-sm btn-indigo" onclick="downloadSHAClaimJSON()"><i class="fas fa-file-code"></i> Download JSON</button>
+    <button class="btn-sm btn-primary" id="shaSubmitBtn" onclick="submitSHAClaim()"><i class="fas fa-paper-plane"></i> Submit Claim</button>
 </div>
 </div>
 </div>
@@ -1009,7 +1150,7 @@ let _offlineWriteQueue = secureGet('medicare_offline_queue', []);
 let _sessionTimer = null;
 
 let dataCache = {
-  patients:[], admissions:[], appointments:[], doctors:[], prescriptions:[], billing:[], inventory:[], wards:[], users:[], labs:[]
+  patients:[], admissions:[], appointments:[], doctors:[], prescriptions:[], billing:[], inventory:[], wards:[], users:[], labs:[], shaClaims:[]
 };
 
 // ==================== PERFORMANCE UTILITIES ====================
@@ -2241,6 +2382,7 @@ function navigateTo(page){
     else if(page === 'users'){ btn.innerHTML = '<i class="fas fa-plus"></i> Add User'; btn.onclick = () => openModal('user'); btn.style.display = (userRole === 'admin') ? '' : 'none'; }
     else if(page === 'reports'){ btn.innerHTML = '<i class="fas fa-download"></i> Export'; btn.onclick = () => exportReportCSV(); btn.style.display = (userRole === 'admin') ? '' : 'none'; }
     else if(page === 'messaging'){ btn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Bulk'; btn.onclick = () => sendBulkReminders(); btn.style.display = ''; }
+    else if(page === 'sha'){ btn.innerHTML = '<i class="fas fa-plus"></i> New Claim'; btn.onclick = () => openSHAModal(); btn.style.display = ''; }
     else { btn.style.display = 'none'; }
     if(page === 'users'){
         document.getElementById('usersAccessDenied').style.display = (userRole === 'admin') ? 'none' : 'block';
@@ -2250,6 +2392,15 @@ function navigateTo(page){
     if(page === 'messaging'){
         renderMessaging();
         previewTemplate();
+    }
+    if(page === 'sha'){
+        renderSHAClaims();
+        renderSHAPatients();
+    }
+    if(page === 'sha'){
+        renderSHAClaims();
+        renderSHAPatients();
+        updateSHADashboard();
     }
     if(page === 'settings'){
         document.getElementById('settingsAccessDenied').style.display = (userRole === 'admin') ? 'none' : 'block';
@@ -2278,7 +2429,7 @@ function setupRealtimeListeners(){
     realtimeUnsubscribers.forEach(fn => fn());
     realtimeUnsubscribers = [];
     const hospId = currentHospital.hospitalId || currentHospital.id;
-    const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','labs'];
+    const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','labs','shaClaims'];
 
     // Throttled refresh to prevent UI freezing on rapid snapshot updates
     const throttledRefresh = throttle((col) => {
@@ -2454,7 +2605,7 @@ async function syncLocalToCloud(){
     if(!hospId) return;
 
     console.log('Checking for local data to sync to cloud...');
-    const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','labs'];
+    const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','labs','shaClaims'];
     let syncedCount = 0;
 
     for(const col of cols){
@@ -2548,7 +2699,7 @@ async function loadAllData(){
     if(db && isOnline && auth.currentUser){
         if(!guardFirestoreOp('loadAllData')) return;
         try {
-            const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','labs'];
+            const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','labs','shaClaims'];
             // PARALLEL loading: fetch all collections at once instead of sequential (5s timeout each)
             const colPromises = cols.map(async col => {
                 try {
@@ -2691,7 +2842,7 @@ function secureGet(key, defaultValue){
 
 
 function loadFromLocalStorage(){
-    const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','users','labs'];
+    const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','users','labs','shaClaims'];
     for(const col of cols){
         dataCache[col] = secureGet(getStorageKey(col), '[]').filter(i => !i.deletedAt);
     }
@@ -2779,7 +2930,7 @@ function updateSyncStatus(status){
 }
 
 function refreshAllPages(){
-    ['dashboard','patients','admissions','appointments','wards','doctors','prescriptions','billing','labs','inventory','users'].forEach(refreshPageData);
+    ['dashboard','patients','admissions','appointments','wards','doctors','prescriptions','billing','labs','inventory','users','sha'].forEach(refreshPageData);
 }
 
 function refreshPageData(page){
@@ -2797,6 +2948,7 @@ function refreshPageData(page){
         case 'users': if(userRole === 'admin') renderUsers(); break;
         case 'reports': if(userRole === 'admin') generateReports(); break;
         case 'messaging': renderMessaging(); previewTemplate(); break;
+        case 'sha': renderSHAClaims(); renderSHAPatients(); updateSHADashboard(); break;
     }
 }
 
@@ -2820,6 +2972,9 @@ function _updateStats(){
     document.getElementById('labBadge').textContent = pendingLabs;
     const statLabsEl = document.getElementById('statLabs');
     if(statLabsEl) statLabsEl.textContent = pendingLabs;
+    const pendingSHA = dataCache.shaClaims.filter(c => c.status === 'Pending' || c.status === 'Submitted').length;
+    const shaBadge = document.getElementById('shaBadge');
+    if(shaBadge) shaBadge.textContent = pendingSHA;
 }
 const updateStats = throttle(_updateStats, 500);
 
@@ -2915,6 +3070,10 @@ function renderDashboard(){
             return `<tr><td>#${b.invoiceNumber || b.id.slice(-4)}</td><td>${p.name}</td><td>KSh ${parseFloat(b.amount || 0).toFixed(2)}</td><td style="color:var(--danger);font-weight:600">KSh ${balance.toFixed(2)}</td><td><span class="status-badge status-${status.toLowerCase().replace(' ','-')}">${status}</span></td><td><button class="btn-sm btn-success" onclick="openPaymentModal('${b.id}')"><i class="fas fa-dollar-sign"></i> Pay</button> <button class="btn-sm btn-info" onclick="viewInvoiceDetail('${b.id}')"><i class="fas fa-eye"></i></button></td></tr>`;
         }).join('');
     }
+    // SHA dashboard stats
+    const shaPending = dataCache.shaClaims.filter(c => c.status === 'Pending' || c.status === 'Submitted').length;
+    const statSHAEl = document.getElementById('statSHAPending');
+    if(statSHAEl) statSHAEl.textContent = shaPending;
 }
 
 function renderPatients(){
@@ -2924,7 +3083,7 @@ function renderPatients(){
         const isAdmitted = dataCache.admissions.some(a => a.patientId === p.id && a.status === 'Admitted');
         const hasInsurance = p.insuranceProvider && p.insuranceStatus === 'Active';
         return `<tr><td>#${p.id ? p.id.slice(-4) : '0000'}</td><td><strong>${p.name}</strong></td><td>${p.age || '-'} / ${p.gender || '-'}</td><td>${p.phone || '-'}</td>
-        <td>${hasInsurance ? `<span class="insurance-badge"><i class="fas fa-shield-alt"></i> ${p.insuranceProvider}</span>` : '<span class="insurance-badge inactive">No Insurance</span>'}</td>
+        <td>${hasInsurance ? `<span class="insurance-badge"><i class="fas fa-shield-alt"></i> ${p.insuranceProvider}</span>` : '<span class="insurance-badge inactive">No Insurance</span>'}${p.shaNumber && p.shaStatus === 'Active' ? ` <span class="insurance-badge" style="background:#dbeafe;color:#1e40af;margin-top:4px"><i class="fas fa-shield-alt"></i> SHA ${p.shaTier || ''}</span>` : ''}</td>
         <td>${isAdmitted ? '<span class="status-badge status-admitted"><i class="fas fa-bed"></i> Admitted</span>' : '<span class="status-badge status-discharged">Outpatient</span>'}</td>
         <td><button class="btn-sm btn-info" onclick="viewPatient('${p.id}')"><i class="fas fa-eye"></i></button> <button class="btn-sm btn-warning" onclick="editPatient('${p.id}')"><i class="fas fa-edit"></i></button> <button class="btn-sm btn-danger" onclick="deletePatient('${p.id}')"><i class="fas fa-trash"></i></button>${p.phone ? ` <button class="msg-btn msg-btn-whatsapp" onclick="openMessageModal('${p.id}', 'general', '', '', '')" title="Send WhatsApp"><i class="fab fa-whatsapp"></i></button>` : ''}</td></tr>`;
     }).join('');
@@ -3322,7 +3481,7 @@ async function forceSyncAllData(){
     const hospId = currentHospital ? (currentHospital.hospitalId || currentHospital.id) : null;
     if(!hospId){ toast('No hospital ID', 'error'); return; }
 
-    const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','labs'];
+    const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','labs','shaClaims'];
     let totalSynced = 0;
 
     for(const col of cols){
@@ -3728,8 +3887,14 @@ function openModal(type, editId){
                 <div class="form-row"><div class="form-group"><label>Age</label><input type="number" id="m_patient_age" value="${item.age || ''}"></div><div class="form-group"><label>Gender</label><select id="m_patient_gender"><option value="">Select</option><option value="Male" ${item.gender === 'Male' ? 'selected' : ''}>Male</option><option value="Female" ${item.gender === 'Female' ? 'selected' : ''}>Female</option><option value="Other" ${item.gender === 'Other' ? 'selected' : ''}>Other</option></select></div></div>
                 <div class="form-group"><label>Address</label><input type="text" id="m_patient_address" value="${item.address || ''}"></div>
                 <div style="border:2px dashed var(--border);border-radius:10px;padding:16px;margin:16px 0"><h4 style="font-size:14px;margin-bottom:12px;color:var(--primary)"><i class="fas fa-shield-alt"></i> Insurance Information</h4>
-                <div class="form-row"><div class="form-group"><label>Insurance Provider</label><input type="text" id="m_patient_insurance_provider" value="${item.insuranceProvider || ''}" placeholder="e.g., NHIF, Britam"></div><div class="form-group"><label>Policy Number</label><input type="text" id="m_patient_policy_number" value="${item.policyNumber || ''}" placeholder="e.g., BC-12345678"></div></div>
+                <div class="form-row"><div class="form-group"><label>Insurance Provider</label><input type="text" id="m_patient_insurance_provider" value="${item.insuranceProvider || ''}" placeholder="e.g., NHIF, Britam, SHA"></div><div class="form-group"><label>Policy Number</label><input type="text" id="m_patient_policy_number" value="${item.policyNumber || ''}" placeholder="e.g., BC-12345678"></div></div>
                 <div class="form-row"><div class="form-group"><label>Coverage %</label><input type="number" id="m_patient_coverage" value="${item.insuranceCoverage || ''}" min="0" max="100" placeholder="e.g., 80"></div><div class="form-group"><label>Insurance Status</label><select id="m_patient_insurance_status"><option value="">Select</option><option value="Active" ${item.insuranceStatus === 'Active' ? 'selected' : ''}>Active</option><option value="Inactive" ${item.insuranceStatus === 'Inactive' ? 'selected' : ''}>Inactive</option><option value="Pending" ${item.insuranceStatus === 'Pending' ? 'selected' : ''}>Pending Approval</option></select></div></div></div>
+                <div style="border:2px dashed #bfdbfe;border-radius:10px;padding:16px;margin:16px 0;background:#eff6ff"><h4 style="font-size:14px;margin-bottom:12px;color:#1e40af"><i class="fas fa-shield-alt"></i> SHA (Social Health Authority)</h4>
+                <div class="form-row"><div class="form-group"><label>SHA Membership Number</label><input type="text" id="m_patient_sha_number" value="${item.shaNumber || ''}" placeholder="e.g., SH-12345678"></div><div class="form-group"><label>SHA Status</label><select id="m_patient_sha_status"><option value="">Unknown / Not Registered</option><option value="Active" ${item.shaStatus === 'Active' ? 'selected' : ''}>Active</option><option value="Inactive" ${item.shaStatus === 'Inactive' ? 'selected' : ''}>Inactive</option><option value="Suspended" ${item.shaStatus === 'Suspended' ? 'selected' : ''}>Suspended</option><option value="Pending" ${item.shaStatus === 'Pending' ? 'selected' : ''}>Pending Registration</option></select></div></div>
+                <div class="form-row"><div class="form-group"><label>SHA Coverage Tier</label><select id="m_patient_sha_tier"><option value="">Select Tier</option><option value="Indigent" ${item.shaTier === 'Indigent' ? 'selected' : ''}>Indigent (100%)</option><option value="Vulnerable" ${item.shaTier === 'Vulnerable' ? 'selected' : ''}>Vulnerable (100%)</option><option value="Informal" ${item.shaTier === 'Informal' ? 'selected' : ''}>Informal Sector</option><option value="Formal" ${item.shaTier === 'Formal' ? 'selected' : ''}>Formal Sector</option><option value="Primary" ${item.shaTier === 'Primary' ? 'selected' : ''}>Primary Care</option></select></div><div class="form-group"><label>SHA Verified On</label><input type="date" id="m_patient_sha_verified" value="${item.shaVerifiedDate || ''}"></div></div>
+                <div class="form-group"><label>SHA Eligibility Notes</label><textarea id="m_patient_sha_notes" placeholder="Eligibility check results, pre-auth requirements, etc.">${item.shaNotes || ''}</textarea></div>
+                <button type="button" class="btn-sm btn-indigo" style="width:auto" onclick="checkSHAMembershipFromModal()"><i class="fas fa-search"></i> Check SHA Eligibility</button>
+                </div>
                 <div class="form-group"><label>Medical History</label><textarea id="m_patient_notes">${item.notes || ''}</textarea></div>`;
             break;
         case 'admission':
@@ -3766,6 +3931,7 @@ function openModal(type, editId){
                 <div id="insuranceInfoBox" style="display:none;margin-bottom:16px;padding:12px;background:#eff6ff;border-radius:8px;font-size:12px;color:#1e40af"></div>
                 <div class="form-group"><label>Services *</label><input type="text" id="m_bill_services" value="${(item.services || []).join(', ')}" placeholder="Comma separated" required></div>
                 <div class="form-row"><div class="form-group"><label>Total Amount (KSh) *</label><input type="number" step="0.01" id="m_bill_amount" value="${item.amount || ''}" required></div><div class="form-group"><label>Insurance Coverage (KSh)</label><input type="number" step="0.01" id="m_bill_insurance" value="${item.insuranceAmount || '0'}" placeholder="Amount covered by insurance"></div></div>
+                <div class="form-row"><div class="form-group"><label><i class="fas fa-shield-heart" style="color:#1e40af"></i> SHA Claim</label><select id="m_bill_sha_claim"><option value="">No SHA Claim</option><option value="Draft" ${item.shaClaimStatus === 'Draft' ? 'selected' : ''}>Create Draft Claim</option><option value="Submitted" ${item.shaClaimStatus === 'Submitted' ? 'selected' : ''}>Submit to SHA</option></select></div><div class="form-group"><label>SHA Claim Amount (KSh)</label><input type="number" step="0.01" id="m_bill_sha_amount" value="${item.shaClaimAmount || ''}" placeholder="Amount to claim from SHA"></div></div>
                 <div class="form-row"><div class="form-group"><label>Status</label><select id="m_bill_status"><option value="Pending" ${(item.status || 'Pending') === 'Pending' ? 'selected' : ''}>Pending</option><option value="Insurance Pending" ${item.status === 'Insurance Pending' ? 'selected' : ''}>Insurance Pending</option><option value="Paid" ${item.status === 'Paid' ? 'selected' : ''}>Paid</option><option value="Cancelled" ${item.status === 'Cancelled' ? 'selected' : ''}>Cancelled</option></select></div><div class="form-group"><label>Due Date</label><input type="date" id="m_bill_due_date" value="${item.dueDate || ''}"></div></div>
                 <div class="form-group"><label>Notes</label><textarea id="m_bill_notes" placeholder="Additional notes...">${item.notes || ''}</textarea></div>`;
             if(isEdit && item.patientId) setTimeout(() => updateInsuranceInfo(), 100);
@@ -3773,6 +3939,47 @@ function openModal(type, editId){
         case 'inventory':
             title.textContent = isEdit ? 'Edit Item' : 'Add Inventory Item';
             body.innerHTML = `<div class="form-row"><div class="form-group"><label>Item Name *</label><input type="text" id="m_inv_name" value="${item.name || ''}" required></div><div class="form-group"><label>Category *</label><select id="m_inv_category" required><option value="">Select</option><option value="Medication" ${item.category === 'Medication' ? 'selected' : ''}>Medication</option><option value="Equipment" ${item.category === 'Equipment' ? 'selected' : ''}>Equipment</option><option value="Supplies" ${item.category === 'Supplies' ? 'selected' : ''}>Supplies</option><option value="Other" ${item.category === 'Other' ? 'selected' : ''}>Other</option></select></div></div><div class="form-row"><div class="form-group"><label>Quantity *</label><input type="number" id="m_inv_qty" value="${item.quantity || ''}" required></div><div class="form-group"><label>Unit</label><input type="text" id="m_inv_unit" value="${item.unit || 'units'}"></div></div><div class="form-row"><div class="form-group"><label>Unit Price (KSh)</label><input type="number" step="0.01" id="m_inv_price" value="${item.price || ''}"></div><div class="form-group"><label>Min Quantity Alert</label><input type="number" id="m_inv_min" value="${item.minQuantity || '10'}"></div></div><div class="form-group"><label>Expiry Date</label><input type="date" id="m_inv_expiry" value="${item.expiryDate || ''}"></div><div class="form-group"><label>Notes</label><textarea id="m_inv_notes">${item.notes || ''}</textarea></div>`;
+            break;
+        case 'shaClaim':
+            title.textContent = isEdit ? 'Edit SHA Claim' : 'New SHA Claim';
+            const shaClaim = isEdit ? (dataCache.shaClaims.find(c => c.id === editId) || {}) : {};
+            const shaPatientOpts = dataCache.patients.filter(p => p.shaNumber).map(p => `<option value="${p.id}" ${shaClaim.patientId === p.id ? 'selected' : ''}>${p.name} (SHA: ${p.shaNumber})</option>`).join('');
+            body.innerHTML = `
+                <div class="form-group"><label>Patient *</label><select id="m_sha_patient" onchange="updateSHAPatientInfo()" required><option value="">Select SHA Patient</option>${shaPatientOpts}</select></div>
+                <div id="shaPatientInfo" style="display:none;background:#eff6ff;border:1px solid #bfdbfe;border-radius:8px;padding:12px;margin-bottom:16px;font-size:12px;color:#1e40af"></div>
+                <div class="form-row"><div class="form-group"><label>Claim Date *</label><input type="date" id="m_sha_date" value="${shaClaim.date || new Date().toISOString().split('T')[0]}" required></div><div class="form-group"><label>Claim Number</label><input type="text" id="m_sha_claim_no" value="${shaClaim.claimNumber || 'SHA-'+Date.now().toString().slice(-6)}" placeholder="Auto-generated"></div></div>
+                <div class="form-group"><label>Services *</label><input type="text" id="m_sha_services" value="${(shaClaim.services || []).join(', ')}" placeholder="Comma separated services" required></div>
+                <div class="form-row"><div class="form-group"><label>Claim Amount (KSh) *</label><input type="number" step="0.01" id="m_sha_amount" value="${shaClaim.amount || ''}" required></div><div class="form-group"><label>Patient Co-pay (KSh)</label><input type="number" step="0.01" id="m_sha_copay" value="${shaClaim.coPay || '0'}"></div></div>
+                <div class="form-row"><div class="form-group"><label>Diagnosis / ICD-10 Code</label><input type="text" id="m_sha_diagnosis" value="${shaClaim.diagnosis || ''}" placeholder="e.g., J18.9 Pneumonia"></div><div class="form-group"><label>Status</label><select id="m_sha_status"><option value="Draft" ${(shaClaim.status || 'Draft') === 'Draft' ? 'selected' : ''}>Draft</option><option value="Submitted" ${shaClaim.status === 'Submitted' ? 'selected' : ''}>Submitted</option><option value="Pending" ${shaClaim.status === 'Pending' ? 'selected' : ''}>Pending Review</option><option value="Approved" ${shaClaim.status === 'Approved' ? 'selected' : ''}>Approved</option><option value="Rejected" ${shaClaim.status === 'Rejected' ? 'selected' : ''}>Rejected</option><option value="Paid" ${shaClaim.status === 'Paid' ? 'selected' : ''}>Paid</option></select></div></div>
+                <div class="form-group"><label>SHA Reference / Tracking ID</label><input type="text" id="m_sha_ref" value="${shaClaim.shaReference || ''}" placeholder="Assigned by SHA after submission"></div>
+                <div class="form-group"><label>Notes</label><textarea id="m_sha_notes" placeholder="Additional claim notes...">${shaClaim.notes || ''}</textarea></div>
+                <div style="background:#fef3c7;border:1px solid #fde68a;border-radius:8px;padding:12px;font-size:12px;color:#92400e">
+                    <i class="fas fa-info-circle"></i> <strong>SHA Integration:</strong> When you click "Submit Claim", the claim status changes to "Submitted". In a production environment, this would connect to the SHA API. For now, track status manually or via the SHA portal.
+                </div>
+            `;
+            if(isEdit && shaClaim.patientId) setTimeout(() => updateSHAPatientInfo(), 100);
+            break;
+        case 'shaClaim':
+            const shaPatientId = document.getElementById('m_sha_patient').value;
+            if(!shaPatientId){ toast('Please select a patient with SHA registration', 'error'); btn.innerHTML='Save'; btn.disabled=false; return; }
+            const shaPatient = dataCache.patients.find(p => p.id === shaPatientId);
+            data = {
+                id: currentEditId,
+                patientId: shaPatientId,
+                shaNumber: shaPatient?.shaNumber || '',
+                date: document.getElementById('m_sha_date').value,
+                claimNumber: document.getElementById('m_sha_claim_no').value,
+                services: document.getElementById('m_sha_services').value.split(',').map(s => s.trim()).filter(s => s),
+                amount: parseFloat(document.getElementById('m_sha_amount').value) || 0,
+                coPay: parseFloat(document.getElementById('m_sha_copay').value) || 0,
+                diagnosis: document.getElementById('m_sha_diagnosis').value,
+                status: document.getElementById('m_sha_status').value,
+                shaReference: document.getElementById('m_sha_ref').value,
+                notes: document.getElementById('m_sha_notes').value,
+                hospitalId: currentHospital ? (currentHospital.hospitalId || currentHospital.id) : '',
+                submittedBy: currentUser ? (currentUser.displayName || currentUser.email) : 'System',
+                submittedAt: new Date().toISOString()
+            };
             break;
         case 'user':
             if(userRole !== 'admin'){ toast('Admin only', 'error'); closeModal(); return; }
@@ -3828,7 +4035,12 @@ async function saveModal(){
                 insuranceProvider: document.getElementById('m_patient_insurance_provider').value,
                 policyNumber: document.getElementById('m_patient_policy_number').value,
                 insuranceCoverage: document.getElementById('m_patient_coverage').value,
-                insuranceStatus: document.getElementById('m_patient_insurance_status').value
+                insuranceStatus: document.getElementById('m_patient_insurance_status').value,
+                shaNumber: document.getElementById('m_patient_sha_number').value.trim(),
+                shaStatus: document.getElementById('m_patient_sha_status').value,
+                shaTier: document.getElementById('m_patient_sha_tier').value,
+                shaVerifiedDate: document.getElementById('m_patient_sha_verified').value,
+                shaNotes: document.getElementById('m_patient_sha_notes').value
             };
             break;
         case 'admission':
@@ -3884,10 +4096,56 @@ async function saveModal(){
             const billAmount = parseFloat(document.getElementById('m_bill_amount').value) || 0;
             const billInsurance = parseFloat(document.getElementById('m_bill_insurance').value) || 0;
             const billStatus = document.getElementById('m_bill_status').value;
-            data = {id:currentEditId, patientId:billPatientId, date:document.getElementById('m_bill_date').value, services:document.getElementById('m_bill_services').value.split(',').map(s => s.trim()).filter(s => s), amount:billAmount, insuranceAmount:billInsurance, status:billStatus, dueDate:document.getElementById('m_bill_due_date').value, notes:document.getElementById('m_bill_notes').value, invoiceNumber: currentEditId ? (dataCache.billing.find(b => b.id === currentEditId) || {}).invoiceNumber : 'INV-' + Date.now().toString().slice(-6)};
+            const shaClaimStatus = document.getElementById('m_bill_sha_claim')?.value || '';
+            const shaClaimAmount = parseFloat(document.getElementById('m_bill_sha_amount')?.value) || 0;
+            data = {id:currentEditId, patientId:billPatientId, date:document.getElementById('m_bill_date').value, services:document.getElementById('m_bill_services').value.split(',').map(s => s.trim()).filter(s => s), amount:billAmount, insuranceAmount:billInsurance, status:billStatus, dueDate:document.getElementById('m_bill_due_date').value, notes:document.getElementById('m_bill_notes').value, invoiceNumber: currentEditId ? (dataCache.billing.find(b => b.id === currentEditId) || {}).invoiceNumber : 'INV-' + Date.now().toString().slice(-6), shaClaimStatus, shaClaimAmount};
+            // Auto-create SHA claim if requested
+            if(shaClaimStatus && shaClaimAmount > 0){
+                const shaPatient = dataCache.patients.find(p => p.id === billPatientId);
+                if(shaPatient && shaPatient.shaNumber){
+                    const shaClaim = {
+                        patientId: billPatientId,
+                        shaNumber: shaPatient.shaNumber,
+                        date: document.getElementById('m_bill_date').value,
+                        claimNumber: 'SHA-' + Date.now().toString().slice(-6),
+                        services: document.getElementById('m_bill_services').value.split(',').map(s => s.trim()).filter(s => s),
+                        amount: shaClaimAmount,
+                        coPay: billAmount - shaClaimAmount - billInsurance,
+                        status: shaClaimStatus,
+                        diagnosis: '',
+                        notes: 'Auto-generated from invoice ' + (currentEditId ? (dataCache.billing.find(b => b.id === currentEditId) || {}).invoiceNumber : 'new'),
+                        submittedBy: currentUser ? (currentUser.displayName || currentUser.email) : 'System',
+                        submittedAt: new Date().toISOString()
+                    };
+                    saveData('shaClaims', shaClaim);
+                    toast('SHA claim created: ' + shaClaim.claimNumber, 'success');
+                }
+            }
             break;
         case 'inventory':
             data = {id:currentEditId, name:document.getElementById('m_inv_name').value, category:document.getElementById('m_inv_category').value, quantity:document.getElementById('m_inv_qty').value, unit:document.getElementById('m_inv_unit').value, price:document.getElementById('m_inv_price').value, minQuantity:document.getElementById('m_inv_min').value, expiryDate:document.getElementById('m_inv_expiry').value, notes:document.getElementById('m_inv_notes').value};
+            break;
+        case 'shaClaim':
+            const shaPatientId = document.getElementById('m_sha_patient').value;
+            if(!shaPatientId){ toast('Please select a patient with SHA registration', 'error'); btn.innerHTML='Save'; btn.disabled=false; return; }
+            const shaPatient = dataCache.patients.find(p => p.id === shaPatientId);
+            data = {
+                id: currentEditId,
+                patientId: shaPatientId,
+                shaNumber: shaPatient?.shaNumber || '',
+                date: document.getElementById('m_sha_date').value,
+                claimNumber: document.getElementById('m_sha_claim_no').value,
+                services: document.getElementById('m_sha_services').value.split(',').map(s => s.trim()).filter(s => s),
+                amount: parseFloat(document.getElementById('m_sha_amount').value) || 0,
+                coPay: parseFloat(document.getElementById('m_sha_copay').value) || 0,
+                diagnosis: document.getElementById('m_sha_diagnosis').value,
+                status: document.getElementById('m_sha_status').value,
+                shaReference: document.getElementById('m_sha_ref').value,
+                notes: document.getElementById('m_sha_notes').value,
+                hospitalId: currentHospital ? (currentHospital.hospitalId || currentHospital.id) : '',
+                submittedBy: currentUser ? (currentUser.displayName || currentUser.email) : 'System',
+                submittedAt: new Date().toISOString()
+            };
             break;
         case 'user':
             if(userRole !== 'admin'){ toast('Admin only', 'error'); closeModal(); return; }
@@ -4075,7 +4333,7 @@ async function saveModal(){
             return;
         }
         closeModal();
-        refreshPageData(currentModalType === 'patient' ? 'patients' : currentModalType === 'admission' ? 'admissions' : currentModalType === 'appointment' ? 'appointments' : currentModalType === 'ward' ? 'wards' : currentModalType === 'doctor' ? 'doctors' : currentModalType === 'prescription' ? 'prescriptions' : currentModalType === 'billing' ? 'billing' : currentModalType === 'inventory' ? 'inventory' : 'users');
+        refreshPageData(currentModalType === 'patient' ? 'patients' : currentModalType === 'admission' ? 'admissions' : currentModalType === 'appointment' ? 'appointments' : currentModalType === 'ward' ? 'wards' : currentModalType === 'doctor' ? 'doctors' : currentModalType === 'prescription' ? 'prescriptions' : currentModalType === 'billing' ? 'billing' : currentModalType === 'inventory' ? 'inventory' : currentModalType === 'shaClaim' ? 'sha' : 'users');
         updateStats();
         btn.innerHTML = 'Save'; btn.disabled = false;
         toast('Saved successfully', 'success');
@@ -4983,6 +5241,281 @@ function renderDashboardWithMessaging(){
 }
 
 // ==================== END MESSAGING SYSTEM ====================
+
+// ==================== SHA (SOCIAL HEALTH AUTHORITY) SYSTEM ====================
+
+function updateSHAPatientInfo(){
+    const patientId = document.getElementById('m_sha_patient')?.value;
+    const box = document.getElementById('shaPatientInfo');
+    if(!patientId || !box) return;
+    const patient = dataCache.patients.find(p => p.id === patientId);
+    if(patient){
+        box.style.display = 'block';
+        box.innerHTML = `
+            <strong>${sanitizeHTML(patient.name)}</strong><br>
+            SHA No: <strong>${sanitizeHTML(patient.shaNumber || 'Not registered')}</strong> | 
+            Status: <strong>${sanitizeHTML(patient.shaStatus || 'Unknown')}</strong> | 
+            Employer: <strong>${sanitizeHTML(patient.shaEmployerCode || 'N/A')}</strong><br>
+            ${patient.shaVerifiedDate ? 'Last Verified: ' + patient.shaVerifiedDate : '<span style="color:var(--danger)">Not verified</span>'}
+        `;
+    } else {
+        box.style.display = 'none';
+    }
+}
+
+function renderSHAClaims(){
+    const statusFilter = document.getElementById('shaStatusFilter')?.value;
+    const from = document.getElementById('shaDateFrom')?.value;
+    const to = document.getElementById('shaDateTo')?.value;
+
+    let claims = dataCache.shaClaims;
+    if(statusFilter) claims = claims.filter(c => c.status === statusFilter);
+    if(from) claims = claims.filter(c => (c.date || '') >= from);
+    if(to) claims = claims.filter(c => (c.date || '') <= to);
+
+    // Update stats
+    const total = dataCache.shaClaims.length;
+    const pending = dataCache.shaClaims.filter(c => c.status === 'Pending' || c.status === 'Submitted').length;
+    const approved = dataCache.shaClaims.filter(c => c.status === 'Approved').length;
+    const rejected = dataCache.shaClaims.filter(c => c.status === 'Rejected').length;
+    const totalClaimed = dataCache.shaClaims.reduce((s, c) => s + (parseFloat(c.amount) || 0), 0);
+    const totalPaid = dataCache.shaClaims.filter(c => c.status === 'Paid').reduce((s, c) => s + (parseFloat(c.amount) || 0), 0);
+
+    document.getElementById('shaTotalClaims').textContent = total;
+    document.getElementById('shaPendingClaims').textContent = pending;
+    document.getElementById('shaApprovedClaims').textContent = approved;
+    document.getElementById('shaRejectedClaims').textContent = rejected;
+    document.getElementById('shaClaimAmount').textContent = 'KSh ' + totalClaimed.toFixed(2);
+    document.getElementById('shaPaidAmount').textContent = 'KSh ' + totalPaid.toFixed(2);
+
+    const tbody = document.getElementById('shaClaimsTable');
+    if(claims.length === 0){
+        tbody.innerHTML = '<tr><td colspan="8" class="empty-state"><i class="fas fa-shield-heart"></i><p>No SHA claims found</p></td></tr>';
+    } else {
+        tbody.innerHTML = claims.sort((a,b) => (b.date || '').localeCompare(a.date || '')).map(c => {
+            const p = dataCache.patients.find(pt => pt.id === c.patientId) || {name:'Unknown'};
+            const statusClass = c.status === 'Paid' ? 'completed' : c.status === 'Approved' ? 'active' : c.status === 'Rejected' ? 'cancelled' : c.status === 'Pending' ? 'pending' : 'insurance-pending';
+            return `<tr>
+                <td><strong>${c.claimNumber || c.id.slice(-4)}</strong></td>
+                <td>${p.name}</td>
+                <td>${sanitizeHTML(c.shaNumber || '-')}</td>
+                <td>${(c.services || []).join(', ')}</td>
+                <td>KSh ${parseFloat(c.amount || 0).toFixed(2)}</td>
+                <td><span class="status-badge status-${statusClass}">${c.status}</span></td>
+                <td>${c.date || '-'}</td>
+                <td>
+                    <button class="btn-sm btn-info" onclick="viewSHAClaim('${c.id}')"><i class="fas fa-eye"></i></button>
+                    <button class="btn-sm btn-warning" onclick="editSHAClaim('${c.id}')"><i class="fas fa-edit"></i></button>
+                    <button class="btn-sm btn-success" onclick="markSHAClaimPaid('${c.id}')" title="Mark as Paid"><i class="fas fa-check"></i></button>
+                    <button class="btn-sm btn-danger" onclick="deleteSHAClaim('${c.id}')"><i class="fas fa-trash"></i></button>
+                </td>
+            </tr>`;
+        }).join('');
+    }
+}
+
+function renderSHAPatients(){
+    const shaPatients = dataCache.patients.filter(p => p.shaNumber);
+    const tbody = document.getElementById('shaPatientsTable');
+    if(shaPatients.length === 0){
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><i class="fas fa-user-shield"></i><p>No patients with SHA registration</p></td></tr>';
+    } else {
+        tbody.innerHTML = shaPatients.map(p => {
+            const statusColor = p.shaStatus === 'Active' ? 'var(--success)' : p.shaStatus === 'Inactive' ? 'var(--danger)' : p.shaStatus === 'Suspended' ? 'var(--warning)' : 'var(--gray)';
+            return `<tr>
+                <td><strong>${p.name}</strong></td>
+                <td>${sanitizeHTML(p.shaNumber)}</td>
+                <td><span style="color:${statusColor};font-weight:600">${p.shaStatus || 'Unknown'}</span></td>
+                <td>${sanitizeHTML(p.shaEmployerCode || '-')}</td>
+                <td>${p.shaVerifiedDate || '-'}</td>
+                <td>
+                    <button class="btn-sm btn-info" onclick="verifySHAManual('${p.id}')"><i class="fas fa-search"></i> Verify</button>
+                    <button class="btn-sm btn-primary" onclick="openModal('shaClaim'); setTimeout(()=>{document.getElementById('m_sha_patient').value='${p.id}';updateSHAPatientInfo();},200)"><i class="fas fa-plus"></i> Claim</button>
+                </td>
+            </tr>`;
+        }).join('');
+    }
+}
+
+function searchSHAClaims(){
+    const q = document.getElementById('shaSearch')?.value.toLowerCase() || '';
+    document.querySelectorAll('#shaClaimsTable tr').forEach(r => {
+        r.style.display = r.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+}
+
+function filterSHAClaims(){ renderSHAClaims(); }
+
+function viewSHAClaim(id){
+    const claim = dataCache.shaClaims.find(c => c.id === id);
+    if(!claim) return;
+    const patient = dataCache.patients.find(p => p.id === claim.patientId) || {name:'Unknown'};
+    const statusClass = claim.status === 'Paid' ? 'completed' : claim.status === 'Approved' ? 'active' : claim.status === 'Rejected' ? 'cancelled' : claim.status === 'Pending' ? 'pending' : 'insurance-pending';
+
+    document.getElementById('shaVerifyModalBody').innerHTML = `
+        <div style="padding:10px">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
+                <div style="background:var(--light);padding:14px;border-radius:10px">
+                    <h5 style="font-size:11px;text-transform:uppercase;color:var(--gray);margin-bottom:8px">Claim Details</h5>
+                    <p style="font-size:14px;font-weight:500">#${claim.claimNumber || claim.id.slice(-4)}</p>
+                    <p style="font-size:13px">Date: ${claim.date || '-'}</p>
+                    <p style="font-size:13px">Status: <span class="status-badge status-${statusClass}">${claim.status}</span></p>
+                    ${claim.shaReference ? `<p style="font-size:13px">SHA Ref: ${sanitizeHTML(claim.shaReference)}</p>` : ''}
+                </div>
+                <div style="background:var(--light);padding:14px;border-radius:10px">
+                    <h5 style="font-size:11px;text-transform:uppercase;color:var(--gray);margin-bottom:8px">Patient</h5>
+                    <p style="font-size:14px;font-weight:500">${patient.name}</p>
+                    <p style="font-size:13px">SHA No: ${sanitizeHTML(claim.shaNumber || '-')}</p>
+                    <p style="font-size:13px">Phone: ${sanitizeHTML(patient.phone || '-')}</p>
+                </div>
+            </div>
+            <div style="background:var(--light);padding:14px;border-radius:10px;margin-bottom:16px">
+                <h5 style="font-size:11px;text-transform:uppercase;color:var(--gray);margin-bottom:8px">Services</h5>
+                <p style="font-size:13px">${(claim.services || []).join(', ')}</p>
+                <p style="font-size:13px;margin-top:6px"><strong>Diagnosis:</strong> ${sanitizeHTML(claim.diagnosis || '-')}</p>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:16px">
+                <div style="background:#eff6ff;padding:14px;border-radius:10px;text-align:center">
+                    <h5 style="font-size:11px;text-transform:uppercase;color:var(--gray)">Claim Amount</h5>
+                    <p style="font-size:18px;font-weight:700;color:var(--primary)">KSh ${parseFloat(claim.amount || 0).toFixed(2)}</p>
+                </div>
+                <div style="background:#fef3c7;padding:14px;border-radius:10px;text-align:center">
+                    <h5 style="font-size:11px;text-transform:uppercase;color:var(--gray)">Co-pay</h5>
+                    <p style="font-size:18px;font-weight:700;color:var(--warning)">KSh ${parseFloat(claim.coPay || 0).toFixed(2)}</p>
+                </div>
+                <div style="background:#f0fdf4;padding:14px;border-radius:10px;text-align:center">
+                    <h5 style="font-size:11px;text-transform:uppercase;color:var(--gray)">SHA Pays</h5>
+                    <p style="font-size:18px;font-weight:700;color:var(--success)">KSh ${(parseFloat(claim.amount || 0) - parseFloat(claim.coPay || 0)).toFixed(2)}</p>
+                </div>
+            </div>
+            ${claim.notes ? `<div style="background:var(--light);padding:14px;border-radius:10px"><h5 style="font-size:11px;text-transform:uppercase;color:var(--gray);margin-bottom:8px">Notes</h5><p style="font-size:13px">${sanitizeHTML(claim.notes)}</p></div>` : ''}
+            <div style="margin-top:16px;font-size:12px;color:var(--gray)">
+                <p><i class="fas fa-user"></i> Submitted by: ${sanitizeHTML(claim.submittedBy || '-')}</p>
+                <p><i class="fas fa-clock"></i> Submitted at: ${claim.submittedAt || '-'}</p>
+            </div>
+        </div>
+    `;
+    document.getElementById('shaVerifyModalOverlay').classList.add('active');
+}
+
+function closeSHAVerifyModal(){
+    document.getElementById('shaVerifyModalOverlay').classList.remove('active');
+}
+
+function editSHAClaim(id){ openModal('shaClaim', id); }
+
+async function markSHAClaimPaid(id){
+    const claim = dataCache.shaClaims.find(c => c.id === id);
+    if(!claim) return;
+    if(claim.status === 'Paid'){ toast('Claim is already marked as paid', 'info'); return; }
+    if(!confirm(`Mark claim #${claim.claimNumber || id.slice(-4)} as PAID?
+
+Amount: KSh ${parseFloat(claim.amount || 0).toFixed(2)}`)) return;
+    claim.status = 'Paid';
+    claim.paidAt = new Date().toISOString();
+    await saveData('shaClaims', claim);
+    renderSHAClaims();
+    updateStats();
+    toast('Claim marked as paid', 'success');
+}
+
+async function deleteSHAClaim(id){
+    if(!confirm('Delete this SHA claim?')) return;
+    await deleteData('shaClaims', id);
+    renderSHAClaims();
+    updateStats();
+    toast('SHA claim deleted', 'info');
+}
+
+function verifySHAManual(patientId){
+    const patient = dataCache.patients.find(p => p.id === patientId);
+    if(!patient) return;
+
+    // In production, this would call the SHA API
+    // For now, show a verification modal with manual update option
+    document.getElementById('shaVerifyModalBody').innerHTML = `
+        <div style="padding:10px">
+            <div style="background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;padding:16px;margin-bottom:16px">
+                <h4 style="font-size:15px;color:#1e40af;margin-bottom:8px"><i class="fas fa-shield-heart"></i> SHA Member Lookup</h4>
+                <p style="font-size:13px;color:#1e40af">Patient: <strong>${sanitizeHTML(patient.name)}</strong></p>
+                <p style="font-size:13px;color:#1e40af">SHA Number: <strong>${sanitizeHTML(patient.shaNumber || 'Not registered')}</strong></p>
+            </div>
+            <div style="background:var(--light);border-radius:10px;padding:14px;margin-bottom:16px">
+                <h5 style="font-size:12px;color:var(--gray);margin-bottom:10px"><i class="fas fa-search"></i> Verification Result</h5>
+                <p style="font-size:13px">${patient.shaStatus === 'Active' 
+                    ? '<span style="color:var(--success)"><i class="fas fa-check-circle"></i> <strong>Active Member</strong></span> - Eligible for SHA benefits'
+                    : patient.shaStatus === 'Inactive' 
+                    ? '<span style="color:var(--danger)"><i class="fas fa-times-circle"></i> <strong>Inactive</strong></span> - Not eligible. Patient needs to reactivate.'
+                    : patient.shaStatus === 'Suspended'
+                    ? '<span style="color:var(--warning)"><i class="fas fa-exclamation-triangle"></i> <strong>Suspended</strong></span> - Temporarily blocked. Contact SHA.'
+                    : '<span style="color:var(--gray)"><i class="fas fa-question-circle"></i> <strong>Unknown Status</strong></span> - Please verify manually via SHA portal.'
+                }</p>
+                ${patient.shaVerifiedDate ? `<p style="font-size:12px;color:var(--gray);margin-top:6px">Last verified: ${patient.shaVerifiedDate}</p>` : ''}
+            </div>
+            <div style="background:#fef3c7;border:1px solid #fde68a;border-radius:10px;padding:14px;font-size:12px;color:#92400e">
+                <i class="fas fa-info-circle"></i> <strong>API Integration:</strong> In production, this would query the SHA member verification API. For now, update the patient's SHA status manually below.
+            </div>
+            <div style="margin-top:16px">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Update SHA Status</label>
+                        <select id="manual_sha_status">
+                            <option value="" ${!patient.shaStatus ? 'selected' : ''}>Unknown</option>
+                            <option value="Active" ${patient.shaStatus === 'Active' ? 'selected' : ''}>Active</option>
+                            <option value="Inactive" ${patient.shaStatus === 'Inactive' ? 'selected' : ''}>Inactive</option>
+                            <option value="Suspended" ${patient.shaStatus === 'Suspended' ? 'selected' : ''}>Suspended</option>
+                            <option value="Pending" ${patient.shaStatus === 'Pending' ? 'selected' : ''}>Pending Registration</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Verification Date</label>
+                        <input type="date" id="manual_sha_date" value="${new Date().toISOString().split('T')[0]}">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Notes</label>
+                    <textarea id="manual_sha_notes" rows="2" placeholder="Verification notes...">${sanitizeHTML(patient.shaNotes || '')}</textarea>
+                </div>
+            </div>
+        </div>
+    `;
+    // Store current patient ID for manual update
+    window._shaVerifyPatientId = patientId;
+    document.getElementById('shaVerifyModalOverlay').classList.add('active');
+}
+
+async function manualSHAUpdate(){
+    const patientId = window._shaVerifyPatientId;
+    if(!patientId) return;
+    const patient = dataCache.patients.find(p => p.id === patientId);
+    if(!patient) return;
+
+    patient.shaStatus = document.getElementById('manual_sha_status').value;
+    patient.shaVerifiedDate = document.getElementById('manual_sha_date').value;
+    patient.shaNotes = document.getElementById('manual_sha_notes').value;
+    await saveData('patients', patient);
+    closeSHAVerifyModal();
+    renderSHAPatients();
+    renderPatients();
+    toast('SHA status updated for ' + patient.name, 'success');
+}
+
+function exportSHACSV(){
+    let csv = 'Claim #,Patient,SHA Number,Services,Amount,Co-pay,Status,Date,SHA Ref,Diagnosis,Submitted By
+';
+    dataCache.shaClaims.forEach(c => {
+        const p = dataCache.patients.find(pt => pt.id === c.patientId) || {name:'Unknown'};
+        csv += `"${c.claimNumber || c.id.slice(-4)}","${p.name}","${c.shaNumber || ''}","${(c.services || []).join('; ')}",${parseFloat(c.amount||0).toFixed(2)},${parseFloat(c.coPay||0).toFixed(2)},"${c.status}","${c.date || ''}","${c.shaReference || ''}","${c.diagnosis || ''}","${c.submittedBy || ''}"
+`;
+    });
+    downloadCSV(csv, 'sha_claims_' + new Date().toISOString().split('T')[0] + '.csv');
+}
+
+function closeSHAModal(){
+    document.getElementById('shaModalOverlay').classList.remove('active');
+}
+
+// ==================== END SHA SYSTEM ====================
 
 // ==================== DEMO DATA ====================
 
