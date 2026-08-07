@@ -301,6 +301,13 @@ body{font-family:'Inter',sans-serif;background:var(--light);color:var(--dark)}
 .msg-log-row .status.failed{color:var(--danger)}
 .msg-log-row .status.pending{color:var(--warning)}
 </style>
+
+<!-- PWA Meta Tags -->
+<meta name="theme-color" content="#2563eb">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="MediCare HMS">
+<link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiTWVkaUNhcmUgSG9zcGl0YWwgTWFuYWdlbWVudCBTeXN0ZW0iLCJzaG9ydF9uYW1lIjoiTWVkaUNhcmUgSE1TIiwic3RhcnRfdXJsIjoiLiIsImRpc3BsYXkiOiJzdGFuZGFsb25lIiwiYmFja2dyb3VuZF9jb2xvciI6IiNmOGZhZmMiLCJ0aGVtZV9jb2xvciI6IiMyNTYzZWIiLCJpY29ucyI6W3sic3JjIjoiZGF0YTppbWFnZS9zdmcreG1sLCUzQ3N2ZyB4bWxucz0naHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmcnIHZpZXdCb3g9JzAgMCAxOTIgMTkyJyBmaWxsPScjMjU2M2ViJz4lM0NwYXRoIGQ9J00xNzYgODBWMjRjMC0xMy4zLTEwLjctMjQtMjQtMjRIMjRjLTEzLjMgMC0yNCAxMC43LTI0IDI0djE0NGMwIDEzLjMgMTAuNyAyNCAyNCAyNGgxNDRjMTMuMyAwIDI0LTEwLjcgMjQtMjRWMjRjMC0xMy4zLTEwLjctMjQtMjQtMjR6bS04MCAxMTJjLTguOCAwLTE2LTcuMi0xNi0xNnM3LjItMTYgMTYtMTYgMTYgNy4yIDE2IDE2LTcuMiAxNi0xNiAxNnptNDAtODBjMCAxMy4zLTEwLjcgMjQtMjQgMjRzLTI0LTEwLjctMjQtMjQgMTAuNy0yNCAyNC0yNCAyNCAxMC43IDI0IDI0eicvJTNFJTNDL3N2Zz4iLCJzaXplcyI6IjE5MngxOTIiLCJ0eXBlIjoiaW1hZ2Uvc3ZnK3htbCJ9XX0=">
 </head>
 <body>
 
@@ -405,7 +412,7 @@ body{font-family:'Inter',sans-serif;background:var(--light);color:var(--dark)}
 <div class="nav-item" data-page="inventory"><i class="fas fa-pills"></i><span>Inventory</span></div>
 <div class="nav-item" data-page="messaging"><i class="fas fa-comment-medical"></i><span>Messaging</span></div>
 <div class="nav-item" data-page="sha"><i class="fas fa-shield-heart"></i><span>SHA Claims</span><span class="badge orange" id="shaBadge">0</span></div>
-<div class="nav-item" data-page="sha"><i class="fas fa-shield-alt"></i><span>SHA Claims</span><span class="badge orange" id="shaBadge">0</span></div>
+
 <div class="nav-section-title admin-only-nav" style="display:none">Administration</div>
 <div class="nav-item admin-only-nav" data-page="users" style="display:none"><i class="fas fa-users-cog"></i><span>User Management</span></div>
 <div class="nav-item admin-only-nav" data-page="settings" style="display:none"><i class="fas fa-cog"></i><span>Settings</span></div>
@@ -715,37 +722,6 @@ body{font-family:'Inter',sans-serif;background:var(--light);color:var(--dark)}
 </div>
 
 <!-- SHA CLAIMS PAGE -->
-<div class="page-section" id="page-sha">
-<div class="stats-grid" style="margin-bottom:16px">
-    <div class="stat-card"><div class="stat-icon blue"><i class="fas fa-shield-heart"></i></div><div class="stat-info"><h3 id="shaTotalClaims">0</h3><p>Total Claims</p></div></div>
-    <div class="stat-card"><div class="stat-icon orange"><i class="fas fa-hourglass-half"></i></div><div class="stat-info"><h3 id="shaPendingClaims">0</h3><p>Pending</p></div></div>
-    <div class="stat-card"><div class="stat-icon green"><i class="fas fa-check-circle"></i></div><div class="stat-info"><h3 id="shaApprovedClaims">0</h3><p>Approved</p></div></div>
-    <div class="stat-card"><div class="stat-icon red"><i class="fas fa-times-circle"></i></div><div class="stat-info"><h3 id="shaRejectedClaims">0</h3><p>Rejected</p></div></div>
-    <div class="stat-card"><div class="stat-icon teal"><i class="fas fa-money-bill-wave"></i></div><div class="stat-info"><h3 id="shaClaimAmount">KSh 0</h3><p>Total Claimed</p></div></div>
-    <div class="stat-card"><div class="stat-icon purple"><i class="fas fa-hand-holding-usd"></i></div><div class="stat-info"><h3 id="shaPaidAmount">KSh 0</h3><p>Amount Paid</p></div></div>
-</div>
-<div class="search-bar">
-    <input type="text" id="shaSearch" placeholder="Search claims..." onkeyup="searchSHAClaims()">
-    <select id="shaStatusFilter" onchange="filterSHAClaims()">
-        <option value="">All Status</option>
-        <option value="Draft">Draft</option>
-        <option value="Submitted">Submitted</option>
-        <option value="Pending">Pending Review</option>
-        <option value="Approved">Approved</option>
-        <option value="Rejected">Rejected</option>
-        <option value="Paid">Paid</option>
-    </select>
-    <input type="date" id="shaDateFrom" onchange="filterSHAClaims()" placeholder="From">
-    <input type="date" id="shaDateTo" onchange="filterSHAClaims()" placeholder="To">
-    <button class="btn-sm btn-primary" onclick="openModal('shaClaim')"><i class="fas fa-plus"></i> New SHA Claim</button>
-</div>
-<div class="card"><div class="card-header"><h3><i class="fas fa-shield-heart"></i> SHA Claims</h3><button class="btn-sm btn-gray" onclick="exportSHACSV()"><i class="fas fa-download"></i> Export</button></div>
-<div class="card-body"><table class="data-table"><thead><tr><th>Claim #</th><th>Patient</th><th>SHA Number</th><th>Services</th><th>Amount</th><th>Status</th><th>Date</th><th>Actions</th></tr></thead><tbody id="shaClaimsTable"></tbody></table></div></div>
-<div class="card" style="margin-top:20px"><div class="card-header"><h3><i class="fas fa-user-shield"></i> Patients with SHA</h3></div>
-<div class="card-body"><table class="data-table"><thead><tr><th>Patient</th><th>SHA Number</th><th>SHA Status</th><th>Employer Code</th><th>Last Verified</th><th>Actions</th></tr></thead><tbody id="shaPatientsTable"></tbody></table></div></div>
-</div>
-
-<!-- SETTINGS PAGE -->
 <div class="page-section" id="page-settings">
 <div class="access-denied" id="settingsAccessDenied">
 <i class="fas fa-lock"></i>
@@ -918,18 +894,6 @@ body{font-family:'Inter',sans-serif;background:var(--light);color:var(--dark)}
 </div>
 
 <!-- SHA CLAIM MODAL -->
-<div class="modal-overlay" id="shaModalOverlay">
-<div class="modal modal-wide" id="shaModal">
-<div class="modal-header"><h2 id="shaModalTitle">SHA Claim</h2><button class="modal-close" onclick="closeSHAModal()">&times;</button></div>
-<div class="modal-body" id="shaModalBody"></div>
-<div class="modal-footer">
-    <button class="btn-sm btn-gray" onclick="closeSHAModal()">Cancel</button>
-    <button class="btn-sm btn-indigo" onclick="downloadSHAClaimJSON()"><i class="fas fa-file-code"></i> Download JSON</button>
-    <button class="btn-sm btn-primary" id="shaSubmitBtn" onclick="submitSHAClaim()"><i class="fas fa-paper-plane"></i> Submit Claim</button>
-</div>
-</div>
-</div>
-
 <!-- TOAST -->
 <div class="toast" id="toast"></div>
 
@@ -2392,10 +2356,6 @@ function navigateTo(page){
     if(page === 'messaging'){
         renderMessaging();
         previewTemplate();
-    }
-    if(page === 'sha'){
-        renderSHAClaims();
-        renderSHAPatients();
     }
     if(page === 'sha'){
         renderSHAClaims();
@@ -3959,28 +3919,6 @@ function openModal(type, editId){
             `;
             if(isEdit && shaClaim.patientId) setTimeout(() => updateSHAPatientInfo(), 100);
             break;
-        case 'shaClaim':
-            const shaPatientId = document.getElementById('m_sha_patient').value;
-            if(!shaPatientId){ toast('Please select a patient with SHA registration', 'error'); btn.innerHTML='Save'; btn.disabled=false; return; }
-            const shaPatient = dataCache.patients.find(p => p.id === shaPatientId);
-            data = {
-                id: currentEditId,
-                patientId: shaPatientId,
-                shaNumber: shaPatient?.shaNumber || '',
-                date: document.getElementById('m_sha_date').value,
-                claimNumber: document.getElementById('m_sha_claim_no').value,
-                services: document.getElementById('m_sha_services').value.split(',').map(s => s.trim()).filter(s => s),
-                amount: parseFloat(document.getElementById('m_sha_amount').value) || 0,
-                coPay: parseFloat(document.getElementById('m_sha_copay').value) || 0,
-                diagnosis: document.getElementById('m_sha_diagnosis').value,
-                status: document.getElementById('m_sha_status').value,
-                shaReference: document.getElementById('m_sha_ref').value,
-                notes: document.getElementById('m_sha_notes').value,
-                hospitalId: currentHospital ? (currentHospital.hospitalId || currentHospital.id) : '',
-                submittedBy: currentUser ? (currentUser.displayName || currentUser.email) : 'System',
-                submittedAt: new Date().toISOString()
-            };
-            break;
         case 'user':
             if(userRole !== 'admin'){ toast('Admin only', 'error'); closeModal(); return; }
             title.textContent = isEdit ? 'Edit User' : 'Add Hospital User';
@@ -5517,6 +5455,255 @@ function closeSHAModal(){
 
 // ==================== END SHA SYSTEM ====================
 
+
+// ==================== SHA BACKEND PROXY ====================
+const SHAProxy = {
+    baseURL: 'https://api.sha.go.ke',
+    timeout: 15000,
+
+    async request(endpoint, method, body, headers = {}){
+        const url = `${this.baseURL}${endpoint}`;
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), this.timeout);
+
+        try {
+            const res = await fetch(url, {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    ...headers
+                },
+                body: body ? JSON.stringify(body) : undefined,
+                signal: controller.signal,
+                mode: 'cors'
+            });
+            clearTimeout(timer);
+            if(!res.ok){
+                const errText = await res.text().catch(() => 'Unknown error');
+                throw new Error(`SHA API ${res.status}: ${errText}`);
+            }
+            return await res.json();
+        } catch(e){
+            clearTimeout(timer);
+            if(e.name === 'AbortError') throw new Error('SHA API request timed out');
+            this.queueRequest({endpoint, method, body, headers, timestamp: Date.now()});
+            throw e;
+        }
+    },
+
+    queueRequest(req){
+        let queue = secureGet('medicare_sha_queue', []);
+        queue.push(req);
+        if(queue.length > 100) queue = queue.slice(-100);
+        secureSet('medicare_sha_queue', queue);
+    },
+
+    async processQueue(){
+        const queue = secureGet('medicare_sha_queue', []);
+        if(!queue.length) return;
+        const remaining = [];
+        for(const req of queue){
+            try {
+                await this.request(req.endpoint, req.method, req.body, req.headers);
+                console.log('SHA queued request succeeded:', req.endpoint);
+            } catch(e){
+                if(Date.now() - req.timestamp < 7 * 24 * 60 * 60 * 1000){
+                    remaining.push(req);
+                }
+            }
+        }
+        secureSet('medicare_sha_queue', remaining);
+        if(queue.length !== remaining.length){
+            toast(`Synced ${queue.length - remaining.length} SHA claim(s)`, 'success');
+        }
+    },
+
+    async verifyMember(shaNumber, nationalId){
+        const settings = secureGet('medicare_security_settings', {});
+        const clientId = settings.shaClientId || '';
+        const clientSecret = settings.shaClientSecret || '';
+
+        if(!clientId || !clientSecret){
+            return {
+                success: true,
+                memberNumber: shaNumber,
+                status: 'Active',
+                tier: 'Formal',
+                employer: 'Mock Employer Ltd',
+                dependents: 2,
+                lastContribution: '2026-07-01',
+                verifiedAt: new Date().toISOString(),
+                mock: true
+            };
+        }
+
+        try {
+            const token = await this.getAuthToken(clientId, clientSecret);
+            return await this.request(`/v1/members/${shaNumber}/verify`, 'POST', {
+                nationalId,
+                facilityCode: settings.shaFacilityCode || ''
+            }, {'Authorization': `Bearer ${token}`});
+        } catch(e){
+            console.warn('SHA verify failed:', e.message);
+            throw e;
+        }
+    },
+
+    async getAuthToken(clientId, clientSecret){
+        const cacheKey = 'medicare_sha_token';
+        const cached = secureGet(cacheKey, {});
+        if(cached.token && cached.expiresAt && new Date(cached.expiresAt) > new Date(Date.now() + 5*60*1000)){
+            return cached.token;
+        }
+        const res = await this.request('/v1/auth/token', 'POST', {
+            clientId,
+            clientSecret,
+            grantType: 'client_credentials'
+        });
+        secureSet(cacheKey, {
+            token: res.accessToken,
+            expiresAt: new Date(Date.now() + (res.expiresIn || 3600) * 1000).toISOString()
+        });
+        return res.accessToken;
+    },
+
+    async submitClaim(claimData){
+        const settings = secureGet('medicare_security_settings', {});
+        const mode = settings.shaMode || 'manual';
+
+        if(mode === 'manual'){
+            const blob = new Blob([JSON.stringify(claimData, null, 2)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `SHA_Claim_${claimData.claimNumber || Date.now()}.json`;
+            document.body.appendChild(a); a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            return {success: true, mode: 'manual', message: 'Claim file downloaded for manual upload'};
+        }
+
+        const clientId = settings.shaClientId;
+        const clientSecret = settings.shaClientSecret;
+        if(!clientId || !clientSecret){
+            throw new Error('SHA API credentials not configured. Go to Settings > SHA Integration.');
+        }
+
+        const token = await this.getAuthToken(clientId, clientSecret);
+        return await this.request('/v1/claims/submit', 'POST', claimData, {
+            'Authorization': `Bearer ${token}`
+        });
+    }
+};
+
+window.addEventListener('online', () => {
+    setTimeout(() => SHAProxy.processQueue(), 3000);
+});
+
+async function checkSHAMembershipFromModal(){
+    const shaNumber = document.getElementById('m_patient_sha_number')?.value?.trim();
+    if(!shaNumber){
+        toast('Enter SHA membership number first', 'warning');
+        return;
+    }
+    const btn = document.querySelector('button[onclick="checkSHAMembershipFromModal()"]');
+    if(btn){
+        btn.innerHTML = '<span class="loading-spinner"></span> Checking...';
+        btn.disabled = true;
+    }
+    try {
+        const result = await SHAProxy.verifyMember(shaNumber, '');
+        const statusSelect = document.getElementById('m_patient_sha_status');
+        const tierSelect = document.getElementById('m_patient_sha_tier');
+        const verifiedInput = document.getElementById('m_patient_sha_verified');
+        const notesInput = document.getElementById('m_patient_sha_notes');
+
+        if(statusSelect) statusSelect.value = result.status || 'Active';
+        if(tierSelect) tierSelect.value = result.tier || '';
+        if(verifiedInput) verifiedInput.value = new Date().toISOString().split('T')[0];
+        if(notesInput){
+            const existing = notesInput.value;
+            const noteLine = `[${new Date().toISOString().split('T')[0]}] SHA Verification: ${result.status}${result.mock ? ' (MOCK - no API credentials)' : ''}. Employer: ${result.employer || 'N/A'}. Last Contribution: ${result.lastContribution || 'N/A'}.`;
+            notesInput.value = existing ? existing + '\n' + noteLine : noteLine;
+        }
+        toast(result.mock ? 'SHA member verified (demo mode)' : 'SHA member verified successfully', 'success');
+    } catch(e){
+        toast('SHA verification failed: ' + e.message, 'error');
+    } finally {
+        if(btn){
+            btn.innerHTML = '<i class="fas fa-search"></i> Check SHA Eligibility';
+            btn.disabled = false;
+        }
+    }
+}
+
+async function submitSHAClaim(){
+    const claimId = currentEditId;
+    const claim = dataCache.shaClaims.find(c => c.id === claimId);
+    if(!claim){
+        toast('Claim not found', 'error');
+        return;
+    }
+    const btn = document.getElementById('shaSubmitBtn');
+    if(btn){
+        btn.innerHTML = '<span class="loading-spinner"></span> Submitting...';
+        btn.disabled = true;
+    }
+    try {
+        const result = await SHAProxy.submitClaim(claim);
+        if(result.success){
+            claim.status = result.mode === 'manual' ? 'Submitted' : (result.claimStatus || 'Submitted');
+            claim.shaReference = result.referenceNumber || claim.shaReference;
+            await saveData('shaClaims', claim);
+            closeSHAModal();
+            renderSHAClaims();
+            toast(result.message || 'Claim submitted successfully', 'success');
+        }
+    } catch(e){
+        toast('Claim submission failed: ' + e.message, 'error');
+    } finally {
+        if(btn){
+            btn.innerHTML = '<i class="fas fa-paper-plane"></i> Submit Claim';
+            btn.disabled = false;
+        }
+    }
+}
+
+function downloadSHAClaimJSON(){
+    const claimId = currentEditId;
+    const claim = dataCache.shaClaims.find(c => c.id === claimId);
+    if(!claim){
+        toast('Claim not found', 'error');
+        return;
+    }
+    const blob = new Blob([JSON.stringify(claim, null, 2)], {type: 'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `SHA_Claim_${claim.claimNumber || claim.id.slice(-4)}.json`;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast('Claim JSON downloaded', 'success');
+}
+
+// ==================== MISSING SHA FUNCTIONS ====================
+function openSHAModal(editId){ 
+    openModal('shaClaim', editId); 
+}
+
+function saveSHAClaim(status){
+    const statusSelect = document.getElementById('m_sha_status');
+    if(statusSelect) statusSelect.value = status;
+    saveModal();
+}
+
+function updateSHADashboard(){
+    renderSHAClaims();
+    renderSHAPatients();
+}
+
 // ==================== DEMO DATA ====================
 
 function seedNewHospitalData(hospitalId){
@@ -5743,6 +5930,156 @@ if(typeof BroadcastChannel !== 'undefined'){
         }
     };
     window._medicareBroadcast = bc;
+}
+
+
+// ==================== PWA SERVICE WORKER ====================
+if('serviceWorker' in navigator){
+    const swCode = `
+        const CACHE_NAME = 'medicare-hms-v1';
+        const STATIC_ASSETS = [
+            './',
+            './index.html'
+        ];
+
+        self.addEventListener('install', e => {
+            e.waitUntil(
+                caches.open(CACHE_NAME).then(cache => cache.addAll(STATIC_ASSETS))
+            );
+            self.skipWaiting();
+        });
+
+        self.addEventListener('activate', e => {
+            e.waitUntil(
+                caches.keys().then(keys => Promise.all(
+                    keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
+                ))
+            );
+            self.clients.claim();
+        });
+
+        self.addEventListener('fetch', e => {
+            const {request} = e;
+            const url = new URL(request.url);
+
+            if(url.hostname.includes('sha.go.ke') || url.pathname.includes('/v1/claims') || url.pathname.includes('/v1/members')){
+                e.respondWith(
+                    fetch(request).catch(async err => {
+                        const queued = {url: request.url, method: request.method, body: null, timestamp: Date.now()};
+                        try { queued.body = await request.clone().text(); } catch(e){}
+
+                        const db = await new Promise((resolve, reject) => {
+                            const req = indexedDB.open('medicare-sw-db', 1);
+                            req.onupgradeneeded = e => {
+                                e.target.result.createObjectStore('sha-queue', {keyPath: 'id', autoIncrement: true});
+                            };
+                            req.onsuccess = e => resolve(e.target.result);
+                            req.onerror = e => reject(e);
+                        });
+
+                        await new Promise((resolve, reject) => {
+                            const tx = db.transaction('sha-queue', 'readwrite');
+                            const store = tx.objectStore('sha-queue');
+                            store.add(queued);
+                            tx.oncomplete = resolve;
+                            tx.onerror = reject;
+                        });
+
+                        return new Response(JSON.stringify({queued: true, message: 'Request queued for sync'}), {
+                            headers: {'Content-Type': 'application/json'}
+                        });
+                    })
+                );
+                return;
+            }
+
+            if(request.mode === 'navigate' || STATIC_ASSETS.includes(url.pathname)){
+                e.respondWith(
+                    caches.match(request).then(cached => cached || fetch(request).then(res => {
+                        const clone = res.clone();
+                        caches.open(CACHE_NAME).then(cache => cache.put(request, clone));
+                        return res;
+                    }).catch(() => cached)
+                );
+            } else {
+                e.respondWith(
+                    fetch(request).catch(() => caches.match(request))
+                );
+            }
+        });
+
+        self.addEventListener('sync', e => {
+            if(e.tag === 'sha-sync'){
+                e.waitUntil(syncSHAQueue());
+            }
+        });
+
+        async function syncSHAQueue(){
+            const db = await new Promise((resolve, reject) => {
+                const req = indexedDB.open('medicare-sw-db', 1);
+                req.onsuccess = e => resolve(e.target.result);
+                req.onerror = e => reject(e);
+            });
+
+            const items = await new Promise((resolve, reject) => {
+                const tx = db.transaction('sha-queue', 'readonly');
+                const store = tx.objectStore('sha-queue');
+                const req = store.getAll();
+                req.onsuccess = e => resolve(e.target.result);
+                req.onerror = e => reject(e);
+            });
+
+            for(const item of items){
+                try {
+                    await fetch(item.url, {
+                        method: item.method,
+                        headers: {'Content-Type': 'application/json'},
+                        body: item.body
+                    });
+                    await new Promise((resolve, reject) => {
+                        const tx = db.transaction('sha-queue', 'readwrite');
+                        const store = tx.objectStore('sha-queue');
+                        store.delete(item.id);
+                        tx.oncomplete = resolve;
+                    });
+                } catch(e){
+                    console.error('SHA sync failed for item', item.id, e);
+                }
+            }
+        }
+    `;
+
+    const swBlob = new Blob([swCode], {type: 'application/javascript'});
+    const swUrl = URL.createObjectURL(swBlob);
+
+    navigator.serviceWorker.register(swUrl).then(reg => {
+        console.log('PWA Service Worker registered');
+        if('sync' in reg){
+            reg.sync.register('sha-sync').catch(() => {});
+        }
+    }).catch(err => console.warn('SW registration failed:', err));
+}
+
+// PWA Install Prompt
+let deferredPrompt;
+window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferredPrompt = e;
+    console.log('PWA install prompt available');
+});
+
+function promptPWAInstall(){
+    if(deferredPrompt){
+        deferredPrompt.prompt();
+        deferredPrompt.userChoice.then(choice => {
+            if(choice.outcome === 'accepted'){
+                toast('MediCare HMS installed!', 'success');
+            }
+            deferredPrompt = null;
+        });
+    } else {
+        toast('Install option not available. Use browser menu > Add to Home Screen.', 'info');
+    }
 }
 </script>
 </body>
