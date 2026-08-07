@@ -890,6 +890,7 @@ let currentViewInvoiceId = null;
 let loginAttempts = 0;
 let loginLockoutUntil = 0;
 let lastActivity = Date.now();
+let _sessionGateBlocked = false; // Prevents auth handler loop when session gate rejects
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOGIN_LOCKOUT_MS = 15 * 60 * 1000; // 15 minutes
@@ -1278,16 +1279,19 @@ if(auth) {
             const sessionEmail = sessionStorage.getItem('medicare_session_email');
 
             if(!sessionActive || (sessionEmail && sessionEmail !== user.email)){
-                console.log('Auto-login blocked: no active session flag or email mismatch. Forcing sign out.');
-                // CRITICAL: Terminate Firestore BEFORE revoking auth to prevent queue corruption
+                if(_sessionGateBlocked) return; // Already handled, prevent re-entry
+                _sessionGateBlocked = true;
+                console.log('Auto-login blocked: no active session flag or email mismatch.');
+                // CRITICAL: Terminate Firestore BEFORE clearing state to prevent queue corruption
                 await terminateFirestore();
-                // Prevent rapid re-trigger by clearing Firebase's cached auth state
-                try { await auth.signOut(); } catch(e){}
-                // Clear any lingering local auth data
+                // Clear app-level auth state but do NOT force Firebase Auth sign-out.
+                // Forcing signOut triggers cascading auth state changes that can loop.
+                // The user must explicitly log in to set the session flag.
                 currentUser = null;
                 showLogin();
                 return;
             }
+            _sessionGateBlocked = false; // Reset on successful auth
 
             currentUser = user;
             isOnline = true;
@@ -1306,7 +1310,11 @@ if(auth) {
 
 async function loadHospitalAndUser(){
     let firestoreWorked = false;
-    if(db && isOnline && currentUser && currentUser.uid){
+    // Extra safety: if db was terminated or is null, skip Firestore entirely
+    if(dbTerminated || !db){
+        console.log('loadHospitalAndUser: Firestore is terminated, using localStorage only');
+    }
+    if(!dbTerminated && db && isOnline && currentUser && currentUser.uid){
         try {
             // Skip expensive testFirestoreAccess here - do it lazily later
             // Try to read user profile from hospitalUsers (3s timeout)
@@ -1378,6 +1386,7 @@ async function loadHospitalAndUser(){
 }
 
 function showLogin(){
+    _sessionGateBlocked = false; // Reset when showing login screen
     document.getElementById('loginScreen').style.display='flex';
     document.getElementById('dashboard').style.display='none';
     document.getElementById('offlineBadge').style.display = 'none';
@@ -1716,7 +1725,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
 
             firebaseSuccess = true;
             // Re-init Firestore after successful auth to ensure clean queue
-            await reinitFirestore();
+            if(dbTerminated || !db) await reinitFirestore();
             // Mark this browser session as authenticated
             sessionStorage.setItem('medicare_session_active', 'true');
             sessionStorage.setItem('medicare_session_email', email);
@@ -1934,7 +1943,7 @@ document.getElementById('hospitalRegForm').addEventListener('submit', async (e) 
                 console.warn('Registration saved locally. Cloud sync queued. Fix Firestore rules for multi-device access.');
             }
 
-            await reinitFirestore();
+            if(dbTerminated || !db) await reinitFirestore();
             showDashboard(); 
             loadAllData();
             firebaseSuccess = true;
@@ -2004,6 +2013,7 @@ document.getElementById('hospitalRegForm').addEventListener('submit', async (e) 
 });
 
 function lockScreen(){
+    _sessionGateBlocked = false;
     // Clear sensitive session data and session flag
     sessionStorage.removeItem('medicare_session_active');
     sessionStorage.removeItem('medicare_session_email');
@@ -2017,6 +2027,7 @@ function lockScreen(){
 }
 
 function logout(){
+    _sessionGateBlocked = false; // Reset session gate on explicit logout
     realtimeUnsubscribers.forEach(fn => fn());
     realtimeUnsubscribers = [];
     if(_connectivityTimer) clearInterval(_connectivityTimer);
@@ -4540,7 +4551,8 @@ async function loadDemoData(){
         {id:'i5',hospitalId:'DEMO',name:'Insulin Glargine',category:'Medication',quantity:8,unit:'vials',minQuantity:5,price:'85.00',expiryDate:'2026-12-01',notes:'Long-acting insulin'}
     ];
 
-    if(!localStorage.getItem('medicare_patients') || JSON.parse(localStorage.getItem('medicare_patients')).length === 0){
+    // Use secureGet with correct prefixed keys to check if demo data exists
+    if(secureGet(getStorageKey('patients', 'DEMO'), []).length === 0){
         secureSet(getStorageKey('patients', 'DEMO'), demoPatients);
         secureSet(getStorageKey('doctors', 'DEMO'), demoDoctors);
         secureSet(getStorageKey('wards', 'DEMO'), demoWards);
@@ -4552,16 +4564,15 @@ async function loadDemoData(){
     }
 
     // Sync demo users to medicare_users for user management display
-    // Only seed demo users if no real users exist
-    // Always ensure demo users exist for DEMO hospital, regardless of other hospitals
+    // Always ensure demo users exist for DEMO hospital
     const demoUsersForCache = [
         {id:'demo-admin', uid:'demo-admin', hospitalId:'DEMO', name:'Admin John Smith', email:'admin@medicare.co.ke', role:'admin'},
         {id:'demo-doctor', uid:'demo-doctor', hospitalId:'DEMO', name:'Dr. James Anderson', email:'doctor@medicare.co.ke', role:'doctor'},
         {id:'demo-nurse', uid:'demo-nurse', hospitalId:'DEMO', name:'Nurse Mary Williams', email:'nurse@medicare.co.ke', role:'nurse'},
         {id:'demo-reception', uid:'demo-reception', hospitalId:'DEMO', name:'Receptionist Jane Doe', email:'reception@medicare.co.ke', role:'receptionist'}
     ];
-    if(!localStorage.getItem('medicare_users') || JSON.parse(localStorage.getItem('medicare_users')).length === 0){
-        secureSet('medicare_users', demoUsersForCache);
+    if(secureGet(getStorageKey('users', 'DEMO'), []).length === 0){
+        secureSet(getStorageKey('users', 'DEMO'), demoUsersForCache);
     }
 
     // DEMO LABS
@@ -4573,7 +4584,7 @@ async function loadDemoData(){
         {id:'l5',hospitalId:'DEMO',patientId:'p3',doctorId:'d1',testType:'Blood Test',status:'Pending',dateOrdered:'2026-07-24',dateCompleted:'',results:'',notes:'CBC, CMP, D-dimer ordered for chest discomfort workup'},
         {id:'l6',hospitalId:'DEMO',patientId:'p2',doctorId:'d2',testType:'Urine Analysis',status:'Pending',dateOrdered:'2026-07-24',dateCompleted:'',results:'',notes:'UTI screening'}
     ];
-    if(!localStorage.getItem('medicare_labs') || JSON.parse(localStorage.getItem('medicare_labs')).length === 0){
+    if(secureGet(getStorageKey('labs', 'DEMO'), []).length === 0){
         secureSet(getStorageKey('labs', 'DEMO'), demoLabs);
     }
 }
