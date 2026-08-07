@@ -1468,6 +1468,15 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
             // 1. Try to read hospitalUsers doc from Firestore
             let userDoc = null;
             let firestoreBlocked = false;
+
+            let hospDoc = null;
+            try {
+                hospDoc = await promiseTimeout(db.collection('hospitals').doc(hospitalId).get(), 5000);
+            } catch(e) {
+                console.warn('hospitals read failed:', e.code);
+                if(e.code === 'permission-denied') firestoreBlocked = true;
+            }
+
             try {
                 userDoc = await promiseTimeout(db.collection('hospitalUsers').doc(cred.user.uid).get(), 5000);
             } catch(e) {
@@ -1575,13 +1584,6 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
             userRole = userData.role || 'staff';
 
             // 3. Try to load hospital doc from Firestore, fallback to localStorage
-            let hospDoc = null;
-            try {
-                hospDoc = await promiseTimeout(db.collection('hospitals').doc(hospitalId).get(), 5000);
-            } catch(e) {
-                console.warn('hospitals read failed:', e.code);
-                if(e.code === 'permission-denied') firestoreBlocked = true;
-            }
 
             if(hospDoc && hospDoc.exists){
                 currentHospital = {id: hospitalId, ...hospDoc.data()};
