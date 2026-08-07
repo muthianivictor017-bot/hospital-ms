@@ -281,6 +281,25 @@ body{font-family:'Inter',sans-serif;background:var(--light);color:var(--dark)}
 .payment-summary-box .summary-row{display:flex;justify-content:space-between;padding:6px 0;font-size:13px}
 .payment-summary-box .summary-row.total{font-weight:600;font-size:15px;border-top:2px solid var(--border);margin-top:8px;padding-top:8px}
 @media(max-width:768px){.sidebar{transform:translateX(-100%)}.main-content{margin-left:0;padding:14px}.stats-grid{grid-template-columns:1fr 1fr}.form-row,.form-row-3{grid-template-columns:1fr}.ward-grid{grid-template-columns:1fr}.invoice-detail-body{grid-template-columns:1fr}}
+
+/* MESSAGING STYLES */
+.msg-btn{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:none;transition:all 0.2s}
+.msg-btn-whatsapp{background:#d1fae5;color:#059669}
+.msg-btn-whatsapp:hover{background:#10b981;color:white}
+.msg-btn-sms{background:#dbeafe;color:#2563eb}
+.msg-btn-sms:hover{background:#2563eb;color:white}
+.msg-actions{display:flex;gap:5px;flex-wrap:wrap}
+.msg-log-row{display:flex;align-items:center;gap:12px;padding:10px 14px;border-bottom:1px solid var(--border);font-size:13px}
+.msg-log-row:last-child{border-bottom:none}
+.msg-log-row .time{color:var(--gray);font-size:11px;min-width:90px}
+.msg-log-row .channel{padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600}
+.msg-log-row .channel.whatsapp{background:#d1fae5;color:#059669}
+.msg-log-row .channel.sms{background:#dbeafe;color:#2563eb}
+.msg-log-row .phone{min-width:110px;color:var(--gray)}
+.msg-log-row .status{margin-left:auto;font-size:11px}
+.msg-log-row .status.sent{color:var(--success)}
+.msg-log-row .status.failed{color:var(--danger)}
+.msg-log-row .status.pending{color:var(--warning)}
 </style>
 </head>
 <body>
@@ -384,6 +403,7 @@ body{font-family:'Inter',sans-serif;background:var(--light);color:var(--dark)}
 <div class="nav-item admin-only-nav" data-page="reports" style="display:none"><i class="fas fa-chart-pie"></i><span>Reports</span></div>
 <div class="nav-item" data-page="labs"><i class="fas fa-flask"></i><span>Lab Services</span><span class="badge orange" id="labBadge">0</span></div>
 <div class="nav-item" data-page="inventory"><i class="fas fa-pills"></i><span>Inventory</span></div>
+<div class="nav-item" data-page="messaging"><i class="fas fa-comment-medical"></i><span>Messaging</span></div>
 <div class="nav-section-title admin-only-nav" style="display:none">Administration</div>
 <div class="nav-item admin-only-nav" data-page="users" style="display:none"><i class="fas fa-users-cog"></i><span>User Management</span></div>
 <div class="nav-item admin-only-nav" data-page="settings" style="display:none"><i class="fas fa-cog"></i><span>Settings</span></div>
@@ -427,7 +447,7 @@ body{font-family:'Inter',sans-serif;background:var(--light);color:var(--dark)}
 </div>
 <div class="card">
 <div class="card-header"><h3><i class="fas fa-calendar-day"></i> Today's Appointments</h3><button class="btn-sm btn-primary" onclick="navigateTo('appointments')">View All</button></div>
-<div class="card-body"><table class="data-table"><thead><tr><th>Time</th><th>Patient</th><th>Doctor</th><th>Reason</th><th>Status</th></tr></thead><tbody id="todayAppointmentsTable"><tr><td colspan="5" class="empty-state"><i class="fas fa-calendar"></i><p>No appointments today</p></td></tr></tbody></table></div>
+<div class="card-body"><table class="data-table"><thead><tr><th>Time</th><th>Patient</th><th>Doctor</th><th>Reason</th><th>Status</th><th>Msg</th></tr></thead><tbody id="todayAppointmentsTable"><tr><td colspan="5" class="empty-state"><i class="fas fa-calendar"></i><p>No appointments today</p></td></tr></tbody></table></div>
 </div>
 <div class="card">
 <div class="card-header"><h3><i class="fas fa-dollar-sign"></i> Pending Payments</h3><button class="btn-sm btn-primary" onclick="navigateTo('billing')">View All</button></div>
@@ -626,6 +646,34 @@ body{font-family:'Inter',sans-serif;background:var(--light);color:var(--dark)}
 </div>
 </div>
 
+<!-- MESSAGING PAGE -->
+<div class="page-section" id="page-messaging">
+<div class="stats-grid" style="margin-bottom:16px">
+    <div class="stat-card"><div class="stat-icon green"><i class="fab fa-whatsapp"></i></div><div class="stat-info"><h3 id="msgTodayCount">0</h3><p>Today's Reminders</p></div></div>
+    <div class="stat-card"><div class="stat-icon blue"><i class="fas fa-calendar-check"></i></div><div class="stat-info"><h3 id="msgUpcomingCount">0</h3><p>Upcoming Appts</p></div></div>
+    <div class="stat-card"><div class="stat-icon purple"><i class="fas fa-paper-plane"></i></div><div class="stat-info"><h3 id="msgSentCount">0</h3><p>Messages Sent</p></div></div>
+    <div class="stat-card"><div class="stat-icon teal"><i class="fas fa-users"></i></div><div class="stat-info"><h3 id="msgPatientCount">0</h3><p>Patients with Phone</p></div></div>
+</div>
+<div class="search-bar">
+    <select id="msgTemplateSelect" onchange="previewTemplate()">
+        <option value="appointment">Appointment Reminder</option>
+        <option value="followup">Clinic Date / Follow-up</option>
+        <option value="general">General Notification</option>
+    </select>
+    <input type="date" id="msgDateFilter" onchange="filterMessaging()">
+    <button class="btn-sm btn-success" onclick="sendBulkReminders()"><i class="fas fa-paper-plane"></i> Send Bulk Reminders</button>
+</div>
+<div class="card"><div class="card-header"><h3><i class="fas fa-comment-medical"></i> Message Center</h3></div>
+<div class="card-body">
+    <div id="msgPreviewBox" style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:14px;margin-bottom:16px;font-size:13px;color:#166534;display:none">
+        <strong><i class="fas fa-eye"></i> Preview:</strong> <span id="msgPreviewText"></span>
+    </div>
+    <table class="data-table"><thead><tr><th><input type="checkbox" id="msgSelectAll" onchange="toggleSelectAllMessages()"></th><th>Patient</th><th>Phone</th><th>Date</th><th>Type</th><th>Details</th><th>Actions</th></tr></thead><tbody id="messagingTable"></tbody></table>
+</div></div>
+<div class="card" style="margin-top:20px"><div class="card-header"><h3><i class="fas fa-history"></i> Message Log</h3></div>
+<div class="card-body" id="messageLogContainer"><div class="empty-state" style="padding:20px"><i class="fas fa-history"></i><p>No messages sent yet</p></div></div></div>
+</div>
+
 <!-- SETTINGS PAGE -->
 <div class="page-section" id="page-settings">
 <div class="access-denied" id="settingsAccessDenied">
@@ -640,6 +688,54 @@ body{font-family:'Inter',sans-serif;background:var(--light);color:var(--dark)}
 <div class="card-body">
 <div class="form-group"><label>Change Admin Password</label><input type="password" id="settingsNewPassword" placeholder="New password (min 6 chars)"></div>
 <button class="btn btn-primary" style="width:auto;padding:10px 24px" onclick="updateAdminPassword()">Update Password</button>
+</div></div>
+<div class="card" style="margin-top:20px"><div class="card-header"><h3><i class="fas fa-comment-medical"></i> Messaging Configuration</h3></div>
+<div class="card-body">
+    <div class="form-row">
+        <div class="form-group">
+            <label><i class="fab fa-whatsapp" style="color:#25d366"></i> Clinic WhatsApp Number</label>
+            <input type="tel" id="set_whatsapp_number" placeholder="e.g., +254712345678">
+            <p style="font-size:12px;color:var(--gray);margin-top:4px">Used for WhatsApp Web links (wa.me). Include country code.</p>
+        </div>
+        <div class="form-group">
+            <label><i class="fas fa-sms" style="color:#0ea5e9"></i> SMS Sender ID</label>
+            <input type="text" id="set_sms_sender" placeholder="e.g., MEDICARE" maxlength="11">
+            <p style="font-size:12px;color:var(--gray);margin-top:4px">11 characters max. Shown as sender for SMS.</p>
+        </div>
+    </div>
+    <div class="form-group">
+        <label><i class="fas fa-cloud"></i> Twilio Account SID <span style="color:var(--gray);font-size:12px">(optional - for API-based SMS)</span></label>
+        <input type="text" id="set_twilio_sid" placeholder="ACxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
+    </div>
+    <div class="form-row">
+        <div class="form-group">
+            <label>Twilio Auth Token</label>
+            <input type="password" id="set_twilio_token" placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
+        </div>
+        <div class="form-group">
+            <label>Twilio Phone Number</label>
+            <input type="tel" id="set_twilio_number" placeholder="+254712345678">
+        </div>
+    </div>
+    <div style="background:var(--light);border-radius:10px;padding:16px;margin-top:12px">
+        <h4 style="font-size:13px;margin-bottom:10px"><i class="fas fa-envelope-open-text"></i> Message Templates</h4>
+        <div class="form-group">
+            <label>Appointment Reminder Template</label>
+            <textarea id="set_tpl_appointment" rows="2" placeholder="Hi {name}, this is a reminder of your appointment at {clinic} on {date} at {time} with Dr. {doctor}."></textarea>
+            <p style="font-size:11px;color:var(--gray)">Variables: {name}, {clinic}, {date}, {time}, {doctor}</p>
+        </div>
+        <div class="form-group">
+            <label>Clinic Date / Follow-up Template</label>
+            <textarea id="set_tpl_followup" rows="2" placeholder="Hi {name}, please visit {clinic} on {date} for your follow-up. Contact us at {phone} if you need to reschedule."></textarea>
+            <p style="font-size:11px;color:var(--gray)">Variables: {name}, {clinic}, {date}, {phone}</p>
+        </div>
+        <div class="form-group">
+            <label>General Notification Template</label>
+            <textarea id="set_tpl_general" rows="2" placeholder="Hi {name}, {message} - {clinic}"></textarea>
+            <p style="font-size:11px;color:var(--gray)">Variables: {name}, {clinic}, {message}</p>
+        </div>
+    </div>
+    <button class="btn btn-primary" style="width:auto;padding:10px 24px;margin-top:12px" onclick="saveMessagingSettings()">Save Messaging Settings</button>
 </div></div>
 <div class="card" style="margin-top:20px"><div class="card-header"><h3><i class="fas fa-clipboard-list"></i> Security Audit Log</h3></div>
 <div class="card-body" id="auditLogContainer"><div class="empty-state" style="padding:20px"><i class="fas fa-clipboard-list"></i><p>Loading audit log...</p></div></div></div>
@@ -676,6 +772,19 @@ body{font-family:'Inter',sans-serif;background:var(--light);color:var(--dark)}
 <button class="btn-sm btn-gray" onclick="closeViewInvoiceModal()">Close</button>
 <button class="btn-sm btn-indigo" onclick="printInvoice()"><i class="fas fa-print"></i> Print Invoice</button>
 <button class="btn-sm btn-success" onclick="printReceipt()"><i class="fas fa-receipt"></i> Print Receipt</button>
+</div>
+</div>
+</div>
+
+<!-- MESSAGE MODAL -->
+<div class="modal-overlay" id="messageModalOverlay">
+<div class="modal" id="messageModal">
+<div class="modal-header"><h2>Send Message</h2><button class="modal-close" onclick="closeMessageModal()">&times;</button></div>
+<div class="modal-body" id="messageModalBody"></div>
+<div class="modal-footer">
+    <button class="btn-sm btn-gray" onclick="closeMessageModal()">Cancel</button>
+    <button class="btn-sm btn-success" id="msgSendWhatsAppBtn" onclick="sendMessageVia('whatsapp')"><i class="fab fa-whatsapp"></i> WhatsApp</button>
+    <button class="btn-sm btn-info" id="msgSendSMSBtn" onclick="sendMessageVia('sms')"><i class="fas fa-sms"></i> SMS</button>
 </div>
 </div>
 </div>
@@ -2131,16 +2240,21 @@ function navigateTo(page){
     else if(page === 'inventory'){ btn.innerHTML = '<i class="fas fa-plus"></i> Add Item'; btn.onclick = () => openModal('inventory'); btn.style.display = ''; }
     else if(page === 'users'){ btn.innerHTML = '<i class="fas fa-plus"></i> Add User'; btn.onclick = () => openModal('user'); btn.style.display = (userRole === 'admin') ? '' : 'none'; }
     else if(page === 'reports'){ btn.innerHTML = '<i class="fas fa-download"></i> Export'; btn.onclick = () => exportReportCSV(); btn.style.display = (userRole === 'admin') ? '' : 'none'; }
+    else if(page === 'messaging'){ btn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Bulk'; btn.onclick = () => sendBulkReminders(); btn.style.display = ''; }
     else { btn.style.display = 'none'; }
     if(page === 'users'){
         document.getElementById('usersAccessDenied').style.display = (userRole === 'admin') ? 'none' : 'block';
         document.getElementById('usersContent').style.display = (userRole === 'admin') ? 'block' : 'none';
         if(userRole === 'admin') renderUsers();
     }
+    if(page === 'messaging'){
+        renderMessaging();
+        previewTemplate();
+    }
     if(page === 'settings'){
         document.getElementById('settingsAccessDenied').style.display = (userRole === 'admin') ? 'none' : 'block';
         document.getElementById('settingsContent').style.display = (userRole === 'admin') ? 'block' : 'none';
-        if(userRole === 'admin'){ renderSettings(); renderAuditLog(); }
+        if(userRole === 'admin'){ renderSettings(); renderAuditLog(); loadMessagingSettingsIntoForm(); }
     }
     if(page === 'reports'){
         document.getElementById('reportsAccessDenied').style.display = (userRole === 'admin') ? 'none' : 'block';
@@ -2682,6 +2796,7 @@ function refreshPageData(page){
         case 'inventory': renderInventory(); break;
         case 'users': if(userRole === 'admin') renderUsers(); break;
         case 'reports': if(userRole === 'admin') generateReports(); break;
+        case 'messaging': renderMessaging(); previewTemplate(); break;
     }
 }
 
@@ -2784,7 +2899,7 @@ function renderDashboard(){
         tbody.innerHTML = todayAppts.map(a => {
             const p = dataCache.patients.find(pt => pt.id === a.patientId) || {name:'Unknown'};
             const d = dataCache.doctors.find(dr => dr.id === a.doctorId) || {name:'Unknown'};
-            return `<tr><td>${a.time || '-'}</td><td>${p.name}</td><td>Dr. ${d.name}</td><td>${a.reason || '-'}</td><td><span class="status-badge status-${(a.status || 'pending').toLowerCase()}">${a.status || 'Pending'}</span></td></tr>`;
+            return `<tr><td>${a.time || '-'}</td><td>${p.name}</td><td>Dr. ${d.name}</td><td>${a.reason || '-'}</td><td><span class="status-badge status-${(a.status || 'pending').toLowerCase()}">${a.status || 'Pending'}</span></td>${p.phone ? `<td><button class="msg-btn msg-btn-whatsapp" onclick="openMessageModal('${p.id}', 'appointment', '${a.date}', '${a.time || ''}', '${d.name || ''}')" title="Send Reminder"><i class="fab fa-whatsapp"></i></button></td>` : '<td></td>'}</tr>`;
         }).join('');
     }
     // Pending payments
@@ -2811,7 +2926,7 @@ function renderPatients(){
         return `<tr><td>#${p.id ? p.id.slice(-4) : '0000'}</td><td><strong>${p.name}</strong></td><td>${p.age || '-'} / ${p.gender || '-'}</td><td>${p.phone || '-'}</td>
         <td>${hasInsurance ? `<span class="insurance-badge"><i class="fas fa-shield-alt"></i> ${p.insuranceProvider}</span>` : '<span class="insurance-badge inactive">No Insurance</span>'}</td>
         <td>${isAdmitted ? '<span class="status-badge status-admitted"><i class="fas fa-bed"></i> Admitted</span>' : '<span class="status-badge status-discharged">Outpatient</span>'}</td>
-        <td><button class="btn-sm btn-info" onclick="viewPatient('${p.id}')"><i class="fas fa-eye"></i></button> <button class="btn-sm btn-warning" onclick="editPatient('${p.id}')"><i class="fas fa-edit"></i></button> <button class="btn-sm btn-danger" onclick="deletePatient('${p.id}')"><i class="fas fa-trash"></i></button></td></tr>`;
+        <td><button class="btn-sm btn-info" onclick="viewPatient('${p.id}')"><i class="fas fa-eye"></i></button> <button class="btn-sm btn-warning" onclick="editPatient('${p.id}')"><i class="fas fa-edit"></i></button> <button class="btn-sm btn-danger" onclick="deletePatient('${p.id}')"><i class="fas fa-trash"></i></button>${p.phone ? ` <button class="msg-btn msg-btn-whatsapp" onclick="openMessageModal('${p.id}', 'general', '', '', '')" title="Send WhatsApp"><i class="fab fa-whatsapp"></i></button>` : ''}</td></tr>`;
     }).join('');
 }
 
@@ -4501,6 +4616,373 @@ function viewPrescription(id){
 function viewInvoice(id){
     viewInvoiceDetail(id);
 }
+
+// ==================== MESSAGING SYSTEM ====================
+function getMessagingSettings(){
+    return secureGet('medicare_messaging_settings', {
+        whatsappNumber: '',
+        smsSender: 'MediCare',
+        twilioSid: '',
+        twilioToken: '',
+        twilioNumber: '',
+        templates: {
+            appointment: "Hi {name}, this is a reminder of your appointment at {clinic} on {date} at {time} with Dr. {doctor}.",
+            followup: "Hi {name}, please visit {clinic} on {date} for your follow-up. Contact us at {phone} if you need to reschedule.",
+            general: "Hi {name}, {message} - {clinic}"
+        }
+    });
+}
+
+function saveMessagingSettings(){
+    const settings = {
+        whatsappNumber: document.getElementById('set_whatsapp_number').value.trim(),
+        smsSender: document.getElementById('set_sms_sender').value.trim() || 'MediCare',
+        twilioSid: document.getElementById('set_twilio_sid').value.trim(),
+        twilioToken: document.getElementById('set_twilio_token').value.trim(),
+        twilioNumber: document.getElementById('set_twilio_number').value.trim(),
+        templates: {
+            appointment: document.getElementById('set_tpl_appointment').value,
+            followup: document.getElementById('set_tpl_followup').value,
+            general: document.getElementById('set_tpl_general').value
+        },
+        updatedAt: new Date().toISOString()
+    };
+    secureSet('medicare_messaging_settings', settings);
+    toast('Messaging settings saved', 'success');
+}
+
+function loadMessagingSettingsIntoForm(){
+    const s = getMessagingSettings();
+    const el = (id) => document.getElementById(id);
+    if(el('set_whatsapp_number')) el('set_whatsapp_number').value = s.whatsappNumber || '';
+    if(el('set_sms_sender')) el('set_sms_sender').value = s.smsSender || 'MediCare';
+    if(el('set_twilio_sid')) el('set_twilio_sid').value = s.twilioSid || '';
+    if(el('set_twilio_token')) el('set_twilio_token').value = s.twilioToken || '';
+    if(el('set_twilio_number')) el('set_twilio_number').value = s.twilioNumber || '';
+    if(el('set_tpl_appointment')) el('set_tpl_appointment').value = s.templates?.appointment || '';
+    if(el('set_tpl_followup')) el('set_tpl_followup').value = s.templates?.followup || '';
+    if(el('set_tpl_general')) el('set_tpl_general').value = s.templates?.general || '';
+}
+
+function getMessageTemplate(type, vars){
+    const s = getMessagingSettings();
+    let tpl = s.templates?.[type] || s.templates?.general || '';
+    const clinic = currentHospital?.name || 'MediCare Clinic';
+    const phone = currentHospital?.phone || '';
+    tpl = tpl.replace(/{name}/g, vars.name || 'Patient');
+    tpl = tpl.replace(/{clinic}/g, clinic);
+    tpl = tpl.replace(/{date}/g, vars.date || '');
+    tpl = tpl.replace(/{time}/g, vars.time || '');
+    tpl = tpl.replace(/{doctor}/g, vars.doctor || '');
+    tpl = tpl.replace(/{phone}/g, phone);
+    tpl = tpl.replace(/{message}/g, vars.message || '');
+    return tpl;
+}
+
+function renderMessaging(){
+    const today = new Date().toISOString().split('T')[0];
+    const s = getMessagingSettings();
+    const patientsWithPhone = dataCache.patients.filter(p => p.phone && p.phone.length > 5);
+    const todayAppts = dataCache.appointments.filter(a => a.date === today);
+    const upcoming = dataCache.appointments.filter(a => a.date >= today);
+    const logs = secureGet('medicare_message_log', []);
+    const sentToday = logs.filter(l => l.date === today).length;
+
+    document.getElementById('msgTodayCount').textContent = todayAppts.length;
+    document.getElementById('msgUpcomingCount').textContent = upcoming.length;
+    document.getElementById('msgSentCount').textContent = sentToday;
+    document.getElementById('msgPatientCount').textContent = patientsWithPhone.length;
+
+    const dateFilter = document.getElementById('msgDateFilter').value;
+    let items = [];
+
+    // Build list from appointments + admissions + patients
+    dataCache.appointments.forEach(a => {
+        const p = dataCache.patients.find(pt => pt.id === a.patientId);
+        const d = dataCache.doctors.find(dr => dr.id === a.doctorId);
+        if(p && p.phone){
+            items.push({
+                type: 'appointment',
+                patientId: p.id,
+                name: p.name,
+                phone: p.phone,
+                date: a.date,
+                time: a.time,
+                doctor: d?.name || '',
+                details: `Appt: ${a.reason || '-'}`,
+                raw: a
+            });
+        }
+    });
+
+    dataCache.admissions.filter(a => a.status === 'Admitted').forEach(a => {
+        const p = dataCache.patients.find(pt => pt.id === a.patientId);
+        if(p && p.phone){
+            items.push({
+                type: 'followup',
+                patientId: p.id,
+                name: p.name,
+                phone: p.phone,
+                date: a.expectedDischarge || a.admissionDate,
+                time: '',
+                doctor: '',
+                details: `Admission: ${a.admissionReason || '-'}`,
+                raw: a
+            });
+        }
+    });
+
+    // Deduplicate by patient+date
+    const seen = new Set();
+    items = items.filter(i => {
+        const key = i.patientId + '_' + i.date;
+        if(seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+
+    if(dateFilter) items = items.filter(i => i.date === dateFilter);
+
+    const tbody = document.getElementById('messagingTable');
+    if(items.length === 0){
+        tbody.innerHTML = '<tr><td colspan="7" class="empty-state"><i class="fas fa-comment-medical"></i><p>No patients with phone numbers found</p></td></tr>';
+    } else {
+        tbody.innerHTML = items.map((i, idx) => {
+            const tplType = document.getElementById('msgTemplateSelect')?.value || 'appointment';
+            const msg = getMessageTemplate(tplType, {name: i.name, date: i.date, time: i.time, doctor: i.doctor});
+            return `<tr>
+                <td><input type="checkbox" class="msg-select" data-idx="${idx}" data-phone="${sanitizeHTML(i.phone)}" data-name="${sanitizeHTML(i.name)}" data-date="${sanitizeHTML(i.date)}" data-time="${sanitizeHTML(i.time || '')}" data-doctor="${sanitizeHTML(i.doctor || '')}"></td>
+                <td><strong>${sanitizeHTML(i.name)}</strong></td>
+                <td>${sanitizeHTML(i.phone)}</td>
+                <td>${i.date} ${i.time}</td>
+                <td><span class="status-badge status-${i.type === 'appointment' ? 'active' : 'admitted'}">${i.type === 'appointment' ? 'Appointment' : 'Admission'}</span></td>
+                <td>${sanitizeHTML(i.details)}</td>
+                <td>
+                    <div class="msg-actions">
+                        <button class="msg-btn msg-btn-whatsapp" onclick="openMessageModal('${i.patientId}', '${i.type}', '${i.date}', '${i.time || ''}', '${i.doctor || ''}')"><i class="fab fa-whatsapp"></i> WhatsApp</button>
+                        <button class="msg-btn msg-btn-sms" onclick="sendDirectSMS('${sanitizeHTML(i.phone)}', '${i.patientId}', '${i.type}', '${i.date}', '${i.time || ''}', '${i.doctor || ''}')"><i class="fas fa-sms"></i> SMS</button>
+                    </div>
+                </td>
+            </tr>`;
+        }).join('');
+    }
+
+    renderMessageLog();
+}
+
+function filterMessaging(){ renderMessaging(); }
+
+function previewTemplate(){
+    const tplType = document.getElementById('msgTemplateSelect')?.value || 'appointment';
+    const preview = getMessageTemplate(tplType, {name: 'John Doe', date: '2026-08-10', time: '10:00', doctor: 'Smith'});
+    const box = document.getElementById('msgPreviewBox');
+    const text = document.getElementById('msgPreviewText');
+    if(box && text){
+        text.textContent = preview;
+        box.style.display = 'block';
+    }
+}
+
+function toggleSelectAllMessages(){
+    const checked = document.getElementById('msgSelectAll')?.checked || false;
+    document.querySelectorAll('.msg-select').forEach(cb => cb.checked = checked);
+}
+
+let currentMessageTarget = null;
+
+function openMessageModal(patientId, type, date, time, doctor){
+    const patient = dataCache.patients.find(p => p.id === patientId);
+    if(!patient || !patient.phone){
+        toast('Patient has no phone number', 'error');
+        return;
+    }
+    const s = getMessagingSettings();
+    const tplType = type === 'appointment' ? 'appointment' : 'followup';
+    const msg = getMessageTemplate(tplType, {name: patient.name, date, time, doctor});
+
+    currentMessageTarget = {patientId, phone: patient.phone, name: patient.name, type, date, time, doctor};
+
+    document.getElementById('messageModalBody').innerHTML = `
+        <div class="form-group"><label>To</label><input type="text" value="${sanitizeHTML(patient.name)} - ${sanitizeHTML(patient.phone)}" disabled></div>
+        <div class="form-group"><label>Message</label><textarea id="msgBody" rows="4">${sanitizeHTML(msg)}</textarea></div>
+        <div style="font-size:12px;color:var(--gray)">
+            <p><i class="fas fa-info-circle"></i> WhatsApp opens in a new tab with this message pre-filled.</p>
+            <p><i class="fas fa-info-circle"></i> SMS opens your device's default SMS app.</p>
+        </div>
+    `;
+    document.getElementById('messageModalOverlay').classList.add('active');
+}
+
+function closeMessageModal(){
+    document.getElementById('messageModalOverlay').classList.remove('active');
+    currentMessageTarget = null;
+}
+
+function sendMessageVia(channel){
+    if(!currentMessageTarget) return;
+    const body = document.getElementById('msgBody')?.value || '';
+    if(!body.trim()){ toast('Message cannot be empty', 'error'); return; }
+
+    if(channel === 'whatsapp'){
+        sendWhatsApp(currentMessageTarget.phone, body, currentMessageTarget);
+    } else {
+        sendSMS(currentMessageTarget.phone, body, currentMessageTarget);
+    }
+    closeMessageModal();
+}
+
+function sendWhatsApp(phone, message, meta){
+    // Clean phone: remove spaces, dashes, leading 0, ensure +
+    let clean = phone.replace(/[\s\-]/g, '');
+    if(clean.startsWith('0')) clean = clean.substring(1);
+    if(!clean.startsWith('+')) clean = '+' + clean;
+    const url = `https://wa.me/${clean}?text=${encodeURIComponent(message)}`;
+    window.open(url, '_blank');
+    logMessage({channel: 'whatsapp', phone, message, patientId: meta?.patientId, name: meta?.name, status: 'sent'});
+    toast('WhatsApp opened', 'success');
+}
+
+function sendSMS(phone, message, meta){
+    const url = `sms:${phone}?body=${encodeURIComponent(message)}`;
+    window.open(url, '_blank');
+    logMessage({channel: 'sms', phone, message, patientId: meta?.patientId, name: meta?.name, status: 'sent'});
+    toast('SMS app opened', 'success');
+}
+
+function sendDirectSMS(phone, patientId, type, date, time, doctor){
+    const patient = dataCache.patients.find(p => p.id === patientId);
+    if(!patient) return;
+    const tplType = type === 'appointment' ? 'appointment' : 'followup';
+    const msg = getMessageTemplate(tplType, {name: patient.name, date, time, doctor});
+    sendSMS(phone, msg, {patientId, name: patient.name});
+}
+
+async function sendBulkReminders(){
+    const selected = Array.from(document.querySelectorAll('.msg-select:checked'));
+    if(selected.length === 0){ toast('Select at least one patient', 'error'); return; }
+
+    const tplType = document.getElementById('msgTemplateSelect')?.value || 'appointment';
+    let sent = 0;
+
+    for(const cb of selected){
+        const phone = cb.dataset.phone;
+        const name = cb.dataset.name;
+        const date = cb.dataset.date;
+        const time = cb.dataset.time;
+        const doctor = cb.dataset.doctor;
+        const patientId = cb.closest('tr')?.querySelector('.msg-btn-whatsapp')?.getAttribute('onclick')?.match(/openMessageModal\('([^']+)'/)?.[1];
+
+        if(phone && name){
+            const msg = getMessageTemplate(tplType, {name, date, time, doctor});
+            // Small delay to prevent browser popup blocking
+            await new Promise(r => setTimeout(r, 300));
+            sendWhatsApp(phone, msg, {patientId, name});
+            sent++;
+        }
+    }
+
+    toast(`Opened WhatsApp for ${sent} patient(s)`, 'success');
+    renderMessaging();
+}
+
+function logMessage(entry){
+    let logs = secureGet('medicare_message_log', []);
+    logs.unshift({
+        id: Date.now().toString(),
+        date: new Date().toISOString().split('T')[0],
+        timestamp: new Date().toISOString(),
+        ...entry
+    });
+    if(logs.length > 500) logs = logs.slice(0, 500);
+    secureSet('medicare_message_log', logs);
+}
+
+function renderMessageLog(){
+    const logs = secureGet('medicare_message_log', []).slice(0, 50);
+    const container = document.getElementById('messageLogContainer');
+    if(!container) return;
+    if(logs.length === 0){
+        container.innerHTML = '<div class="empty-state" style="padding:20px"><i class="fas fa-history"></i><p>No messages sent yet</p></div>';
+        return;
+    }
+    container.innerHTML = logs.map(l => `
+        <div class="msg-log-row">
+            <span class="time">${l.timestamp ? l.timestamp.replace('T',' ').slice(0,16) : '-'}</span>
+            <span class="channel ${l.channel}"><i class="fab fa-${l.channel === 'whatsapp' ? 'whatsapp' : 'sms'}"></i> ${l.channel.toUpperCase()}</span>
+            <span class="phone">${sanitizeHTML(l.phone)}</span>
+            <span>${sanitizeHTML(l.name || 'Unknown')}</span>
+            <span style="flex:1;color:var(--gray);font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:300px">${sanitizeHTML(l.message || '')}</span>
+            <span class="status ${l.status}"><i class="fas fa-${l.status === 'sent' ? 'check-circle' : l.status === 'failed' ? 'times-circle' : 'clock'}"></i> ${l.status}</span>
+        </div>
+    `).join('');
+}
+
+// Add WhatsApp/SMS buttons to patient table rows
+function renderPatientsWithMessaging(){
+    // This is called after renderPatients to inject messaging buttons
+    const s = getMessagingSettings();
+    const hasWhatsApp = s.whatsappNumber || true; // Always show since wa.me works without config
+    if(!hasWhatsApp) return;
+
+    document.querySelectorAll('#patientsTable tr').forEach(row => {
+        const actionsCell = row.querySelector('td:last-child');
+        if(!actionsCell || row.querySelector('.msg-btn')) return;
+        const viewBtn = actionsCell.querySelector('button[onclick^="viewPatient"]');
+        if(viewBtn){
+            const patientId = viewBtn.getAttribute('onclick').match(/viewPatient\('([^']+)'/)?.[1];
+            if(patientId){
+                const patient = dataCache.patients.find(p => p.id === patientId);
+                if(patient && patient.phone){
+                    const wrap = document.createElement('div');
+                    wrap.style.display = 'inline-block';
+                    wrap.style.marginLeft = '4px';
+                    wrap.innerHTML = `<button class="msg-btn msg-btn-whatsapp" onclick="openMessageModal('${patientId}', 'general', '', '', '')" title="Send WhatsApp"><i class="fab fa-whatsapp"></i></button>`;
+                    actionsCell.appendChild(wrap);
+                }
+            }
+        }
+    });
+}
+
+// Add messaging buttons to appointment rows
+function renderAppointmentsWithMessaging(){
+    document.querySelectorAll('#appointmentsTable tr').forEach(row => {
+        const actionsCell = row.querySelector('td:last-child');
+        if(!actionsCell || row.querySelector('.msg-btn')) return;
+        const editBtn = actionsCell.querySelector('button[onclick^="editAppointment"]');
+        if(editBtn){
+            const apptId = editBtn.getAttribute('onclick').match(/editAppointment\('([^']+)'/)?.[1];
+            if(apptId){
+                const appt = dataCache.appointments.find(a => a.id === apptId);
+                const patient = appt ? dataCache.patients.find(p => p.id === appt.patientId) : null;
+                if(patient && patient.phone){
+                    const wrap = document.createElement('div');
+                    wrap.style.display = 'inline-block';
+                    wrap.style.marginLeft = '4px';
+                    wrap.innerHTML = `<button class="msg-btn msg-btn-whatsapp" onclick="openMessageModal('${patient.id}', 'appointment', '${appt.date}', '${appt.time || ''}', '${dataCache.doctors.find(d=>d.id===appt.doctorId)?.name || ''}')" title="Send Reminder"><i class="fab fa-whatsapp"></i></button>`;
+                    actionsCell.appendChild(wrap);
+                }
+            }
+        }
+    });
+}
+
+// Add messaging buttons to today's appointments on dashboard
+function renderDashboardWithMessaging(){
+    document.querySelectorAll('#todayAppointmentsTable tr').forEach(row => {
+        if(row.querySelector('.msg-btn') || row.querySelector('.empty-state')) return;
+        const patientName = row.querySelector('td:nth-child(2)')?.textContent;
+        if(patientName){
+            const patient = dataCache.patients.find(p => p.name === patientName);
+            if(patient && patient.phone){
+                const actionsCell = row.insertCell(-1);
+                actionsCell.innerHTML = `<button class="msg-btn msg-btn-whatsapp" onclick="openMessageModal('${patient.id}', 'appointment', '${new Date().toISOString().split('T')[0]}', '${row.querySelector('td:first-child')?.textContent || ''}', '${row.querySelector('td:nth-child(3)')?.textContent.replace('Dr. ','') || ''}')" title="Send Reminder"><i class="fab fa-whatsapp"></i></button>`;
+            }
+        }
+    });
+}
+
+// ==================== END MESSAGING SYSTEM ====================
 
 // ==================== DEMO DATA ====================
 
