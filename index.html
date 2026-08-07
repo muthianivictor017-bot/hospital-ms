@@ -777,6 +777,7 @@ const firebaseConfig = {
 };
 
 let app, auth, db;
+let dbTerminated = false;
 let isOnline = true;
 
 // ==================== SECURITY UTILITIES ====================
@@ -1125,7 +1126,7 @@ try {
     });
     db = firebase.firestore();
     // Enable offline persistence (compat SDK)
-    db.enablePersistence({synchronizeTabs:true}).catch(err => {
+    db.enablePersistence().catch(err => {
         if(err.code === 'failed-precondition'){
             console.warn('Persistence failed: multiple tabs open');
         } else if(err.code === 'unimplemented'){
@@ -1141,8 +1142,52 @@ try {
     document.getElementById('offlineBadge').style.display = 'inline-flex';
 }
 
+// ==================== FIRESTORE LIFECYCLE ====================
+async function terminateFirestore(){
+    if(!db || dbTerminated) return;
+    console.log('Terminating Firestore to prevent queue corruption...');
+    // 1. Unsubscribe all realtime listeners
+    realtimeUnsubscribers.forEach(fn => {
+        try { fn(); } catch(e) {}
+    });
+    realtimeUnsubscribers = [];
+    // 2. Terminate the DB instance to flush and shut down the queue
+    try {
+        await db.terminate();
+        console.log('Firestore terminated successfully');
+    } catch(e) {
+        console.warn('Firestore terminate error (non-fatal):', e.message);
+    }
+    // 3. Mark as terminated so no ops are enqueued
+    dbTerminated = true;
+    db = null;
+}
+
+async function reinitFirestore(){
+    if(db && !dbTerminated) return;
+    if(typeof firebase === 'undefined' || !firebase.apps || firebase.apps.length === 0) return;
+    try {
+        db = firebase.firestore();
+        dbTerminated = false;
+        console.log('Firestore re-initialized');
+    } catch(e) {
+        console.warn('Firestore re-init failed:', e.message);
+        db = null;
+        dbTerminated = true;
+    }
+}
+
+function guardFirestoreOp(fnName){
+    if(dbTerminated || !db){
+        console.warn(`Firestore operation '${fnName}' blocked: db is terminated`);
+        return false;
+    }
+    return true;
+}
+
 // Test Firestore connectivity - read-only (respects restricted rules)
 async function testFirestoreAccess(){
+    if(!guardFirestoreOp('testFirestoreAccess')) return false;
     if(!db || !auth || !auth.currentUser) return false;
     try {
         // Read-only test: try to read _connection_test (all auth users can read)
@@ -1164,6 +1209,7 @@ async function testFirestoreAccess(){
 // ==================== NETWORK & CONNECTION ====================
 // Real Firebase connectivity test - more reliable than navigator.onLine
 async function testFirebaseConnectivity(){
+    if(!guardFirestoreOp('testFirebaseConnectivity')) return false;
     if(!db || !auth || !auth.currentUser) return false;
     try {
         const testRef = db.collection('_connection_test').doc('ping');
@@ -1233,6 +1279,8 @@ if(auth) {
 
             if(!sessionActive || (sessionEmail && sessionEmail !== user.email)){
                 console.log('Auto-login blocked: no active session flag or email mismatch. Forcing sign out.');
+                // CRITICAL: Terminate Firestore BEFORE revoking auth to prevent queue corruption
+                await terminateFirestore();
                 // Prevent rapid re-trigger by clearing Firebase's cached auth state
                 try { await auth.signOut(); } catch(e){}
                 // Clear any lingering local auth data
@@ -1336,6 +1384,7 @@ function showLogin(){
     if(_connectivityTimer) clearInterval(_connectivityTimer);
 }
 async function loadCloudSettings(){
+    if(!guardFirestoreOp('loadCloudSettings')) return;
     if(!db || !currentHospital || !auth.currentUser) return;
     try {
         const hospId = currentHospital.hospitalId || currentHospital.id;
@@ -1605,7 +1654,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
 
             // CROSS-DEVICE SYNC: If we have local user data but Firestore is accessible,
             // push the local user record to cloud so other devices can find it
-            if(!firestoreBlocked && currentHospital){
+            if(!dbTerminated && db && !firestoreBlocked && currentHospital){
                 const localAuthUsers = secureGet('medicare_users_local', []);
                 const localMe = localAuthUsers.find(u => u.email === email && u.hospitalId === hospitalId);
                 if(localMe && localMe.uid === cred.user.uid){
@@ -1666,6 +1715,8 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
             secureSet('medicare_users_local', localAuthUsers);
 
             firebaseSuccess = true;
+            // Re-init Firestore after successful auth to ensure clean queue
+            await reinitFirestore();
             // Mark this browser session as authenticated
             sessionStorage.setItem('medicare_session_active', 'true');
             sessionStorage.setItem('medicare_session_email', email);
@@ -1791,6 +1842,7 @@ document.getElementById('hospitalRegForm').addEventListener('submit', async (e) 
             await cred.user.getIdToken(true);
             await new Promise(r => setTimeout(r, 300));
 
+            if(!dbTerminated && db) {
             // Write hospital doc
             await db.collection('hospitals').doc(hospId).set({
                 name: hospName, hospitalId: hospId, license: hospLicense,
@@ -1804,6 +1856,7 @@ document.getElementById('hospitalRegForm').addEventListener('submit', async (e) 
                 role: 'admin', createdAt: firebase.firestore.FieldValue.serverTimestamp()
             });
 
+            }
             // CRITICAL: Wait for auth state to fully propagate before any reads
             await new Promise(r => setTimeout(r, 800));
             await cred.user.getIdToken(true);
@@ -1846,6 +1899,7 @@ document.getElementById('hospitalRegForm').addEventListener('submit', async (e) 
             let firestoreSyncOk = false;
             for(let attempt = 0; attempt < 3; attempt++){
                 try {
+                    if(dbTerminated || !db) break;
                     await cred.user.getIdToken(true);
                     await db.collection('hospitals').doc(hospId).set({
                         name: hospName, hospitalId: hospId, license: hospLicense,
@@ -1880,6 +1934,7 @@ document.getElementById('hospitalRegForm').addEventListener('submit', async (e) 
                 console.warn('Registration saved locally. Cloud sync queued. Fix Firestore rules for multi-device access.');
             }
 
+            await reinitFirestore();
             showDashboard(); 
             loadAllData();
             firebaseSuccess = true;
@@ -2044,6 +2099,7 @@ function navigateTo(page){
 let realtimeUnsubscribers = [];
 
 function setupRealtimeListeners(){
+    if(!guardFirestoreOp('setupRealtimeListeners')) return;
     if(!db || !currentHospital || !navigator.onLine || !auth.currentUser) return;
     // Unsubscribe previous listeners
     realtimeUnsubscribers.forEach(fn => fn());
@@ -2115,6 +2171,7 @@ function queueOfflineWrite(collection, docId, data){
     console.log('Queued offline write:', collection, docId);
 }
 async function processOfflineQueue(){
+    if(!guardFirestoreOp('processOfflineQueue')) return;
     if(!db || !isOnline || !auth.currentUser || _offlineWriteQueue.length === 0) return;
     const hospId = currentHospital ? (currentHospital.hospitalId || currentHospital.id) : null;
     if(!hospId) return;
@@ -2158,6 +2215,7 @@ function queueUserSync(userData){
 }
 
 async function processUserSyncQueue(){
+    if(!guardFirestoreOp('processUserSyncQueue')) return;
     if(!db || !auth.currentUser || _userSyncQueue.length === 0) return;
     const hospId = currentHospital ? (currentHospital.hospitalId || currentHospital.id) : null;
     if(!hospId) return;
@@ -2217,6 +2275,7 @@ window.addEventListener('online', () => {
 // ==================== LOCAL TO CLOUD SYNC ====================
 // When Firestore becomes accessible, push any local-only data up so other devices can see it
 async function syncLocalToCloud(){
+    if(!guardFirestoreOp('syncLocalToCloud')) return;
     if(!db || !currentHospital || !auth.currentUser) return;
     const hospId = currentHospital.hospitalId || currentHospital.id;
     if(!hospId) return;
@@ -2314,6 +2373,7 @@ async function loadAllData(){
     }
 
     if(db && isOnline && auth.currentUser){
+        if(!guardFirestoreOp('loadAllData')) return;
         try {
             const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','labs'];
             // PARALLEL loading: fetch all collections at once instead of sequential (5s timeout each)
@@ -2489,7 +2549,7 @@ async function saveData(collection, data){
     }
 
     // NON-BLOCKING Firestore write: fire and forget so UI stays responsive
-    if(db && isOnline && currentHospital && navigator.onLine){
+    if(!dbTerminated && db && isOnline && currentHospital && navigator.onLine){
         const hospId = currentHospital.hospitalId || currentHospital.id;
         db.collection('hospitals').doc(hospId).collection(collection).doc(id).set(item).catch(err => {
             console.warn('Firebase sync failed:', err);
@@ -2512,7 +2572,7 @@ async function deleteData(collection, id){
     const filtered = localData.filter(i => i.id !== id);
     filtered.push({id: id, deletedAt: new Date().toISOString(), deletedBy: currentUser ? currentUser.uid : 'unknown'});
     secureSet(getStorageKey(collection), filtered);
-    if(db && isOnline && currentHospital && navigator.onLine){
+    if(!dbTerminated && db && isOnline && currentHospital && navigator.onLine){
         try{
             const hospId = currentHospital.hospitalId || currentHospital.id;
             // Tombstone: write deletedAt so other devices know to purge
@@ -3031,6 +3091,7 @@ function renderSettings(){
 
 async function forceSyncAllUsers(){
     if(userRole !== 'admin'){ toast('Admin only', 'error'); return; }
+    if(!guardFirestoreOp('forceSyncAllUsers')){ toast('Not connected to cloud', 'error'); return; }
     if(!db || !auth.currentUser){ toast('Not connected to cloud', 'error'); return; }
 
     const statusEl = document.getElementById('syncStatusMessage');
@@ -3078,6 +3139,7 @@ async function forceSyncAllUsers(){
 
 async function forceSyncAllData(){
     if(userRole !== 'admin'){ toast('Admin only', 'error'); return; }
+    if(!guardFirestoreOp('forceSyncAllData')){ toast('Not connected to cloud', 'error'); return; }
     if(!db || !auth.currentUser){ toast('Not connected to cloud', 'error'); return; }
 
     const statusEl = document.getElementById('syncStatusMessage');
@@ -3132,7 +3194,7 @@ async function saveSecuritySettings(){
 
     secureSet('medicare_security_settings', securitySettings);
 
-    if(db && currentHospital && auth.currentUser){
+    if(!dbTerminated && db && currentHospital && auth.currentUser){
         const hospId = currentHospital.hospitalId || currentHospital.id;
         try {
             await db.collection('hospitals').doc(hospId).collection('settings').doc('security').set({
@@ -3828,7 +3890,7 @@ async function saveModal(){
             if(existingIdx >= 0){ dataCache.users[existingIdx] = {...dataCache.users[existingIdx], ...userData, passwordHash: passwordHash}; }
             else { dataCache.users.push({...userData, passwordHash: passwordHash}); }
             secureSet(getStorageKey('users'), dataCache.users);
-            if(db && navigator.onLine){ try{ const docRef = db.collection('hospitalUsers').doc(userUid); const docSnap = await docRef.get(); if(docSnap.exists){ await docRef.set(userData, {merge: true}); } else { await docRef.set({...userData, createdAt: firebase.firestore.FieldValue.serverTimestamp()}); } } catch(e){ console.warn('Firestore user save failed:', e); } }
+            if(!dbTerminated && db && navigator.onLine){ try{ const docRef = db.collection('hospitalUsers').doc(userUid); const docSnap = await docRef.get(); if(docSnap.exists){ await docRef.set(userData, {merge: true}); } else { await docRef.set({...userData, createdAt: firebase.firestore.FieldValue.serverTimestamp()}); } } catch(e){ console.warn('Firestore user save failed:', e); } }
             closeModal(); renderUsers(); updateStats(); btn.innerHTML='Save'; btn.disabled=false; toast('User saved successfully', 'success');
             return;
         }
@@ -4203,7 +4265,7 @@ async function deleteUser(id){
     secureSet('medicare_users_local', updatedLocal);
 
     // Remove from Firestore hospitalUsers
-    if(db && isOnline && id){
+    if(!dbTerminated && db && isOnline && id){
         try{
             await db.collection('hospitalUsers').doc(id).set({
                 deletedAt: new Date().toISOString(),
@@ -4306,7 +4368,7 @@ async function saveHospitalSettings(){
     currentHospital.email = document.getElementById('set_hosp_email').value;
     currentHospital.license = document.getElementById('set_hosp_license').value;
     secureSet('medicare_currentHospital', currentHospital);
-    if(db && currentHospital.hospitalId){
+    if(!dbTerminated && db && currentHospital.hospitalId){
         try{ await db.collection('hospitals').doc(currentHospital.hospitalId).update(currentHospital); }
         catch(e){ console.warn('Update failed:', e); }
     }
