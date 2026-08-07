@@ -1086,7 +1086,7 @@ let _registrationCodeLoaded = false;
 // Feature flags - disable these in production after setup
 const ENABLE_DEMO_ACCOUNTS = false;      // Set to false to hide demo login buttons
 const ENABLE_HOSPITAL_REGISTRATION = true; // Set to false to disable new hospital registration
-// Account repair removed for security - use Firebase Console instead        // Set to false to disable repair button
+const ENABLE_ACCOUNT_REPAIR = false;       // Account repair removed for security - use Firebase Console instead
 
 // ==================== ACCOUNT CREATION POLICY ====================
 // Accounts can ONLY be created through these two paths:
@@ -2657,69 +2657,72 @@ async function loadAllData(){
     }
 
     if(db && isOnline && auth.currentUser){
-        if(!guardFirestoreOp('loadAllData')) return;
-        try {
-            const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','labs','shaClaims'];
-            // PARALLEL loading: fetch all collections at once instead of sequential (5s timeout each)
-            const colPromises = cols.map(async col => {
-                try {
-                    const snap = await promiseTimeout(db.collection('hospitals').doc(hospitalId).collection(col).get(), 5000);
-                    const cloudData = snap.docs.map(d => ({id:d.id, ...d.data()})).filter(d => !d.deletedAt);
-                    const localData = secureGet(getStorageKey(col), []);
-                    const merged = mergeData(cloudData, localData);
-                    dataCache[col] = merged;
-                    secureSet(getStorageKey(col), merged);
-                    return {col, ok: true};
-                } catch(colErr) {
-                    console.warn('Failed to load', col, ':', colErr.code);
-                    if(colErr.code === 'permission-denied') permissionDenied = true;
-                    const localData = secureGet(getStorageKey(col), []);
-                    dataCache[col] = localData.filter(d => !d.deletedAt);
-                    return {col, ok: false, err: colErr.code};
-                }
-            });
-            await Promise.all(colPromises);
-
-            // Load users in parallel too (5s timeout)
+        if(guardFirestoreOp('loadAllData')){
             try {
-                const hospUsersSnap = await promiseTimeout(db.collection('hospitalUsers').where('hospitalId', '==', hospitalId).get(), 5000);
-                const hospUsers = hospUsersSnap.docs.map(d => ({id: d.id, uid: d.id, ...d.data()})).filter(d => !d.deletedAt);
-                const localUsersData = secureGet(getStorageKey('users'), []);
-                const mergedUsers = mergeData(hospUsers, localUsersData);
-                dataCache.users = mergedUsers;
-                secureSet(getStorageKey('users'), mergedUsers);
-                const localAuthUsers = secureGet('medicare_users_local', []);
-                mergedUsers.forEach(u => {
-                    const idx = localAuthUsers.findIndex(x => x.email === u.email && x.hospitalId === hospitalId);
-                    const entry = {
-                        uid: u.uid || u.id, id: u.id, hospitalId: hospitalId,
-                        name: u.name, email: u.email, role: u.role, phone: u.phone || ''
-                    };
-                    if(idx >= 0){
-                        if(!u.password && localAuthUsers[idx].password) entry.password = localAuthUsers[idx].password;
-                        else if(u.password) entry.password = u.password;
-                        localAuthUsers[idx] = {...localAuthUsers[idx], ...entry};
-                    } else {
-                        localAuthUsers.push({...entry, password: u.password || ''});
+                const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','labs','shaClaims'];
+                // PARALLEL loading: fetch all collections at once instead of sequential (5s timeout each)
+                const colPromises = cols.map(async col => {
+                    try {
+                        const snap = await promiseTimeout(db.collection('hospitals').doc(hospitalId).collection(col).get(), 5000);
+                        const cloudData = snap.docs.map(d => ({id:d.id, ...d.data()})).filter(d => !d.deletedAt);
+                        const localData = secureGet(getStorageKey(col), []);
+                        const merged = mergeData(cloudData, localData);
+                        dataCache[col] = merged;
+                        secureSet(getStorageKey(col), merged);
+                        return {col, ok: true};
+                    } catch(colErr) {
+                        console.warn('Failed to load', col, ':', colErr.code);
+                        if(colErr.code === 'permission-denied') permissionDenied = true;
+                        const localData = secureGet(getStorageKey(col), []);
+                        dataCache[col] = localData.filter(d => !d.deletedAt);
+                        return {col, ok: false, err: colErr.code};
                     }
                 });
-                secureSet('medicare_users_local', localAuthUsers);
-            } catch(e) { 
-                console.warn('Could not load hospitalUsers:', e); 
-                if(e.code === 'permission-denied') permissionDenied = true;
-            }
-            // If permission denied, ensure we still have local data
-            if(permissionDenied && dataCache.users.length === 0){
-                const localUsers = secureGet(getStorageKey('users'), []);
-                dataCache.users = Array.isArray(localUsers) ? localUsers.filter(i => !i.deletedAt) : [];
-            }
+                await Promise.all(colPromises);
 
-            firestoreSuccess = true;
-            updateSyncStatus('synced');
-            document.getElementById('offlineBadge').style.display = 'none';
-        } catch(err){
-            console.warn('Firestore failed:', err);
-            if(err.code === 'permission-denied') permissionDenied = true;
+                // Load users in parallel too (5s timeout)
+                try {
+                    const hospUsersSnap = await promiseTimeout(db.collection('hospitalUsers').where('hospitalId', '==', hospitalId).get(), 5000);
+                    const hospUsers = hospUsersSnap.docs.map(d => ({id: d.id, uid: d.id, ...d.data()})).filter(d => !d.deletedAt);
+                    const localUsersData = secureGet(getStorageKey('users'), []);
+                    const mergedUsers = mergeData(hospUsers, localUsersData);
+                    dataCache.users = mergedUsers;
+                    secureSet(getStorageKey('users'), mergedUsers);
+                    const localAuthUsers = secureGet('medicare_users_local', []);
+                    mergedUsers.forEach(u => {
+                        const idx = localAuthUsers.findIndex(x => x.email === u.email && x.hospitalId === hospitalId);
+                        const entry = {
+                            uid: u.uid || u.id, id: u.id, hospitalId: hospitalId,
+                            name: u.name, email: u.email, role: u.role, phone: u.phone || ''
+                        };
+                        if(idx >= 0){
+                            if(!u.password && localAuthUsers[idx].password) entry.password = localAuthUsers[idx].password;
+                            else if(u.password) entry.password = u.password;
+                            localAuthUsers[idx] = {...localAuthUsers[idx], ...entry};
+                        } else {
+                            localAuthUsers.push({...entry, password: u.password || ''});
+                        }
+                    });
+                    secureSet('medicare_users_local', localAuthUsers);
+                } catch(e) { 
+                    console.warn('Could not load hospitalUsers:', e); 
+                    if(e.code === 'permission-denied') permissionDenied = true;
+                }
+                // If permission denied, ensure we still have local data
+                if(permissionDenied && dataCache.users.length === 0){
+                    const localUsers = secureGet(getStorageKey('users'), []);
+                    dataCache.users = Array.isArray(localUsers) ? localUsers.filter(i => !i.deletedAt) : [];
+                }
+
+                firestoreSuccess = true;
+                updateSyncStatus('synced');
+                document.getElementById('offlineBadge').style.display = 'none';
+            } catch(err){
+                console.warn('Firestore failed:', err);
+                if(err.code === 'permission-denied') permissionDenied = true;
+            }
+        } else {
+            console.log('Firestore guard blocked in loadAllData, using localStorage fallback');
         }
     }
 
