@@ -891,6 +891,8 @@ let loginAttempts = 0;
 let loginLockoutUntil = 0;
 let lastActivity = Date.now();
 let _sessionGateBlocked = false; // Prevents auth handler loop when session gate rejects
+let _loginInProgress = false; // Set during form login so auth handler doesn't block
+let _registrationInProgress = false; // Prevents double-submit on registration form
 const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOGIN_LOCKOUT_MS = 15 * 60 * 1000; // 15 minutes
@@ -1145,7 +1147,7 @@ try {
 
 // ==================== FIRESTORE LIFECYCLE ====================
 async function terminateFirestore(){
-    if(!db || dbTerminated) return;
+    if(dbTerminated) return; // Already terminated, don't re-enter
     console.log('Terminating Firestore to prevent queue corruption...');
     // 1. Unsubscribe all realtime listeners
     realtimeUnsubscribers.forEach(fn => {
@@ -1153,11 +1155,13 @@ async function terminateFirestore(){
     });
     realtimeUnsubscribers = [];
     // 2. Terminate the DB instance to flush and shut down the queue
-    try {
-        await db.terminate();
-        console.log('Firestore terminated successfully');
-    } catch(e) {
-        console.warn('Firestore terminate error (non-fatal):', e.message);
+    if(db) {
+        try {
+            await db.terminate();
+            console.log('Firestore terminated successfully');
+        } catch(e) {
+            console.warn('Firestore terminate error (non-fatal):', e.message);
+        }
     }
     // 3. Mark as terminated so no ops are enqueued
     dbTerminated = true;
@@ -1181,6 +1185,16 @@ async function reinitFirestore(){
 function guardFirestoreOp(fnName){
     if(dbTerminated || !db){
         console.warn(`Firestore operation '${fnName}' blocked: db is terminated`);
+        return false;
+    }
+    // Extra safety: try to access a harmless property to detect zombie instances
+    try {
+        if(typeof db.collection !== 'function'){
+            console.warn(`Firestore operation '${fnName}' blocked: db.collection is not a function`);
+            return false;
+        }
+    } catch(e) {
+        console.warn(`Firestore operation '${fnName}' blocked: db is in invalid state`);
         return false;
     }
     return true;
@@ -1278,7 +1292,8 @@ if(auth) {
             const sessionActive = sessionStorage.getItem('medicare_session_active') === 'true';
             const sessionEmail = sessionStorage.getItem('medicare_session_email');
 
-            if(!sessionActive || (sessionEmail && sessionEmail !== user.email)){
+            // If a login form is actively processing, skip the gate - it will set the flag
+            if(!_loginInProgress && (!sessionActive || (sessionEmail && sessionEmail !== user.email))){
                 if(_sessionGateBlocked) return; // Already handled, prevent re-entry
                 _sessionGateBlocked = true;
                 console.log('Auto-login blocked: no active session flag or email mismatch.');
@@ -1387,6 +1402,8 @@ async function loadHospitalAndUser(){
 
 function showLogin(){
     _sessionGateBlocked = false; // Reset when showing login screen
+    _loginInProgress = false;
+    _registrationInProgress = false;
     document.getElementById('loginScreen').style.display='flex';
     document.getElementById('dashboard').style.display='none';
     document.getElementById('offlineBadge').style.display = 'none';
@@ -1518,6 +1535,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
     let firebaseSuccess = false;
 
     // ========== ONLINE FIREBASE LOGIN (Strict) ==========
+    _loginInProgress = true; // Tell auth handler not to block while we authenticate
     if(auth && navigator.onLine){
         try {
             const cred = await auth.signInWithEmailAndPassword(email, password);
@@ -1727,6 +1745,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
             // Re-init Firestore after successful auth to ensure clean queue
             if(dbTerminated || !db) await reinitFirestore();
             // Mark this browser session as authenticated
+            _loginInProgress = false;
             sessionStorage.setItem('medicare_session_active', 'true');
             sessionStorage.setItem('medicare_session_email', email);
             sessionStorage.setItem('medicare_session_hospital', hospitalId);
@@ -1741,6 +1760,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
 
             if(fbErr.code === 'auth/user-not-found' || fbErr.code === 'auth/wrong-password' || fbErr.code === 'auth/invalid-credential' || fbErr.code === 'auth/invalid-email'){
                 recordFailedLogin();
+                _loginInProgress = false;
                 showError('Invalid email or password.');
                 btn.disabled = false; btnText.textContent = 'Sign In';
                 return;
@@ -1791,6 +1811,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
             isOnline = false;
             document.getElementById('offlineBadge').style.display = 'inline-flex';
             btn.disabled = false; btnText.textContent = 'Sign In';
+            _loginInProgress = false;
             sessionStorage.setItem('medicare_session_active', 'true');
             sessionStorage.setItem('medicare_session_email', email);
             sessionStorage.setItem('medicare_session_hospital', hospitalId);
@@ -1803,6 +1824,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
             btnText.textContent = 'Sign In';
         }
     } else if(!firebaseSuccess){
+        _loginInProgress = false;
         showError('Authentication failed. Please check your credentials and try again.');
         btn.disabled = false;
         btnText.textContent = 'Sign In';
@@ -1828,6 +1850,12 @@ document.getElementById('hospitalRegForm').addEventListener('submit', async (e) 
         console.warn('Failed registration attempt with code:', privateCode, 'at', new Date().toISOString());
         return;
     }
+    if(_registrationInProgress){
+        showError('Registration already in progress. Please wait.');
+        return;
+    }
+    _registrationInProgress = true;
+
     const hospName = document.getElementById('regHospName').value.trim();
     const hospId = document.getElementById('regHospId').value.trim().toUpperCase();
     const hospLicense = document.getElementById('regHospLicense').value.trim();
@@ -1870,6 +1898,7 @@ document.getElementById('hospitalRegForm').addEventListener('submit', async (e) 
             await new Promise(r => setTimeout(r, 800));
             await cred.user.getIdToken(true);
 
+            _registrationInProgress = false;
             showSuccess('Hospital registered! Signing you in...');
             logSecurityEvent('REGISTRATION_SUCCESS', {email: hospEmail, hospitalId: hospId, name: hospName});
 
@@ -1950,7 +1979,20 @@ document.getElementById('hospitalRegForm').addEventListener('submit', async (e) 
         } catch(fbErr){
             console.warn('Firebase registration failed:', fbErr.code, fbErr.message);
             logSecurityEvent('REGISTRATION_FAIL', {error: fbErr.code, message: fbErr.message, email: hospEmail, hospitalId: hospId});
+            if(fbErr.code === 'auth/email-already-in-use'){
+                // Account already exists in Firebase Auth. Try to sign in with the provided password.
+                _registrationInProgress = false;
+                showError('This email is already registered. Please log in instead, or use a different email.');
+                showSignIn();
+                // Pre-fill the login form
+                document.getElementById('loginEmail').value = hospEmail;
+                document.getElementById('loginHospitalId').value = hospId;
+                document.getElementById('loginPassword').focus();
+                btn.disabled = false; btnText.textContent = 'Register Hospital';
+                return;
+            }
             if(fbErr.code === 'permission-denied' && cred && cred.user){
+                _registrationInProgress = false;
                 // Auth account WAS created, but Firestore is blocked. Save locally and let user in.
                 showSuccess('Account created! Firestore rules block cloud sync. Saving locally...');
                 const hospitals = secureGet('medicare_hospitals', []);
@@ -1979,6 +2021,7 @@ document.getElementById('hospitalRegForm').addEventListener('submit', async (e) 
                 loadAllData();
                 firebaseSuccess = true;
             } else {
+                _registrationInProgress = false;
                 console.warn('Falling back to offline registration...');
             }
         }
@@ -2005,15 +2048,18 @@ document.getElementById('hospitalRegForm').addEventListener('submit', async (e) 
             secureSet('medicare_currentUser', {role: 'admin', email: hospEmail, uid});
             isOnline = false;
             document.getElementById('offlineBadge').style.display = 'inline-flex';
+            _registrationInProgress = false;
             showSuccess('Hospital registered offline!');
             seedNewHospitalData(hospId);
             setTimeout(() => { showDashboard(); loadAllData(); }, 1000);
-        } catch(err){ showError(err.message); btn.disabled=false; btnText.textContent='Register Hospital'; }
+        } catch(err){ _registrationInProgress = false; showError(err.message); btn.disabled=false; btnText.textContent='Register Hospital'; }
     }
 });
 
 function lockScreen(){
     _sessionGateBlocked = false;
+    _loginInProgress = false;
+    _registrationInProgress = false;
     // Clear sensitive session data and session flag
     sessionStorage.removeItem('medicare_session_active');
     sessionStorage.removeItem('medicare_session_email');
@@ -2028,6 +2074,8 @@ function lockScreen(){
 
 function logout(){
     _sessionGateBlocked = false; // Reset session gate on explicit logout
+    _loginInProgress = false;
+    _registrationInProgress = false;
     realtimeUnsubscribers.forEach(fn => fn());
     realtimeUnsubscribers = [];
     if(_connectivityTimer) clearInterval(_connectivityTimer);
