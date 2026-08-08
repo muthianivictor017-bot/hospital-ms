@@ -411,6 +411,7 @@ body{font-family:'Inter',sans-serif;background:var(--light);color:var(--dark)}
 <div class="nav-item admin-only-nav" data-page="reports" style="display:none"><i class="fas fa-chart-pie"></i><span>Reports</span></div>
 <div class="nav-item" data-page="labs"><i class="fas fa-flask"></i><span>Lab Services</span><span class="badge orange" id="labBadge">0</span></div>
 <div class="nav-item" data-page="inventory"><i class="fas fa-pills"></i><span>Inventory</span></div>
+<div class="nav-item" data-page="services"><i class="fas fa-list-alt"></i><span>Services</span><span class="badge" id="servicesBadge">0</span></div>
 <div class="nav-item" data-page="messaging"><i class="fas fa-comment-medical"></i><span>Messaging</span></div>
 <div class="nav-item" data-page="departments"><i class="fas fa-building"></i><span>Departments</span><span class="badge" id="deptBadge">0</span></div>
 <div class="nav-item" data-page="sha"><i class="fas fa-shield-heart"></i><span>SHA Claims</span><span class="badge orange" id="shaBadge">0</span></div>
@@ -691,6 +692,14 @@ body{font-family:'Inter',sans-serif;background:var(--light);color:var(--dark)}
 <div class="search-bar"><input type="text" id="inventorySearch" placeholder="Search inventory..." onkeyup="searchInventory()"><button class="btn-sm btn-primary" onclick="openModal('inventory')"><i class="fas fa-plus"></i> Add Item</button></div>
 <div class="card"><div class="card-header"><h3>Medical Inventory</h3></div>
 <div class="card-body"><table class="data-table"><thead><tr><th>Item Name</th><th>Category</th><th>Quantity</th><th>Unit Price</th><th>Expiry Date</th><th>Status</th><th>Actions</th></tr></thead><tbody id="inventoryTable"></tbody></table></div>
+</div>
+</div>
+
+<!-- SERVICES PAGE -->
+<div class="page-section" id="page-services">
+<div class="search-bar"><input type="text" id="servicesSearch" placeholder="Search services..." onkeyup="searchServices()"><select id="servicesCategoryFilter" onchange="filterServices()"><option value="">All Categories</option><option value="Consultation">Consultation</option><option value="Laboratory">Laboratory</option><option value="Radiology">Radiology</option><option value="Surgery">Surgery</option><option value="Pharmacy">Pharmacy</option><option value="Nursing">Nursing</option><option value="Room & Board">Room & Board</option><option value="Emergency">Emergency</option><option value="Procedure">Procedure</option><option value="Other">Other</option></select><button class="btn-sm btn-primary" onclick="openModal('service')"><i class="fas fa-plus"></i> Add Service</button></div>
+<div class="card"><div class="card-header"><h3><i class="fas fa-list-alt"></i> Medical Services & Pricing</h3></div>
+<div class="card-body"><table class="data-table"><thead><tr><th>Service Code</th><th>Service Name</th><th>Category</th><th>Cost (KSh)</th><th>Status</th><th>Actions</th></tr></thead><tbody id="servicesTable"></tbody></table></div>
 </div>
 </div>
 
@@ -1167,7 +1176,7 @@ let _offlineWriteQueue = secureGet('medicare_offline_queue', []);
 let _sessionTimer = null;
 
 let dataCache = {
-  patients:[], admissions:[], appointments:[], doctors:[], prescriptions:[], billing:[], inventory:[], wards:[], users:[], labs:[], shaClaims:[], departments:[], departmentAssignments:[]
+  patients:[], admissions:[], appointments:[], doctors:[], prescriptions:[], billing:[], inventory:[], wards:[], users:[], labs:[], shaClaims:[], departments:[], departmentAssignments:[], services:[]
 };
 
 // ==================== PERFORMANCE UTILITIES ====================
@@ -1469,7 +1478,7 @@ function guardFirestoreOp(fnName){
 }
 
 // Test Firestore connectivity - read-only (respects restricted rules)
-async async function testFirestoreAccess(){
+async function testFirestoreAccess(){
     if(!guardFirestoreOp('testFirestoreAccess')) return false;
     if(!db || !auth || !auth.currentUser) return false;
     try {
@@ -2397,6 +2406,7 @@ function navigateTo(page){
     else if(page === 'billing'){ btn.innerHTML = '<i class="fas fa-plus"></i> New Invoice'; btn.onclick = () => openModal('billing'); btn.style.display = ''; }
     else if(page === 'labs'){ btn.innerHTML = '<i class="fas fa-plus"></i> New Lab Order'; btn.onclick = () => openModal('lab'); btn.style.display = ''; }
     else if(page === 'inventory'){ btn.innerHTML = '<i class="fas fa-plus"></i> Add Item'; btn.onclick = () => openModal('inventory'); btn.style.display = ''; }
+    else if(page === 'services'){ btn.innerHTML = '<i class="fas fa-plus"></i> Add Service'; btn.onclick = () => openModal('service'); btn.style.display = ''; }
     else if(page === 'users'){ btn.innerHTML = '<i class="fas fa-plus"></i> Add User'; btn.onclick = () => openModal('user'); btn.style.display = (userRole === 'admin') ? '' : 'none'; }
     else if(page === 'reports'){ btn.innerHTML = '<i class="fas fa-download"></i> Export'; btn.onclick = () => exportReportCSV(); btn.style.display = (userRole === 'admin') ? '' : 'none'; }
     else if(page === 'messaging'){ btn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Bulk'; btn.onclick = () => sendBulkReminders(); btn.style.display = ''; }
@@ -2421,6 +2431,7 @@ function navigateTo(page){
         renderSHAPatients();
         updateSHADashboard();
     }
+    if(page === 'services'){ renderServices(); }
     if(page === 'settings'){
         document.getElementById('settingsAccessDenied').style.display = (userRole === 'admin') ? 'none' : 'block';
         document.getElementById('settingsContent').style.display = (userRole === 'admin') ? 'block' : 'none';
@@ -2448,7 +2459,7 @@ function setupRealtimeListeners(){
     realtimeUnsubscribers.forEach(fn => fn());
     realtimeUnsubscribers = [];
     const hospId = currentHospital.hospitalId || currentHospital.id;
-    const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','labs','shaClaims','departments','departmentAssignments'];
+    const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','labs','shaClaims','departments','departmentAssignments','services'];
 
     // Throttled refresh to prevent UI freezing on rapid snapshot updates
     const throttledRefresh = throttle((col) => {
@@ -2624,7 +2635,7 @@ async function syncLocalToCloud(){
     if(!hospId) return;
 
     console.log('Checking for local data to sync to cloud...');
-    const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','labs','shaClaims','departments','departmentAssignments'];
+    const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','labs','shaClaims','departments','departmentAssignments','services'];
     let syncedCount = 0;
 
     for(const col of cols){
@@ -2718,7 +2729,7 @@ async function loadAllData(){
     if(db && isOnline && auth.currentUser){
         if(guardFirestoreOp('loadAllData')){
             try {
-                const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','labs','shaClaims','departments','departmentAssignments'];
+                const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','labs','shaClaims','departments','departmentAssignments','services'];
                 // PARALLEL loading: fetch all collections at once instead of sequential (5s timeout each)
                 const colPromises = cols.map(async col => {
                     try {
@@ -2864,7 +2875,7 @@ function secureGet(key, defaultValue){
 
 
 function loadFromLocalStorage(){
-    const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','users','labs','shaClaims','departments','departmentAssignments'];
+    const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','users','labs','shaClaims','departments','departmentAssignments','services'];
     for(const col of cols){
         dataCache[col] = secureGet(getStorageKey(col), '[]').filter(i => !i.deletedAt);
     }
@@ -2952,7 +2963,7 @@ function updateSyncStatus(status){
 }
 
 function refreshAllPages(){
-    ['dashboard','patients','admissions','appointments','wards','doctors','prescriptions','billing','labs','inventory','users','sha','departments'].forEach(refreshPageData);
+    ['dashboard','patients','admissions','appointments','wards','doctors','prescriptions','billing','labs','inventory','users','sha','departments','services'].forEach(refreshPageData);
 }
 
 function refreshPageData(page){
@@ -2972,6 +2983,7 @@ function refreshPageData(page){
         case 'messaging': renderMessaging(); previewTemplate(); break;
         case 'sha': renderSHAClaims(); renderSHAPatients(); updateSHADashboard(); break;
         case 'departments': renderDepartments(); renderDepartmentQueue(); break;
+        case 'services': renderServices(); break;
     }
 }
 
@@ -3101,6 +3113,8 @@ function renderDashboard(){
     if(statSHAEl) statSHAEl.textContent = shaPending;
     const statDeptEl = document.getElementById('statDepartments');
     if(statDeptEl) statDeptEl.textContent = dataCache.departments.length;
+    const servicesBadge = document.getElementById('servicesBadge');
+    if(servicesBadge) servicesBadge.textContent = dataCache.services.length;
 }
 
 function renderPatients(){
@@ -3319,7 +3333,7 @@ function exportBillingCSV(){
     dataCache.billing.forEach(b => {
         const p = dataCache.patients.find(x => x.id === b.patientId) || {name:'Unknown'};
         const status = getInvoiceStatus(b);
-        csv += `"${b.invoiceNumber || b.id.slice(-4)}","${p.name}","${b.date || ''}",${parseFloat(b.amount||0).toFixed(2)},${getInvoicePaidTotal(b).toFixed(2)},${getInvoiceBalance(b).toFixed(2)},"${status}","${(b.services||[]).join('; ')}"\n`;
+        csv += `"${b.invoiceNumber || b.id.slice(-4)}","${p.name}","${b.date || ''}",${parseFloat(b.amount||0).toFixed(2)},${getInvoicePaidTotal(b).toFixed(2)},${getInvoiceBalance(b).toFixed(2)},"${status}","${(b.services||[]).map(s => typeof s === 'object' ? s.name : s).join('; ')}"\n`;
     });
     downloadCSV(csv, 'invoices_' + new Date().toISOString().split('T')[0] + '.csv');
 }
@@ -3508,7 +3522,7 @@ async function forceSyncAllData(){
     const hospId = currentHospital ? (currentHospital.hospitalId || currentHospital.id) : null;
     if(!hospId){ toast('No hospital ID', 'error'); return; }
 
-    const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','labs','shaClaims','departments','departmentAssignments'];
+    const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','labs','shaClaims','departments','departmentAssignments','services'];
     let totalSynced = 0;
 
     for(const col of cols){
@@ -3612,6 +3626,24 @@ function renderAuditLog(){
         </div>
     `).join('');
 }
+
+
+// ==================== SERVICES MODULE ====================
+function renderServices(){
+    const tbody = document.getElementById('servicesTable');
+    const catFilter = document.getElementById('servicesCategoryFilter').value;
+    let services = dataCache.services;
+    if(catFilter) services = services.filter(s => s.category === catFilter);
+    if(services.length === 0){ tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><i class="fas fa-list-alt"></i><p>No services found. Add your first service.</p></td></tr>'; return; }
+    tbody.innerHTML = services.sort((a,b) => (a.name || '').localeCompare(b.name || '')).map(s => {
+        const statusClass = s.status === 'Active' ? 'active' : 'cancelled';
+        return `<tr><td><strong>${s.serviceCode || s.id.slice(-4)}</strong></td><td>${s.name}</td><td>${s.category || '-'}</td><td style="font-weight:600;color:var(--primary)">KSh ${parseFloat(s.cost || 0).toFixed(2)}</td><td><span class="status-badge status-${statusClass}">${s.status || 'Active'}</span></td><td><button class="btn-sm btn-warning" onclick="editService('${s.id}')"><i class="fas fa-edit"></i></button> <button class="btn-sm btn-danger" onclick="deleteService('${s.id}')"><i class="fas fa-trash"></i></button></td></tr>`;
+    }).join('');
+}
+function searchServices(){ const q=document.getElementById('servicesSearch').value.toLowerCase(); document.querySelectorAll('#servicesTable tr').forEach(r => r.style.display = r.textContent.toLowerCase().includes(q) ? '' : 'none'); }
+function filterServices(){ renderServices(); }
+async function deleteService(id){ if(!confirm('Delete this service? It will no longer be available for billing.'))return; await deleteData('services',id); renderServices(); updateStats(); toast('Service deleted', 'info'); }
+function editService(id){ openModal('service',id); }
 
 // ==================== SEARCH FUNCTIONS ====================
 
@@ -4085,15 +4117,39 @@ function openModal(type, editId){
         case 'billing':
             title.textContent = isEdit ? 'Edit Invoice' : 'New Invoice';
             const patientOptions = dataCache.patients.map(p => `<option value="${p.id}" ${item.patientId === p.id ? 'selected' : ''}>${p.name}</option>`).join('');
+            const activeServices = dataCache.services.filter(s => s.status === 'Active').sort((a,b) => (a.category||'').localeCompare(b.category||'') || (a.name||'').localeCompare(b.name||''));
+            let currentSvcIds = [];
+            if(isEdit && item.services && item.services.length > 0){
+                currentSvcIds = item.services.map(s => {
+                    if(typeof s === 'object' && s.id) return s.id;
+                    const found = dataCache.services.find(x => x.name === s);
+                    return found ? found.id : '';
+                }).filter(id => id);
+            }
+            let servicesHtml = '';
+            if(activeServices.length === 0){
+                servicesHtml = '<div style="padding:12px;color:var(--gray);font-size:13px"><i class="fas fa-info-circle"></i> No active services in catalog. <a href="#" onclick="closeModal();navigateTo('services');" style="color:var(--primary)">Add services first</a>.</div>';
+            } else {
+                let lastCat = '';
+                activeServices.forEach(svc => {
+                    if(svc.category !== lastCat){ servicesHtml += `<div style="font-size:11px;font-weight:600;color:var(--gray);text-transform:uppercase;margin:8px 0 4px;padding-top:6px;border-top:1px solid var(--border)">${svc.category || 'General'}</div>`; lastCat = svc.category; }
+                    const isChecked = currentSvcIds.includes(svc.id) ? 'checked' : '';
+                    servicesHtml += `<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;cursor:pointer;border-radius:6px;transition:background 0.15s" onmouseover="this.style.background='var(--light)'" onmouseout="this.style.background='transparent'"><input type="checkbox" class="bill-service-check" value="${svc.id}" data-cost="${svc.cost || 0}" onchange="updateBillTotal()" ${isChecked} style="width:16px;height:16px;accent-color:var(--primary)"><span style="flex:1;font-size:13px">${svc.name}</span><span style="font-weight:600;color:var(--primary);font-size:13px">KSh ${parseFloat(svc.cost || 0).toFixed(2)}</span></label>`;
+                });
+            }
             body.innerHTML = `
                 <div class="form-row"><div class="form-group"><label>Patient *</label><select id="m_bill_patient" onchange="updateInsuranceInfo()" required><option value="">Select</option>${patientOptions}</select></div><div class="form-group"><label>Date *</label><input type="date" id="m_bill_date" value="${item.date || new Date().toISOString().split('T')[0]}" required></div></div>
                 <div id="insuranceInfoBox" style="display:none;margin-bottom:16px;padding:12px;background:#eff6ff;border-radius:8px;font-size:12px;color:#1e40af"></div>
-                <div class="form-group"><label>Services *</label><input type="text" id="m_bill_services" value="${(item.services || []).join(', ')}" placeholder="Comma separated" required></div>
-                <div class="form-row"><div class="form-group"><label>Total Amount (KSh) *</label><input type="number" step="0.01" id="m_bill_amount" value="${item.amount || ''}" required></div><div class="form-group"><label>Insurance Coverage (KSh)</label><input type="number" step="0.01" id="m_bill_insurance" value="${item.insuranceAmount || '0'}" placeholder="Amount covered by insurance"></div></div>
+                <div class="form-group"><label>Select Services *</label>
+                <div id="billServicesList" style="max-height:220px;overflow-y:auto;border:2px solid var(--border);border-radius:10px;padding:10px;background:white">${servicesHtml}</div>
+                <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px;color:var(--gray)">Check services to auto-calculate total</span><span style="font-size:14px;font-weight:600">Auto Total: <span id="billAutoTotal" style="color:var(--primary);font-size:18px">KSh 0.00</span></span></div>
+                </div>
+                <div class="form-row"><div class="form-group"><label>Total Amount (KSh) * <span style="color:var(--gray);font-size:11px">(Editable override)</span></label><input type="number" step="0.01" id="m_bill_amount" value="${item.amount || ''}" onfocus="this.dataset.userEdited='true'" required></div><div class="form-group"><label>Insurance Coverage (KSh)</label><input type="number" step="0.01" id="m_bill_insurance" value="${item.insuranceAmount || '0'}" placeholder="Amount covered by insurance"></div></div>
                 <div class="form-row"><div class="form-group"><label><i class="fas fa-shield-heart" style="color:#1e40af"></i> SHA Claim</label><select id="m_bill_sha_claim"><option value="">No SHA Claim</option><option value="Draft" ${item.shaClaimStatus === 'Draft' ? 'selected' : ''}>Create Draft Claim</option><option value="Submitted" ${item.shaClaimStatus === 'Submitted' ? 'selected' : ''}>Submit to SHA</option></select></div><div class="form-group"><label>SHA Claim Amount (KSh)</label><input type="number" step="0.01" id="m_bill_sha_amount" value="${item.shaClaimAmount || ''}" placeholder="Amount to claim from SHA"></div></div>
                 <div class="form-row"><div class="form-group"><label>Status</label><select id="m_bill_status"><option value="Pending" ${(item.status || 'Pending') === 'Pending' ? 'selected' : ''}>Pending</option><option value="Insurance Pending" ${item.status === 'Insurance Pending' ? 'selected' : ''}>Insurance Pending</option><option value="Paid" ${item.status === 'Paid' ? 'selected' : ''}>Paid</option><option value="Cancelled" ${item.status === 'Cancelled' ? 'selected' : ''}>Cancelled</option></select></div><div class="form-group"><label>Due Date</label><input type="date" id="m_bill_due_date" value="${item.dueDate || ''}"></div></div>
                 <div class="form-group"><label>Notes</label><textarea id="m_bill_notes" placeholder="Additional notes...">${item.notes || ''}</textarea></div>`;
             if(isEdit && item.patientId) setTimeout(() => updateInsuranceInfo(), 100);
+            setTimeout(() => updateBillTotal(), 50);
             break;
         case 'inventory':
             title.textContent = isEdit ? 'Edit Item' : 'Add Inventory Item';
@@ -4117,6 +4173,15 @@ function openModal(type, editId){
                 </div>
             `;
             if(isEdit && shaClaim.patientId) setTimeout(() => updateSHAPatientInfo(), 100);
+            break;
+        case 'service':
+            title.textContent = isEdit ? 'Edit Service' : 'Add Service';
+            body.innerHTML = `
+                <div class="form-row"><div class="form-group"><label>Service Name *</label><input type="text" id="m_svc_name" value="${item.name || ''}" placeholder="e.g., General Consultation" required></div><div class="form-group"><label>Service Code</label><input type="text" id="m_svc_code" value="${item.serviceCode || ''}" placeholder="e.g., SRV-001"></div></div>
+                <div class="form-row"><div class="form-group"><label>Category *</label><select id="m_svc_category" required><option value="">Select</option><option value="Consultation" ${item.category === 'Consultation' ? 'selected' : ''}>Consultation</option><option value="Laboratory" ${item.category === 'Laboratory' ? 'selected' : ''}>Laboratory</option><option value="Radiology" ${item.category === 'Radiology' ? 'selected' : ''}>Radiology</option><option value="Surgery" ${item.category === 'Surgery' ? 'selected' : ''}>Surgery</option><option value="Pharmacy" ${item.category === 'Pharmacy' ? 'selected' : ''}>Pharmacy</option><option value="Nursing" ${item.category === 'Nursing' ? 'selected' : ''}>Nursing</option><option value="Room & Board" ${item.category === 'Room & Board' ? 'selected' : ''}>Room & Board</option><option value="Emergency" ${item.category === 'Emergency' ? 'selected' : ''}>Emergency</option><option value="Procedure" ${item.category === 'Procedure' ? 'selected' : ''}>Procedure</option><option value="Other" ${item.category === 'Other' ? 'selected' : ''}>Other</option></select></div><div class="form-group"><label>Cost (KSh) *</label><input type="number" step="0.01" id="m_svc_cost" value="${item.cost || ''}" placeholder="e.g., 1500" required></div></div>
+                <div class="form-group"><label>Description</label><textarea id="m_svc_desc" placeholder="Brief description of the service">${item.description || ''}</textarea></div>
+                <div class="form-group"><label>Status</label><select id="m_svc_status"><option value="Active" ${(item.status || 'Active') === 'Active' ? 'selected' : ''}>Active</option><option value="Inactive" ${item.status === 'Inactive' ? 'selected' : ''}>Inactive</option></select></div>
+            `;
             break;
         case 'department':
             title.textContent = isEdit ? 'Edit Department' : 'Add Department';
@@ -4258,13 +4323,19 @@ async function saveModal(){
             break;
         case 'billing':
             const billPatientId = document.getElementById('m_bill_patient').value;
-            const billAmount = parseFloat(document.getElementById('m_bill_amount').value) || 0;
+            const selectedServices = [];
+            document.querySelectorAll('.bill-service-check:checked').forEach(cb => {
+                const svc = dataCache.services.find(s => s.id === cb.value);
+                if(svc) selectedServices.push({id: svc.id, name: svc.name, cost: parseFloat(svc.cost) || 0});
+            });
+            const autoTotal = selectedServices.reduce((sum, s) => sum + s.cost, 0);
+            const manualTotal = parseFloat(document.getElementById('m_bill_amount').value) || 0;
+            const billAmount = manualTotal > 0 ? manualTotal : autoTotal;
             const billInsurance = parseFloat(document.getElementById('m_bill_insurance').value) || 0;
             const billStatus = document.getElementById('m_bill_status').value;
             const shaClaimStatus = document.getElementById('m_bill_sha_claim')?.value || '';
             const shaClaimAmount = parseFloat(document.getElementById('m_bill_sha_amount')?.value) || 0;
-            data = {id:currentEditId, patientId:billPatientId, date:document.getElementById('m_bill_date').value, services:document.getElementById('m_bill_services').value.split(',').map(s => s.trim()).filter(s => s), amount:billAmount, insuranceAmount:billInsurance, status:billStatus, dueDate:document.getElementById('m_bill_due_date').value, notes:document.getElementById('m_bill_notes').value, invoiceNumber: currentEditId ? (dataCache.billing.find(b => b.id === currentEditId) || {}).invoiceNumber : 'INV-' + Date.now().toString().slice(-6), shaClaimStatus, shaClaimAmount};
-            // Auto-create SHA claim if requested
+            data = {id:currentEditId, patientId:billPatientId, date:document.getElementById('m_bill_date').value, services:selectedServices, amount:billAmount, insuranceAmount:billInsurance, status:billStatus, dueDate:document.getElementById('m_bill_due_date').value, notes:document.getElementById('m_bill_notes').value, invoiceNumber: currentEditId ? (dataCache.billing.find(b => b.id === currentEditId) || {}).invoiceNumber : 'INV-' + Date.now().toString().slice(-6), shaClaimStatus, shaClaimAmount};
             if(shaClaimStatus && shaClaimAmount > 0){
                 const shaPatient = dataCache.patients.find(p => p.id === billPatientId);
                 if(shaPatient && shaPatient.shaNumber){
@@ -4273,7 +4344,7 @@ async function saveModal(){
                         shaNumber: shaPatient.shaNumber,
                         date: document.getElementById('m_bill_date').value,
                         claimNumber: 'SHA-' + Date.now().toString().slice(-6),
-                        services: document.getElementById('m_bill_services').value.split(',').map(s => s.trim()).filter(s => s),
+                        services: selectedServices.map(s => s.name),
                         amount: shaClaimAmount,
                         coPay: billAmount - shaClaimAmount - billInsurance,
                         status: shaClaimStatus,
@@ -4515,6 +4586,9 @@ async function saveModal(){
             logSecurityEvent('USER_CREATED', {email: userEmail, name: userName, role: userRoleVal, hospitalId: userHospId, by: currentUser?.uid});
             return;
     }
+        case 'service':
+            data = {id:currentEditId, name:document.getElementById('m_svc_name').value.trim(), serviceCode:document.getElementById('m_svc_code').value.trim(), category:document.getElementById('m_svc_category').value, cost:parseFloat(document.getElementById('m_svc_cost').value) || 0, description:document.getElementById('m_svc_desc').value, status:document.getElementById('m_svc_status').value};
+            break;
     try {
         if(currentModalType === 'user'){
             // Special user handling with password hashing
@@ -4564,6 +4638,24 @@ async function saveModal(){
         console.error('saveModal error:', err);
         btn.innerHTML = 'Save'; btn.disabled = false;
         toast('Save failed: ' + err.message, 'error');
+    }
+}
+
+// ==================== BILLING SERVICE HELPERS ====================
+function updateBillTotal(){
+    let total = 0;
+    const selected = [];
+    document.querySelectorAll('.bill-service-check:checked').forEach(cb => {
+        const cost = parseFloat(cb.dataset.cost) || 0;
+        total += cost;
+        const svc = dataCache.services.find(s => s.id === cb.value);
+        if(svc) selected.push(svc.name);
+    });
+    const autoTotalEl = document.getElementById('billAutoTotal');
+    if(autoTotalEl) autoTotalEl.textContent = 'KSh ' + total.toFixed(2);
+    const amountInput = document.getElementById('m_bill_amount');
+    if(amountInput && !amountInput.dataset.userEdited){
+        amountInput.value = total.toFixed(2);
     }
 }
 
@@ -4703,10 +4795,15 @@ function viewInvoiceDetail(invoiceId){
             </div>
             <h4 style="font-size:14px;margin-bottom:10px"><i class="fas fa-list"></i> Services</h4>
             <table class="services-table">
-                <thead><tr><th>Service</th><th style="text-align:right">Amount</th></tr></thead>
+                <thead><tr><th>Service</th><th style="text-align:right">Qty</th><th style="text-align:right">Unit Cost</th><th style="text-align:right">Amount</th></tr></thead>
                 <tbody>
-                    ${(invoice.services || []).map(s => `<tr><td>${s}</td><td style="text-align:right">-</td></tr>`).join('')}
-                    <tr><td><strong>Total</strong></td><td style="text-align:right"><strong>KSh ${total.toFixed(2)}</strong></td></tr>
+                    ${(invoice.services || []).map(s => {
+                        const isObj = typeof s === 'object';
+                        const name = isObj ? s.name : s;
+                        const cost = isObj ? (parseFloat(s.cost) || 0) : 0;
+                        return `<tr><td>${name}</td><td style="text-align:right">1</td><td style="text-align:right">KSh ${cost.toFixed(2)}</td><td style="text-align:right">KSh ${cost.toFixed(2)}</td></tr>`;
+                    }).join('')}
+                    <tr><td colspan="3"><strong>Subtotal</strong></td><td style="text-align:right"><strong>KSh ${total.toFixed(2)}</strong></td></tr>
                 </tbody>
             </table>
             ${(invoice.payments && invoice.payments.length > 0) ? `
@@ -4758,9 +4855,11 @@ function printInvoice(){
         ? `${patient.insuranceProvider}<br>Policy: ${patient.policyNumber || 'N/A'}<br>Coverage: ${patient.insuranceCoverage || 0}%` 
         : 'No insurance';
 
-    document.getElementById('printInvoiceServices').innerHTML = (invoice.services || []).map((s, i) => {
-        const avg = total / (invoice.services || []).length;
-        return `<tr><td>${s}</td><td style="text-align:right">1</td><td style="text-align:right">KSh ${avg.toFixed(2)}</td><td style="text-align:right">KSh ${avg.toFixed(2)}</td></tr>`;
+    document.getElementById('printInvoiceServices').innerHTML = (invoice.services || []).map(s => {
+        const isObj = typeof s === 'object';
+        const name = isObj ? s.name : s;
+        const cost = isObj ? (parseFloat(s.cost) || 0) : 0;
+        return `<tr><td>${name}</td><td style="text-align:right">1</td><td style="text-align:right">KSh ${cost.toFixed(2)}</td><td style="text-align:right">KSh ${cost.toFixed(2)}</td></tr>`;
     }).join('');
 
     document.getElementById('printInvoiceSubtotal').textContent = 'KSh' + total.toFixed(2);
@@ -4797,9 +4896,11 @@ function printReceipt(){
     document.getElementById('receiptPatient').textContent = patient.name;
     document.getElementById('receiptInvoiceRef').textContent = invoice.invoiceNumber || invoice.id.slice(-4);
 
-    document.getElementById('receiptServices').innerHTML = (invoice.services || []).map((s, i) => {
-        const avg = total / (invoice.services || []).length;
-        return `<tr><td>${s}</td><td style="text-align:right">1</td><td style="text-align:right">KSh ${avg.toFixed(2)}</td><td style="text-align:right">KSh ${avg.toFixed(2)}</td></tr>`;
+    document.getElementById('receiptServices').innerHTML = (invoice.services || []).map(s => {
+        const isObj = typeof s === 'object';
+        const name = isObj ? s.name : s;
+        const cost = isObj ? (parseFloat(s.cost) || 0) : 0;
+        return `<tr><td>${name}</td><td style="text-align:right">1</td><td style="text-align:right">KSh ${cost.toFixed(2)}</td><td style="text-align:right">KSh ${cost.toFixed(2)}</td></tr>`;
     }).join('');
 
     document.getElementById('receiptSubtotal').textContent = 'KSh' + total.toFixed(2);
@@ -4944,7 +5045,7 @@ function editInventory(id){ openModal('inventory',id); }
 function editUser(id){ if(userRole !== 'admin'){ toast('Admin only', 'error'); return; } openModal('user',id); }
 function editInvoice(id){ openModal('billing',id); }
 
-async async function dischargePatient(admissionId){
+async function dischargePatient(admissionId){
     const admission = dataCache.admissions.find(a => a.id === admissionId);
     if(!admission) return;
     const patient = dataCache.patients.find(p => p.id === admission.patientId);
@@ -5884,7 +5985,7 @@ window.addEventListener('online', () => {
     setTimeout(() => SHAProxy.processQueue(), 3000);
 });
 
-async async function checkSHAMembershipFromModal(){
+async function checkSHAMembershipFromModal(){
     const shaNumber = document.getElementById('m_patient_sha_number')?.value?.trim();
     if(!shaNumber){
         toast('Enter SHA membership number first', 'warning');
@@ -5921,7 +6022,7 @@ async async function checkSHAMembershipFromModal(){
     }
 }
 
-async async function submitSHAClaim(){
+async function submitSHAClaim(){
     const claimId = currentEditId;
     const claim = dataCache.shaClaims.find(c => c.id === claimId);
     if(!claim){
@@ -5999,7 +6100,7 @@ function seedNewHospitalData(hospitalId){
     ];
     secureSet(getStorageKey('wards', hospitalId), defaultWards);
     // All other collections start empty
-    const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','labs','users'];
+    const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','labs','users','services'];
     cols.forEach(c => secureSet(getStorageKey(c, hospitalId), []));
 }
 async function loadDemoData(){
@@ -6013,7 +6114,34 @@ async function loadDemoData(){
         secureSet('medicare_hospitals', hospitals);
     }
 
-    // DEMO USERS - hash passwords with PBKDF2 on first load
+        // DEMO SERVICES
+    const demoServices = [
+        {id:'svc1',hospitalId:'DEMO',name:'General Consultation',serviceCode:'CONS-001',category:'Consultation',cost:1500,description:'Standard doctor consultation',status:'Active'},
+        {id:'svc2',hospitalId:'DEMO',name:'Specialist Consultation',serviceCode:'CONS-002',category:'Consultation',cost:3000,description:'Specialist doctor consultation',status:'Active'},
+        {id:'svc3',hospitalId:'DEMO',name:'ECG / Electrocardiogram',serviceCode:'LAB-001',category:'Laboratory',cost:1200,description:'Heart rhythm test',status:'Active'},
+        {id:'svc4',hospitalId:'DEMO',name:'Blood Work (Full Panel)',serviceCode:'LAB-002',category:'Laboratory',cost:2500,description:'CBC, CMP, lipid profile',status:'Active'},
+        {id:'svc5',hospitalId:'DEMO',name:'X-Ray (Chest)',serviceCode:'RAD-001',category:'Radiology',cost:1800,description:'Chest X-ray imaging',status:'Active'},
+        {id:'svc6',hospitalId:'DEMO',name:'MRI Scan',serviceCode:'RAD-002',category:'Radiology',cost:15000,description:'Magnetic resonance imaging',status:'Active'},
+        {id:'svc7',hospitalId:'DEMO',name:'CT Scan',serviceCode:'RAD-003',category:'Radiology',cost:8000,description:'Computed tomography scan',status:'Active'},
+        {id:'svc8',hospitalId:'DEMO',name:'Ultrasound',serviceCode:'RAD-004',category:'Radiology',cost:3500,description:'General ultrasound imaging',status:'Active'},
+        {id:'svc9',hospitalId:'DEMO',name:'Minor Surgery',serviceCode:'SURG-001',category:'Surgery',cost:25000,description:'Day-case minor surgical procedure',status:'Active'},
+        {id:'svc10',hospitalId:'DEMO',name:'Wound Dressing',serviceCode:'PROC-001',category:'Procedure',cost:500,description:'Professional wound dressing change',status:'Active'},
+        {id:'svc11',hospitalId:'DEMO',name:'Nebulization',serviceCode:'PROC-002',category:'Procedure',cost:800,description:'Respiratory nebulizer therapy',status:'Active'},
+        {id:'svc12',hospitalId:'DEMO',name:'Oxygen Therapy (per hour)',serviceCode:'PROC-003',category:'Procedure',cost:600,description:'Supplemental oxygen administration',status:'Active'},
+        {id:'svc13',hospitalId:'DEMO',name:'General Ward (per day)',serviceCode:'ROOM-001',category:'Room & Board',cost:3500,description:'General ward bed per day',status:'Active'},
+        {id:'svc14',hospitalId:'DEMO',name:'ICU (per day)',serviceCode:'ROOM-002',category:'Room & Board',cost:12000,description:'Intensive care unit per day',status:'Active'},
+        {id:'svc15',hospitalId:'DEMO',name:'Emergency Stabilization',serviceCode:'EMR-001',category:'Emergency',cost:5000,description:'Emergency room stabilization fee',status:'Active'},
+        {id:'svc16',hospitalId:'DEMO',name:'Ambulance Service',serviceCode:'EMR-002',category:'Emergency',cost:8000,description:'Emergency ambulance transport',status:'Active'},
+        {id:'svc17',hospitalId:'DEMO',name:'COVID-19 Test',serviceCode:'LAB-003',category:'Laboratory',cost:2500,description:'PCR COVID-19 test',status:'Active'},
+        {id:'svc18',hospitalId:'DEMO',name:'Physiotherapy Session',serviceCode:'PROC-004',category:'Procedure',cost:2000,description:'Physical therapy session',status:'Active'},
+        {id:'svc19',hospitalId:'DEMO',name:'Vaccination',serviceCode:'PHARM-001',category:'Pharmacy',cost:800,description:'Standard vaccination administration',status:'Active'},
+        {id:'svc20',hospitalId:'DEMO',name:'Dental Extraction',serviceCode:'SURG-002',category:'Surgery',cost:4500,description:'Tooth extraction procedure',status:'Active'}
+    ];
+    if(secureGet(getStorageKey('services', 'DEMO'), []).length === 0){
+        secureSet(getStorageKey('services', 'DEMO'), demoServices);
+    }
+
+// DEMO USERS - hash passwords with PBKDF2 on first load
     let users = secureGet('medicare_users_local', []);
     const demoUserDefs = [
         {uid:'demo-admin',hospitalId:'DEMO',name:'Admin John Smith',email:'admin@medicare.co.ke',role:'admin'},
@@ -6336,7 +6464,7 @@ if('serviceWorker' in navigator){
             }
         });
 
-        async async function syncSHAQueue(){
+        async function syncSHAQueue(){
             const db = await new Promise((resolve, reject) => {
                 const req = indexedDB.open('medicare-sw-db', 1);
                 req.onsuccess = e => resolve(e.target.result);
