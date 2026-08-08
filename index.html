@@ -1469,7 +1469,7 @@ function guardFirestoreOp(fnName){
 }
 
 // Test Firestore connectivity - read-only (respects restricted rules)
-async function testFirestoreAccess(){
+async async function testFirestoreAccess(){
     if(!guardFirestoreOp('testFirestoreAccess')) return false;
     if(!db || !auth || !auth.currentUser) return false;
     try {
@@ -4944,7 +4944,7 @@ function editInventory(id){ openModal('inventory',id); }
 function editUser(id){ if(userRole !== 'admin'){ toast('Admin only', 'error'); return; } openModal('user',id); }
 function editInvoice(id){ openModal('billing',id); }
 
-async function dischargePatient(admissionId){
+async async function dischargePatient(admissionId){
     const admission = dataCache.admissions.find(a => a.id === admissionId);
     if(!admission) return;
     const patient = dataCache.patients.find(p => p.id === admission.patientId);
@@ -5744,7 +5744,7 @@ const SHAProxy = {
     baseURL: 'https://api.sha.go.ke',
     timeout: 15000,
 
-    async request(endpoint, method, body, headers = {}){
+    async async request(endpoint, method, body, headers = {}){
         const url = `${this.baseURL}${endpoint}`;
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), this.timeout);
@@ -5782,7 +5782,7 @@ const SHAProxy = {
         secureSet('medicare_sha_queue', queue);
     },
 
-    async processQueue(){
+    async async processQueue(){
         const queue = secureGet('medicare_sha_queue', []);
         if(!queue.length) return;
         const remaining = [];
@@ -5802,7 +5802,7 @@ const SHAProxy = {
         }
     },
 
-    async verifyMember(shaNumber, nationalId){
+    async async verifyMember(shaNumber, nationalId){
         const settings = secureGet('medicare_security_settings', {});
         const clientId = settings.shaClientId || '';
         const clientSecret = settings.shaClientSecret || '';
@@ -5833,7 +5833,7 @@ const SHAProxy = {
         }
     },
 
-    async getAuthToken(clientId, clientSecret){
+    async async getAuthToken(clientId, clientSecret){
         const cacheKey = 'medicare_sha_token';
         const cached = secureGet(cacheKey, {});
         if(cached.token && cached.expiresAt && new Date(cached.expiresAt) > new Date(Date.now() + 5*60*1000)){
@@ -5851,7 +5851,7 @@ const SHAProxy = {
         return res.accessToken;
     },
 
-    async submitClaim(claimData){
+    async async submitClaim(claimData){
         const settings = secureGet('medicare_security_settings', {});
         const mode = settings.shaMode || 'manual';
 
@@ -5884,7 +5884,7 @@ window.addEventListener('online', () => {
     setTimeout(() => SHAProxy.processQueue(), 3000);
 });
 
-async function checkSHAMembershipFromModal(){
+async async function checkSHAMembershipFromModal(){
     const shaNumber = document.getElementById('m_patient_sha_number')?.value?.trim();
     if(!shaNumber){
         toast('Enter SHA membership number first', 'warning');
@@ -5921,7 +5921,7 @@ async function checkSHAMembershipFromModal(){
     }
 }
 
-async function submitSHAClaim(){
+async async function submitSHAClaim(){
     const claimId = currentEditId;
     const claim = dataCache.shaClaims.find(c => c.id === claimId);
     if(!claim){
@@ -6336,7 +6336,7 @@ if('serviceWorker' in navigator){
             }
         });
 
-        async function syncSHAQueue(){
+        async async function syncSHAQueue(){
             const db = await new Promise((resolve, reject) => {
                 const req = indexedDB.open('medicare-sw-db', 1);
                 req.onsuccess = e => resolve(e.target.result);
