@@ -412,6 +412,7 @@ body{font-family:'Inter',sans-serif;background:var(--light);color:var(--dark)}
 <div class="nav-item" data-page="labs"><i class="fas fa-flask"></i><span>Lab Services</span><span class="badge orange" id="labBadge">0</span></div>
 <div class="nav-item" data-page="inventory"><i class="fas fa-pills"></i><span>Inventory</span></div>
 <div class="nav-item" data-page="messaging"><i class="fas fa-comment-medical"></i><span>Messaging</span></div>
+<div class="nav-item" data-page="departments"><i class="fas fa-building"></i><span>Departments</span><span class="badge" id="deptBadge">0</span></div>
 <div class="nav-item" data-page="sha"><i class="fas fa-shield-heart"></i><span>SHA Claims</span><span class="badge orange" id="shaBadge">0</span></div>
 
 <div class="nav-section-title admin-only-nav" style="display:none">Administration</div>
@@ -445,12 +446,14 @@ body{font-family:'Inter',sans-serif;background:var(--light);color:var(--dark)}
 <div class="stat-card"><div class="stat-icon indigo"><i class="fas fa-credit-card"></i></div><div class="stat-info"><h3 id="statPendingPayments">KSh0</h3><p>Pending Payments</p></div></div>
 <div class="stat-card"><div class="stat-icon teal"><i class="fas fa-flask"></i></div><div class="stat-info"><h3 id="statLabs">0</h3><p>Pending Lab Tests</p></div></div>
     <div class="stat-card"><div class="stat-icon" style="background:#dbeafe;color:#1e40af"><i class="fas fa-shield-heart"></i></div><div class="stat-info"><h3 id="statSHAPending">0</h3><p>SHA Claims Pending</p></div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:#ede9fe;color:#7c3aed"><i class="fas fa-building"></i></div><div class="stat-info"><h3 id="statDepartments">0</h3><p>Departments</p></div></div>
 </div>
 <div class="quick-actions">
 <div class="quick-action-btn" onclick="openModal('admission')"><i class="fas fa-user-plus"></i><span>Admit Patient</span></div>
 <div class="quick-action-btn" onclick="openModal('appointment')"><i class="fas fa-calendar-plus"></i><span>New Appointment</span></div>
 <div class="quick-action-btn" onclick="openModal('prescription')"><i class="fas fa-file-prescription"></i><span>Prescription</span></div>
 <div class="quick-action-btn" onclick="openModal('billing')"><i class="fas fa-file-invoice"></i><span>Create Invoice</span></div>
+<div class="quick-action-btn" onclick="navigateTo('departments')"><i class="fas fa-building"></i><span>Departments</span></div>
 </div>
 <div class="card">
 <div class="card-header"><h3><i class="fas fa-procedures"></i> Recent Admissions</h3><button class="btn-sm btn-primary" onclick="navigateTo('admissions')">View All</button></div>
@@ -552,6 +555,55 @@ body{font-family:'Inter',sans-serif;background:var(--light);color:var(--dark)}
 <div class="card"><div class="card-header"><h3>Invoices & Billing</h3><button class="btn-sm btn-gray" onclick="exportBillingCSV()"><i class="fas fa-download"></i> Export CSV</button></div>
 <div class="card-body"><table class="data-table"><thead><tr><th>Invoice #</th><th>Patient</th><th>Date</th><th>Amount</th><th>Paid</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead><tbody id="billingTable"></tbody></table></div>
 </div>
+</div>
+
+<!-- DEPARTMENTS PAGE -->
+<div class="page-section" id="page-departments">
+<div class="search-bar">
+    <input type="text" id="deptSearch" placeholder="Search departments..." onkeyup="searchDepartments()">
+    <select id="deptTypeFilter" onchange="filterDepartments()">
+        <option value="">All Types</option>
+        <option value="Triage">Triage / Emergency</option>
+        <option value="OPD">Outpatient (OPD)</option>
+        <option value="Inpatient">Inpatient</option>
+        <option value="Pharmacy">Pharmacy</option>
+        <option value="Laboratory">Laboratory</option>
+        <option value="Radiology">Radiology</option>
+        <option value="Surgery">Surgery / Theater</option>
+        <option value="Maternity">Maternity</option>
+        <option value="Pediatrics">Pediatrics</option>
+        <option value="Dental">Dental</option>
+        <option value="Ophthalmology">Ophthalmology</option>
+        <option value="Physiotherapy">Physiotherapy</option>
+        <option value="Mortuary">Mortuary</option>
+        <option value="Administration">Administration</option>
+        <option value="Billing">Billing / Finance</option>
+        <option value="Records">Medical Records</option>
+        <option value="Nutrition">Nutrition / Dietary</option>
+        <option value="Housekeeping">Housekeeping</option>
+        <option value="Security">Security</option>
+        <option value="ICT">ICT</option>
+    </select>
+    <button class="btn-sm btn-primary" onclick="openModal('department')"><i class="fas fa-plus"></i> Add Department</button>
+</div>
+<!-- Department Stats -->
+<div class="stats-grid" style="margin-bottom:16px">
+    <div class="stat-card"><div class="stat-icon blue"><i class="fas fa-building"></i></div><div class="stat-info"><h3 id="statTotalDepts">0</h3><p>Total Departments</p></div></div>
+    <div class="stat-card"><div class="stat-icon green"><i class="fas fa-check-circle"></i></div><div class="stat-info"><h3 id="statActiveDepts">0</h3><p>Active</p></div></div>
+    <div class="stat-card"><div class="stat-icon purple"><i class="fas fa-user-injured"></i></div><div class="stat-info"><h3 id="statDeptPatients">0</h3><p>Patients in Depts</p></div></div>
+    <div class="stat-card"><div class="stat-icon orange"><i class="fas fa-user-md"></i></div><div class="stat-info"><h3 id="statDeptStaff">0</h3><p>Staff Assigned</p></div></div>
+</div>
+<!-- Department Queue -->
+<div class="card" style="margin-bottom:20px">
+    <div class="card-header"><h3><i class="fas fa-list-ol"></i> Department Patient Queue</h3>
+        <select id="deptQueueFilter" onchange="renderDepartmentQueue()" style="padding:6px 12px;border:2px solid var(--border);border-radius:8px;font-size:13px">
+            <option value="">All Departments</option>
+        </select>
+    </div>
+    <div class="card-body"><table class="data-table"><thead><tr><th>Patient</th><th>Department</th><th>Assigned</th><th>Status</th><th>By</th><th>Actions</th></tr></thead><tbody id="deptQueueTable"><tr><td colspan="6" class="empty-state"><i class="fas fa-building"></i><p>No patients in departments</p></td></tr></tbody></table></div>
+</div>
+<!-- Departments Grid -->
+<div class="ward-grid" id="departmentsGrid"></div>
 </div>
 
 <!-- ==================== REPORTS PAGE ==================== -->
@@ -1115,7 +1167,7 @@ let _offlineWriteQueue = secureGet('medicare_offline_queue', []);
 let _sessionTimer = null;
 
 let dataCache = {
-  patients:[], admissions:[], appointments:[], doctors:[], prescriptions:[], billing:[], inventory:[], wards:[], users:[], labs:[], shaClaims:[]
+  patients:[], admissions:[], appointments:[], doctors:[], prescriptions:[], billing:[], inventory:[], wards:[], users:[], labs:[], shaClaims:[], departments:[], departmentAssignments:[]
 };
 
 // ==================== PERFORMANCE UTILITIES ====================
@@ -1285,7 +1337,8 @@ function getCollectionName(modalType){
     const map = {
         'patient':'patients','admission':'admissions','appointment':'appointments',
         'ward':'wards','doctor':'doctors','prescription':'prescriptions',
-        'lab':'labs','billing':'billing','inventory':'inventory','user':'users'
+        'lab':'labs','billing':'billing','inventory':'inventory','user':'users',
+        'department':'departments','sendToDept':'departmentAssignments'
     };
     return map[modalType] || modalType;
 }
@@ -2279,7 +2332,7 @@ function lockScreen(){
     sessionStorage.removeItem('medicare_session_active');
     sessionStorage.removeItem('medicare_session_email');
     sessionStorage.removeItem('medicare_session_hospital');
-    dataCache = {patients:[], admissions:[], appointments:[], doctors:[], prescriptions:[], billing:[], inventory:[], wards:[], users:[], labs:[]};
+    dataCache = {patients:[], admissions:[], appointments:[], doctors:[], prescriptions:[], billing:[], inventory:[], wards:[], users:[], labs:[], departments:[], departmentAssignments:[]};
     currentUser = null; currentHospital = null; userRole = ''; isOnline = false;
     loginAttempts = 0; loginLockoutUntil = 0;
     if(auth) auth.signOut().catch(()=>{});
@@ -2299,7 +2352,7 @@ function logout(){
     sessionStorage.removeItem('medicare_session_email');
     sessionStorage.removeItem('medicare_session_hospital');
     logSecurityEvent('LOGOUT', {hospitalId: currentHospital?.hospitalId || currentHospital?.id});
-    dataCache = {patients:[], admissions:[], appointments:[], doctors:[], prescriptions:[], billing:[], inventory:[], wards:[], users:[], labs:[]};
+    dataCache = {patients:[], admissions:[], appointments:[], doctors:[], prescriptions:[], billing:[], inventory:[], wards:[], users:[], labs:[], departments:[], departmentAssignments:[]};
     currentUser = null; currentHospital = null; userRole = ''; isOnline = false;
     loginAttempts = 0; loginLockoutUntil = 0;
     if(auth) auth.signOut().catch(()=>{});
@@ -2348,6 +2401,7 @@ function navigateTo(page){
     else if(page === 'reports'){ btn.innerHTML = '<i class="fas fa-download"></i> Export'; btn.onclick = () => exportReportCSV(); btn.style.display = (userRole === 'admin') ? '' : 'none'; }
     else if(page === 'messaging'){ btn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Bulk'; btn.onclick = () => sendBulkReminders(); btn.style.display = ''; }
     else if(page === 'sha'){ btn.innerHTML = '<i class="fas fa-plus"></i> New Claim'; btn.onclick = () => openSHAModal(); btn.style.display = ''; }
+    else if(page === 'departments'){ btn.innerHTML = '<i class="fas fa-plus"></i> Add Department'; btn.onclick = () => openModal('department'); btn.style.display = ''; }
     else { btn.style.display = 'none'; }
     if(page === 'users'){
         document.getElementById('usersAccessDenied').style.display = (userRole === 'admin') ? 'none' : 'block';
@@ -2357,6 +2411,10 @@ function navigateTo(page){
     if(page === 'messaging'){
         renderMessaging();
         previewTemplate();
+    }
+    if(page === 'departments'){
+        renderDepartments();
+        renderDepartmentQueue();
     }
     if(page === 'sha'){
         renderSHAClaims();
@@ -2390,7 +2448,7 @@ function setupRealtimeListeners(){
     realtimeUnsubscribers.forEach(fn => fn());
     realtimeUnsubscribers = [];
     const hospId = currentHospital.hospitalId || currentHospital.id;
-    const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','labs','shaClaims'];
+    const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','labs','shaClaims','departments','departmentAssignments'];
 
     // Throttled refresh to prevent UI freezing on rapid snapshot updates
     const throttledRefresh = throttle((col) => {
@@ -2566,7 +2624,7 @@ async function syncLocalToCloud(){
     if(!hospId) return;
 
     console.log('Checking for local data to sync to cloud...');
-    const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','labs','shaClaims'];
+    const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','labs','shaClaims','departments','departmentAssignments'];
     let syncedCount = 0;
 
     for(const col of cols){
@@ -2660,7 +2718,7 @@ async function loadAllData(){
     if(db && isOnline && auth.currentUser){
         if(guardFirestoreOp('loadAllData')){
             try {
-                const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','labs','shaClaims'];
+                const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','labs','shaClaims','departments','departmentAssignments'];
                 // PARALLEL loading: fetch all collections at once instead of sequential (5s timeout each)
                 const colPromises = cols.map(async col => {
                     try {
@@ -2806,7 +2864,7 @@ function secureGet(key, defaultValue){
 
 
 function loadFromLocalStorage(){
-    const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','users','labs','shaClaims'];
+    const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','users','labs','shaClaims','departments','departmentAssignments'];
     for(const col of cols){
         dataCache[col] = secureGet(getStorageKey(col), '[]').filter(i => !i.deletedAt);
     }
@@ -2894,7 +2952,7 @@ function updateSyncStatus(status){
 }
 
 function refreshAllPages(){
-    ['dashboard','patients','admissions','appointments','wards','doctors','prescriptions','billing','labs','inventory','users','sha'].forEach(refreshPageData);
+    ['dashboard','patients','admissions','appointments','wards','doctors','prescriptions','billing','labs','inventory','users','sha','departments'].forEach(refreshPageData);
 }
 
 function refreshPageData(page){
@@ -2913,6 +2971,7 @@ function refreshPageData(page){
         case 'reports': if(userRole === 'admin') generateReports(); break;
         case 'messaging': renderMessaging(); previewTemplate(); break;
         case 'sha': renderSHAClaims(); renderSHAPatients(); updateSHADashboard(); break;
+        case 'departments': renderDepartments(); renderDepartmentQueue(); break;
     }
 }
 
@@ -2937,6 +2996,8 @@ function _updateStats(){
     const statLabsEl = document.getElementById('statLabs');
     if(statLabsEl) statLabsEl.textContent = pendingLabs;
     const pendingSHA = dataCache.shaClaims.filter(c => c.status === 'Pending' || c.status === 'Submitted').length;
+    const deptBadge = document.getElementById('deptBadge');
+    if(deptBadge) deptBadge.textContent = dataCache.departments.length;
     const shaBadge = document.getElementById('shaBadge');
     if(shaBadge) shaBadge.textContent = pendingSHA;
 }
@@ -3038,6 +3099,8 @@ function renderDashboard(){
     const shaPending = dataCache.shaClaims.filter(c => c.status === 'Pending' || c.status === 'Submitted').length;
     const statSHAEl = document.getElementById('statSHAPending');
     if(statSHAEl) statSHAEl.textContent = shaPending;
+    const statDeptEl = document.getElementById('statDepartments');
+    if(statDeptEl) statDeptEl.textContent = dataCache.departments.length;
 }
 
 function renderPatients(){
@@ -3047,9 +3110,9 @@ function renderPatients(){
         const isAdmitted = dataCache.admissions.some(a => a.patientId === p.id && a.status === 'Admitted');
         const hasInsurance = p.insuranceProvider && p.insuranceStatus === 'Active';
         return `<tr><td>#${p.id ? p.id.slice(-4) : '0000'}</td><td><strong>${p.name}</strong></td><td>${p.age || '-'} / ${p.gender || '-'}</td><td>${p.phone || '-'}</td>
-        <td>${hasInsurance ? `<span class="insurance-badge"><i class="fas fa-shield-alt"></i> ${p.insuranceProvider}</span>` : '<span class="insurance-badge inactive">No Insurance</span>'}${p.shaNumber && p.shaStatus === 'Active' ? ` <span class="insurance-badge" style="background:#dbeafe;color:#1e40af;margin-top:4px"><i class="fas fa-shield-alt"></i> SHA ${p.shaTier || ''}</span>` : ''}</td>
+        <td>${hasInsurance ? `<span class="insurance-badge"><i class="fas fa-shield-alt"></i> ${p.insuranceProvider}</span>` : '<span class="insurance-badge inactive">No Insurance</span>'}${p.shaNumber && p.shaStatus === 'Active' ? ` <span class="insurance-badge" style="background:#dbeafe;color:#1e40af;margin-top:4px"><i class="fas fa-shield-alt"></i> SHA ${p.shaTier || ''}</span>` : ''}${p.currentDepartmentName ? `<br><span class="status-badge status-admitted" style="margin-top:4px;font-size:10px"><i class="fas fa-building"></i> ${p.currentDepartmentName}</span>` : ''}</td>
         <td>${isAdmitted ? '<span class="status-badge status-admitted"><i class="fas fa-bed"></i> Admitted</span>' : '<span class="status-badge status-discharged">Outpatient</span>'}</td>
-        <td><button class="btn-sm btn-info" onclick="viewPatient('${p.id}')"><i class="fas fa-eye"></i></button> <button class="btn-sm btn-warning" onclick="editPatient('${p.id}')"><i class="fas fa-edit"></i></button> <button class="btn-sm btn-danger" onclick="deletePatient('${p.id}')"><i class="fas fa-trash"></i></button>${p.phone ? ` <button class="msg-btn msg-btn-whatsapp" onclick="openMessageModal('${p.id}', 'general', '', '', '')" title="Send WhatsApp"><i class="fab fa-whatsapp"></i></button>` : ''}</td></tr>`;
+        <td><button class="btn-sm btn-info" onclick="viewPatient('${p.id}')"><i class="fas fa-eye"></i></button> <button class="btn-sm btn-warning" onclick="editPatient('${p.id}')"><i class="fas fa-edit"></i></button> <button class="btn-sm btn-danger" onclick="deletePatient('${p.id}')"><i class="fas fa-trash"></i></button>${p.phone ? ` <button class="msg-btn msg-btn-whatsapp" onclick="openMessageModal('${p.id}', 'general', '', '', '')" title="Send WhatsApp"><i class="fab fa-whatsapp"></i></button>` : ''} <button class="btn-sm btn-indigo" onclick="openModal('sendToDept', '${p.id}')" title="Send to Department"><i class="fas fa-building"></i></button></td></tr>`;
     }).join('');
 }
 
@@ -3445,7 +3508,7 @@ async function forceSyncAllData(){
     const hospId = currentHospital ? (currentHospital.hospitalId || currentHospital.id) : null;
     if(!hospId){ toast('No hospital ID', 'error'); return; }
 
-    const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','labs','shaClaims'];
+    const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','labs','shaClaims','departments','departmentAssignments'];
     let totalSynced = 0;
 
     for(const col of cols){
@@ -3551,6 +3614,134 @@ function renderAuditLog(){
 }
 
 // ==================== SEARCH FUNCTIONS ====================
+
+function renderDepartments(){
+    updateDeptSummary();
+    const grid = document.getElementById('departmentsGrid');
+    const typeFilter = document.getElementById('deptTypeFilter').value;
+    let depts = dataCache.departments;
+    if(typeFilter) depts = depts.filter(d => d.type === typeFilter);
+
+    if(depts.length === 0){
+        grid.innerHTML = '<div class="card" style="grid-column:1/-1"><div class="card-body"><div class="empty-state"><i class="fas fa-building"></i><p>No departments configured. Add your first department.</p></div></div></div>';
+        return;
+    }
+
+    grid.innerHTML = depts.map(d => {
+        const activePatients = dataCache.departmentAssignments.filter(a => a.departmentId === d.id && a.status === 'Active').length;
+        const staffCount = dataCache.doctors.filter(doc => doc.departmentId === d.id).length + dataCache.users.filter(u => u.departmentId === d.id).length;
+        const isFull = d.capacity && activePatients >= parseInt(d.capacity);
+        return `<div class="ward-card">
+            <div class="ward-card-header">
+                <h4><i class="fas fa-building"></i> ${sanitizeHTML(d.name)}</h4>
+                <div>
+                    <span class="status-badge ${d.status === 'Active' ? 'status-active' : 'status-cancelled'}">${d.status || 'Active'}</span>
+                    <button class="btn-xs btn-info" onclick="editDepartment('${d.id}')"><i class="fas fa-edit"></i></button>
+                    <button class="btn-xs btn-danger" onclick="deleteDepartment('${d.id}')"><i class="fas fa-trash"></i></button>
+                </div>
+            </div>
+            <div class="ward-card-body">
+                <p style="color:var(--gray);font-size:12px;margin-bottom:8px"><strong>${sanitizeHTML(d.type || 'General')}</strong> ${d.location ? '| ' + sanitizeHTML(d.location) : ''}</p>
+                <p style="font-size:12px;color:var(--gray);margin-bottom:10px">${sanitizeHTML(d.description || '')}</p>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+                    <span class="status-badge status-admitted"><i class="fas fa-user-injured"></i> ${activePatients} patients</span>
+                    <span class="status-badge status-available"><i class="fas fa-user-md"></i> ${staffCount} staff</span>
+                    ${d.capacity ? `<span class="status-badge ${isFull ? 'status-occupied' : 'status-available'}"><i class="fas fa-users"></i> Capacity: ${activePatients}/${d.capacity}</span>` : ''}
+                </div>
+                ${d.services && d.services.length > 0 ? `<div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:10px">${d.services.map(s => `<span class="status-badge status-available" style="font-size:10px;padding:2px 8px">${sanitizeHTML(s)}</span>`).join('')}</div>` : ''}
+                ${d.headName ? `<p style="font-size:12px;color:var(--gray)"><i class="fas fa-user-md"></i> Head: Dr. ${sanitizeHTML(d.headName)}</p>` : ''}
+                ${d.phone ? `<p style="font-size:12px;color:var(--gray)"><i class="fas fa-phone"></i> ${sanitizeHTML(d.phone)}</p>` : ''}
+            </div>
+        </div>`;
+    }).join('');
+
+    // Update queue filter dropdown
+    const queueFilter = document.getElementById('deptQueueFilter');
+    if(queueFilter){
+        const currentVal = queueFilter.value;
+        queueFilter.innerHTML = '<option value="">All Departments</option>' + dataCache.departments.filter(d => d.status === 'Active').map(d => `<option value="${d.id}" ${currentVal === d.id ? 'selected' : ''}>${sanitizeHTML(d.name)}</option>`).join('');
+    }
+}
+
+function renderDepartmentQueue(){
+    const filter = document.getElementById('deptQueueFilter')?.value;
+    let assignments = dataCache.departmentAssignments.filter(a => a.status === 'Active');
+    if(filter) assignments = assignments.filter(a => a.departmentId === filter);
+
+    const tbody = document.getElementById('deptQueueTable');
+    if(assignments.length === 0){
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><i class="fas fa-building"></i><p>No patients currently in departments</p></td></tr>';
+        return;
+    }
+
+    tbody.innerHTML = assignments.sort((a,b) => (b.assignedAt || '').localeCompare(a.assignedAt || '')).map(a => {
+        const p = dataCache.patients.find(pt => pt.id === a.patientId) || {name:'Unknown'};
+        const priorityClass = a.priority === 'Critical' ? 'status-cancelled' : a.priority === 'Urgent' ? 'status-pending' : 'status-active';
+        return `<tr>
+            <td><strong>${sanitizeHTML(p.name)}</strong></td>
+            <td><span class="status-badge status-admitted"><i class="fas fa-building"></i> ${sanitizeHTML(a.departmentName || '-')}</span></td>
+            <td>${a.assignedAt ? a.assignedAt.replace('T',' ').slice(0,16) : '-'}</td>
+            <td><span class="status-badge ${priorityClass}">${a.priority || 'Normal'}</span></td>
+            <td>${sanitizeHTML(a.assignedBy || '-')}</td>
+            <td>
+                <button class="btn-sm btn-success" onclick="dischargeFromDept('${a.id}')" title="Discharge from department"><i class="fas fa-check"></i> Done</button>
+                <button class="btn-sm btn-info" onclick="transferDept('${a.patientId}')" title="Transfer to another department"><i class="fas fa-exchange-alt"></i></button>
+            </td>
+        </tr>`;
+    }).join('');
+}
+
+function updateDeptSummary(){
+    const total = dataCache.departments.length;
+    const active = dataCache.departments.filter(d => d.status === 'Active').length;
+    const patients = dataCache.departmentAssignments.filter(a => a.status === 'Active').length;
+    const staff = dataCache.doctors.length + dataCache.users.filter(u => u.role !== 'admin').length;
+    document.getElementById('statTotalDepts').textContent = total;
+    document.getElementById('statActiveDepts').textContent = active;
+    document.getElementById('statDeptPatients').textContent = patients;
+    document.getElementById('statDeptStaff').textContent = staff;
+}
+
+function searchDepartments(){
+    const q = document.getElementById('deptSearch').value.toLowerCase();
+    document.querySelectorAll('#departmentsGrid .ward-card').forEach(card => {
+        card.style.display = card.textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+}
+
+function filterDepartments(){ renderDepartments(); }
+
+async function deleteDepartment(id){
+    if(!confirm('Delete this department? Patients currently assigned will be unaffected but department data will be lost.')) return;
+    await deleteData('departments', id);
+    renderDepartments(); updateStats();
+    toast('Department deleted', 'info');
+}
+
+function editDepartment(id){ openModal('department', id); }
+
+async function dischargeFromDept(assignmentId){
+    const assignment = dataCache.departmentAssignments.find(a => a.id === assignmentId);
+    if(!assignment) return;
+    if(!confirm(`Discharge patient from ${assignment.departmentName}?`)) return;
+    assignment.status = 'Completed';
+    assignment.dischargedAt = new Date().toISOString();
+    await saveData('departmentAssignments', assignment);
+    // Clear patient's current department
+    const patient = dataCache.patients.find(p => p.id === assignment.patientId);
+    if(patient && patient.currentDepartmentId === assignment.departmentId){
+        patient.currentDepartmentId = '';
+        patient.currentDepartmentName = '';
+        await saveData('patients', patient);
+    }
+    renderDepartmentQueue(); renderDepartments(); renderPatients(); updateStats();
+    toast('Patient discharged from department', 'success');
+}
+
+function transferDept(patientId){
+    openModal('sendToDept', patientId);
+}
+
 function renderLabs(){
     updateLabSummary();
     filterLabs();
@@ -3859,6 +4050,10 @@ function openModal(type, editId){
                 <div class="form-group"><label>SHA Eligibility Notes</label><textarea id="m_patient_sha_notes" placeholder="Eligibility check results, pre-auth requirements, etc.">${item.shaNotes || ''}</textarea></div>
                 <button type="button" class="btn-sm btn-indigo" style="width:auto" onclick="checkSHAMembershipFromModal()"><i class="fas fa-search"></i> Check SHA Eligibility</button>
                 </div>
+                <div style="border:2px dashed #ede9fe;border-radius:10px;padding:16px;margin:16px 0;background:#faf5ff"><h4 style="font-size:14px;margin-bottom:12px;color:#7c3aed"><i class="fas fa-building"></i> Department Assignment</h4>
+                <div class="form-group"><label>Current Department</label><select id="m_patient_dept"><option value="">Not assigned</option>${dataCache.departments.filter(d => d.status === 'Active').map(d => `<option value="${d.id}" ${item.currentDepartmentId === d.id ? 'selected' : ''}>${d.name}</option>`).join('')}</select></div>
+                <p style="font-size:12px;color:var(--gray)">Use the <strong>Send to Department</strong> button in the patients list for full assignment tracking with history.</p>
+                </div>
                 <div class="form-group"><label>Medical History</label><textarea id="m_patient_notes">${item.notes || ''}</textarea></div>`;
             break;
         case 'admission':
@@ -3923,6 +4118,96 @@ function openModal(type, editId){
             `;
             if(isEdit && shaClaim.patientId) setTimeout(() => updateSHAPatientInfo(), 100);
             break;
+        case 'department':
+            title.textContent = isEdit ? 'Edit Department' : 'Add Department';
+            const deptTypes = [
+                'Triage / Emergency', 'Outpatient (OPD)', 'Inpatient', 'Pharmacy',
+                'Laboratory', 'Radiology', 'Surgery / Theater', 'Maternity',
+                'Pediatrics', 'Dental', 'Ophthalmology', 'Physiotherapy',
+                'Mortuary', 'Administration', 'Billing / Finance', 'Medical Records',
+                'Nutrition / Dietary', 'Housekeeping', 'Security', 'ICT'
+            ];
+            const deptTypeOpts = deptTypes.map(t => `<option value="${t}" ${item.type === t ? 'selected' : ''}>${t}</option>`).join('');
+            const deptHeadOpts = dataCache.doctors.map(d => `<option value="${d.id}" ${item.headDoctorId === d.id ? 'selected' : ''}>Dr. ${d.name}</option>`).join('');
+            body.innerHTML = `
+                <div class="form-row"><div class="form-group"><label>Department Name *</label><input type="text" id="m_dept_name" value="${item.name || ''}" placeholder="e.g., Emergency Department" required></div><div class="form-group"><label>Department Type *</label><select id="m_dept_type" required><option value="">Select Type</option>${deptTypeOpts}</select></div></div>
+                <div class="form-group"><label>Description</label><textarea id="m_dept_desc" placeholder="Brief description of department functions">${item.description || ''}</textarea></div>
+                <div class="form-row"><div class="form-group"><label>Head / Doctor in Charge</label><select id="m_dept_head"><option value="">Select</option>${deptHeadOpts}</select></div><div class="form-group"><label>Location / Floor</label><input type="text" id="m_dept_location" value="${item.location || ''}" placeholder="e.g., Ground Floor, Block A"></div></div>
+                <div class="form-row"><div class="form-group"><label>Phone Extension</label><input type="tel" id="m_dept_phone" value="${item.phone || ''}" placeholder="e.g., Ext. 201"></div><div class="form-group"><label>Email</label><input type="email" id="m_dept_email" value="${item.email || ''}" placeholder="dept@hospital.com"></div></div>
+                <div class="form-row"><div class="form-group"><label>Patient Capacity</label><input type="number" id="m_dept_capacity" value="${item.capacity || ''}" min="1" placeholder="Max patients at once"></div><div class="form-group"><label>Status</label><select id="m_dept_status"><option value="Active" ${(item.status || 'Active') === 'Active' ? 'selected' : ''}>Active</option><option value="Inactive" ${item.status === 'Inactive' ? 'selected' : ''}>Inactive</option></select></div></div>
+                <div class="form-group"><label>Services Offered <span style="color:var(--gray);font-size:12px">(comma-separated)</span></label><input type="text" id="m_dept_services" value="${(item.services || []).join(', ')}" placeholder="e.g., Consultation, Blood Test, X-Ray, Surgery"></div>
+            `;
+            break;
+        case 'sendToDept':
+            title.textContent = 'Send Patient to Department';
+            const sendPatient = dataCache.patients.find(p => p.id === editId);
+            const availableDepts = dataCache.departments.filter(d => d.status === 'Active');
+            const deptOpts = availableDepts.map(d => `<option value="${d.id}">${d.name} (${d.type})</option>`).join('');
+            body.innerHTML = `
+                <div class="form-group"><label>Patient</label><input type="text" value="${sendPatient ? sendPatient.name : 'Unknown'}" disabled></div>
+                <div class="form-group"><label>Select Department *</label><select id="m_send_dept" required><option value="">Select Department</option>${deptOpts}</select></div>
+                <div class="form-group"><label>Priority</label><select id="m_send_priority"><option value="Normal">Normal</option><option value="Urgent">Urgent</option><option value="Critical">Critical</option></select></div>
+                <div class="form-group"><label>Reason / Notes</label><textarea id="m_send_notes" placeholder="Why is patient being sent to this department?"></textarea></div>
+            `;
+            break;
+        case 'department':
+            data = {
+                id: currentEditId,
+                name: document.getElementById('m_dept_name').value.trim(),
+                type: document.getElementById('m_dept_type').value,
+                description: document.getElementById('m_dept_desc').value,
+                headDoctorId: document.getElementById('m_dept_head').value,
+                headName: dataCache.doctors.find(d => d.id === document.getElementById('m_dept_head').value)?.name || '',
+                location: document.getElementById('m_dept_location').value,
+                phone: document.getElementById('m_dept_phone').value,
+                email: document.getElementById('m_dept_email').value,
+                capacity: document.getElementById('m_dept_capacity').value,
+                status: document.getElementById('m_dept_status').value,
+                services: document.getElementById('m_dept_services').value.split(',').map(s => s.trim()).filter(s => s)
+            };
+            break;
+        case 'sendToDept':
+            const sendPatientId = currentEditId;
+            const sendDeptId = document.getElementById('m_send_dept').value;
+            const sendPriority = document.getElementById('m_send_priority').value;
+            const sendNotes = document.getElementById('m_send_notes').value;
+            if(!sendDeptId){ toast('Please select a department', 'error'); btn.innerHTML='Save'; btn.disabled=false; return; }
+            const targetDept = dataCache.departments.find(d => d.id === sendDeptId);
+            // Close any existing active assignment for this patient
+            const existing = dataCache.departmentAssignments.filter(a => a.patientId === sendPatientId && a.status === 'Active');
+            for(const ex of existing){
+                ex.status = 'Transferred';
+                ex.dischargedAt = new Date().toISOString();
+                await saveData('departmentAssignments', ex);
+            }
+            // Update patient current department
+            const sendPatientData = dataCache.patients.find(p => p.id === sendPatientId);
+            if(sendPatientData){
+                sendPatientData.currentDepartmentId = sendDeptId;
+                sendPatientData.currentDepartmentName = targetDept ? targetDept.name : '';
+                await saveData('patients', sendPatientData);
+            }
+            // Create new assignment
+            const assignment = {
+                patientId: sendPatientId,
+                departmentId: sendDeptId,
+                departmentName: targetDept ? targetDept.name : '',
+                departmentType: targetDept ? targetDept.type : '',
+                priority: sendPriority,
+                notes: sendNotes,
+                status: 'Active',
+                assignedBy: currentUser ? (currentUser.displayName || currentUser.email) : 'System',
+                assignedAt: new Date().toISOString()
+            };
+            await saveData('departmentAssignments', assignment);
+            closeModal();
+            renderDepartments();
+            renderDepartmentQueue();
+            renderPatients();
+            updateStats();
+            btn.innerHTML='Save'; btn.disabled=false;
+            toast(`Patient sent to ${targetDept ? targetDept.name : 'department'}`, 'success');
+            return;
         case 'user':
             if(userRole !== 'admin'){ toast('Admin only', 'error'); closeModal(); return; }
             title.textContent = isEdit ? 'Edit User' : 'Add Hospital User';
@@ -3978,6 +4263,8 @@ async function saveModal(){
                 policyNumber: document.getElementById('m_patient_policy_number').value,
                 insuranceCoverage: document.getElementById('m_patient_coverage').value,
                 insuranceStatus: document.getElementById('m_patient_insurance_status').value,
+                currentDepartmentId: document.getElementById('m_patient_dept')?.value || '',
+                currentDepartmentName: dataCache.departments.find(d => d.id === (document.getElementById('m_patient_dept')?.value || ''))?.name || '',
                 shaNumber: document.getElementById('m_patient_sha_number').value.trim(),
                 shaStatus: document.getElementById('m_patient_sha_status').value,
                 shaTier: document.getElementById('m_patient_sha_tier').value,
@@ -4089,6 +4376,96 @@ async function saveModal(){
                 submittedAt: new Date().toISOString()
             };
             break;
+        case 'department':
+            title.textContent = isEdit ? 'Edit Department' : 'Add Department';
+            const deptTypes = [
+                'Triage / Emergency', 'Outpatient (OPD)', 'Inpatient', 'Pharmacy',
+                'Laboratory', 'Radiology', 'Surgery / Theater', 'Maternity',
+                'Pediatrics', 'Dental', 'Ophthalmology', 'Physiotherapy',
+                'Mortuary', 'Administration', 'Billing / Finance', 'Medical Records',
+                'Nutrition / Dietary', 'Housekeeping', 'Security', 'ICT'
+            ];
+            const deptTypeOpts = deptTypes.map(t => `<option value="${t}" ${item.type === t ? 'selected' : ''}>${t}</option>`).join('');
+            const deptHeadOpts = dataCache.doctors.map(d => `<option value="${d.id}" ${item.headDoctorId === d.id ? 'selected' : ''}>Dr. ${d.name}</option>`).join('');
+            body.innerHTML = `
+                <div class="form-row"><div class="form-group"><label>Department Name *</label><input type="text" id="m_dept_name" value="${item.name || ''}" placeholder="e.g., Emergency Department" required></div><div class="form-group"><label>Department Type *</label><select id="m_dept_type" required><option value="">Select Type</option>${deptTypeOpts}</select></div></div>
+                <div class="form-group"><label>Description</label><textarea id="m_dept_desc" placeholder="Brief description of department functions">${item.description || ''}</textarea></div>
+                <div class="form-row"><div class="form-group"><label>Head / Doctor in Charge</label><select id="m_dept_head"><option value="">Select</option>${deptHeadOpts}</select></div><div class="form-group"><label>Location / Floor</label><input type="text" id="m_dept_location" value="${item.location || ''}" placeholder="e.g., Ground Floor, Block A"></div></div>
+                <div class="form-row"><div class="form-group"><label>Phone Extension</label><input type="tel" id="m_dept_phone" value="${item.phone || ''}" placeholder="e.g., Ext. 201"></div><div class="form-group"><label>Email</label><input type="email" id="m_dept_email" value="${item.email || ''}" placeholder="dept@hospital.com"></div></div>
+                <div class="form-row"><div class="form-group"><label>Patient Capacity</label><input type="number" id="m_dept_capacity" value="${item.capacity || ''}" min="1" placeholder="Max patients at once"></div><div class="form-group"><label>Status</label><select id="m_dept_status"><option value="Active" ${(item.status || 'Active') === 'Active' ? 'selected' : ''}>Active</option><option value="Inactive" ${item.status === 'Inactive' ? 'selected' : ''}>Inactive</option></select></div></div>
+                <div class="form-group"><label>Services Offered <span style="color:var(--gray);font-size:12px">(comma-separated)</span></label><input type="text" id="m_dept_services" value="${(item.services || []).join(', ')}" placeholder="e.g., Consultation, Blood Test, X-Ray, Surgery"></div>
+            `;
+            break;
+        case 'sendToDept':
+            title.textContent = 'Send Patient to Department';
+            const sendPatient = dataCache.patients.find(p => p.id === editId);
+            const availableDepts = dataCache.departments.filter(d => d.status === 'Active');
+            const deptOpts = availableDepts.map(d => `<option value="${d.id}">${d.name} (${d.type})</option>`).join('');
+            body.innerHTML = `
+                <div class="form-group"><label>Patient</label><input type="text" value="${sendPatient ? sendPatient.name : 'Unknown'}" disabled></div>
+                <div class="form-group"><label>Select Department *</label><select id="m_send_dept" required><option value="">Select Department</option>${deptOpts}</select></div>
+                <div class="form-group"><label>Priority</label><select id="m_send_priority"><option value="Normal">Normal</option><option value="Urgent">Urgent</option><option value="Critical">Critical</option></select></div>
+                <div class="form-group"><label>Reason / Notes</label><textarea id="m_send_notes" placeholder="Why is patient being sent to this department?"></textarea></div>
+            `;
+            break;
+        case 'department':
+            data = {
+                id: currentEditId,
+                name: document.getElementById('m_dept_name').value.trim(),
+                type: document.getElementById('m_dept_type').value,
+                description: document.getElementById('m_dept_desc').value,
+                headDoctorId: document.getElementById('m_dept_head').value,
+                headName: dataCache.doctors.find(d => d.id === document.getElementById('m_dept_head').value)?.name || '',
+                location: document.getElementById('m_dept_location').value,
+                phone: document.getElementById('m_dept_phone').value,
+                email: document.getElementById('m_dept_email').value,
+                capacity: document.getElementById('m_dept_capacity').value,
+                status: document.getElementById('m_dept_status').value,
+                services: document.getElementById('m_dept_services').value.split(',').map(s => s.trim()).filter(s => s)
+            };
+            break;
+        case 'sendToDept':
+            const sendPatientId = currentEditId;
+            const sendDeptId = document.getElementById('m_send_dept').value;
+            const sendPriority = document.getElementById('m_send_priority').value;
+            const sendNotes = document.getElementById('m_send_notes').value;
+            if(!sendDeptId){ toast('Please select a department', 'error'); btn.innerHTML='Save'; btn.disabled=false; return; }
+            const targetDept = dataCache.departments.find(d => d.id === sendDeptId);
+            // Close any existing active assignment for this patient
+            const existing = dataCache.departmentAssignments.filter(a => a.patientId === sendPatientId && a.status === 'Active');
+            for(const ex of existing){
+                ex.status = 'Transferred';
+                ex.dischargedAt = new Date().toISOString();
+                await saveData('departmentAssignments', ex);
+            }
+            // Update patient current department
+            const sendPatientData = dataCache.patients.find(p => p.id === sendPatientId);
+            if(sendPatientData){
+                sendPatientData.currentDepartmentId = sendDeptId;
+                sendPatientData.currentDepartmentName = targetDept ? targetDept.name : '';
+                await saveData('patients', sendPatientData);
+            }
+            // Create new assignment
+            const assignment = {
+                patientId: sendPatientId,
+                departmentId: sendDeptId,
+                departmentName: targetDept ? targetDept.name : '',
+                departmentType: targetDept ? targetDept.type : '',
+                priority: sendPriority,
+                notes: sendNotes,
+                status: 'Active',
+                assignedBy: currentUser ? (currentUser.displayName || currentUser.email) : 'System',
+                assignedAt: new Date().toISOString()
+            };
+            await saveData('departmentAssignments', assignment);
+            closeModal();
+            renderDepartments();
+            renderDepartmentQueue();
+            renderPatients();
+            updateStats();
+            btn.innerHTML='Save'; btn.disabled=false;
+            toast(`Patient sent to ${targetDept ? targetDept.name : 'department'}`, 'success');
+            return;
         case 'user':
             if(userRole !== 'admin'){ toast('Admin only', 'error'); closeModal(); return; }
             const userEmail = document.getElementById('m_user_email').value.trim().toLowerCase();
@@ -5825,6 +6202,45 @@ async function loadDemoData(){
     ];
     if(secureGet(getStorageKey('users', 'DEMO'), []).length === 0){
         secureSet(getStorageKey('users', 'DEMO'), demoUsersForCache);
+    }
+
+    // DEMO DEPARTMENTS
+    const demoDepartments = [
+        {id:'dept1',hospitalId:'DEMO',name:'Emergency & Triage',type:'Triage / Emergency',description:'24/7 emergency care and patient triage',headDoctorId:'d1',headName:'James Anderson',location:'Ground Floor, Block A',phone:'Ext. 101',email:'emergency@medicare.co.ke',capacity:15,status:'Active',services:['Triage Assessment','Emergency Stabilization','Trauma Care','Resuscitation','Ambulance Services']},
+        {id:'dept2',hospitalId:'DEMO',name:'Outpatient Department',type:'Outpatient (OPD)',description:'General outpatient consultations',headDoctorId:'d2',headName:'Lisa Martinez',location:'1st Floor, Block B',phone:'Ext. 201',email:'opd@medicare.co.ke',capacity:30,status:'Active',services:['General Consultation','Follow-up Visit','Health Screening','Vaccination','Chronic Disease Management']},
+        {id:'dept3',hospitalId:'DEMO',name:'Pharmacy',type:'Pharmacy',description:'In-house pharmacy and dispensary',headDoctorId:'',headName:'',location:'Ground Floor, Block C',phone:'Ext. 301',email:'pharmacy@medicare.co.ke',capacity:20,status:'Active',services:['Prescription Dispensing','Over-the-Counter Sales','Medication Counseling','Compounding','Drug Inventory']},
+        {id:'dept4',hospitalId:'DEMO',name:'Laboratory',type:'Laboratory',description:'Diagnostic lab services',headDoctorId:'',headName:'',location:'1st Floor, Block C',phone:'Ext. 401',email:'lab@medicare.co.ke',capacity:10,status:'Active',services:['Blood Test','Urine Analysis','COVID-19 Test','Biopsy','Pathology']},
+        {id:'dept5',hospitalId:'DEMO',name:'Radiology',type:'Radiology',description:'X-Ray, MRI, CT Scan services',headDoctorId:'d3',headName:'David Thompson',location:'Basement, Block D',phone:'Ext. 501',email:'radiology@medicare.co.ke',capacity:8,status:'Active',services:['X-Ray','MRI Scan','CT Scan','Ultrasound','Mammography']},
+        {id:'dept6',hospitalId:'DEMO',name:'Surgery & Theater',type:'Surgery / Theater',description:'Operating theaters and surgical ward',headDoctorId:'d1',headName:'James Anderson',location:'2nd Floor, Block A',phone:'Ext. 601',email:'surgery@medicare.co.ke',capacity:6,status:'Active',services:['General Surgery','Orthopedic Surgery','Laparoscopic Surgery','Post-op Care','Anesthesia']},
+        {id:'dept7',hospitalId:'DEMO',name:'Maternity',type:'Maternity',description:'Maternity and neonatal care',headDoctorId:'d2',headName:'Lisa Martinez',location:'2nd Floor, Block B',phone:'Ext. 701',email:'maternity@medicare.co.ke',capacity:12,status:'Active',services:['Antenatal Care','Delivery','Postnatal Care','Neonatal ICU','Family Planning']},
+        {id:'dept8',hospitalId:'DEMO',name:'Pediatrics',type:'Pediatrics',description:'Children and infant healthcare',headDoctorId:'d2',headName:'Lisa Martinez',location:'1st Floor, Block B',phone:'Ext. 801',email:'pediatrics@medicare.co.ke',capacity:15,status:'Active',services:['Child Wellness','Immunization','Growth Monitoring','Pediatric Consultation','Neonatal Care']},
+        {id:'dept9',hospitalId:'DEMO',name:'Dental Clinic',type:'Dental',description:'Dental and oral health services',headDoctorId:'',headName:'',location:'Ground Floor, Block E',phone:'Ext. 901',email:'dental@medicare.co.ke',capacity:5,status:'Active',services:['Dental Checkup','Teeth Cleaning','Fillings','Extractions','Orthodontics']},
+        {id:'dept10',hospitalId:'DEMO',name:'Physiotherapy',type:'Physiotherapy',description:'Physical therapy and rehabilitation',headDoctorId:'d3',headName:'David Thompson',location:'1st Floor, Block E',phone:'Ext. 1001',email:'physio@medicare.co.ke',capacity:8,status:'Active',services:['Physical Therapy','Sports Rehabilitation','Post-op Rehabilitation','Pain Management','Massage Therapy']},
+        {id:'dept11',hospitalId:'DEMO',name:'Medical Records',type:'Medical Records',description:'Patient records and documentation',headDoctorId:'',headName:'',location:'Ground Floor, Admin Block',phone:'Ext. 1101',email:'records@medicare.co.ke',capacity:5,status:'Active',services:['Record Filing','Data Entry','Report Generation','Archive Management','Release of Information']},
+        {id:'dept12',hospitalId:'DEMO',name:'Billing & Finance',type:'Billing / Finance',description:'Patient billing and insurance claims',headDoctorId:'',headName:'',location:'Ground Floor, Admin Block',phone:'Ext. 1201',email:'billing@medicare.co.ke',capacity:5,status:'Active',services:['Invoice Generation','Insurance Claims','Payment Processing','Financial Reporting','Debt Collection']}
+    ];
+    if(secureGet(getStorageKey('departments', 'DEMO'), []).length === 0){
+        secureSet(getStorageKey('departments', 'DEMO'), demoDepartments);
+    }
+
+    // DEMO DEPARTMENT ASSIGNMENTS
+    const demoAssignments = [
+        {id:'da1',hospitalId:'DEMO',patientId:'p1',departmentId:'dept1',departmentName:'Emergency & Triage',departmentType:'Triage / Emergency',priority:'Urgent',notes:'Chest pain evaluation',status:'Active',assignedBy:'Dr. James Anderson',assignedAt:'2026-08-07T08:30:00'},
+        {id:'da2',hospitalId:'DEMO',patientId:'p2',departmentId:'dept8',departmentName:'Pediatrics',departmentType:'Pediatrics',priority:'Normal',notes:'Routine checkup',status:'Active',assignedBy:'Dr. Lisa Martinez',assignedAt:'2026-08-07T09:00:00'},
+        {id:'da3',hospitalId:'DEMO',patientId:'p4',departmentId:'dept6',departmentName:'Surgery & Theater',departmentType:'Surgery / Theater',priority:'Urgent',notes:'Post-op monitoring',status:'Active',assignedBy:'Dr. David Thompson',assignedAt:'2026-08-07T07:00:00'},
+        {id:'da4',hospitalId:'DEMO',patientId:'p5',departmentId:'dept1',departmentName:'Emergency & Triage',departmentType:'Triage / Emergency',priority:'Critical',notes:'Cardiac monitoring',status:'Active',assignedBy:'Dr. James Anderson',assignedAt:'2026-08-07T06:00:00'}
+    ];
+    if(secureGet(getStorageKey('departmentAssignments', 'DEMO'), []).length === 0){
+        secureSet(getStorageKey('departmentAssignments', 'DEMO'), demoAssignments);
+        // Update patients with current department
+        demoAssignments.forEach(a => {
+            const p = demoPatients.find(pt => pt.id === a.patientId);
+            if(p){
+                p.currentDepartmentId = a.departmentId;
+                p.currentDepartmentName = a.departmentName;
+            }
+        });
+        secureSet(getStorageKey('patients', 'DEMO'), demoPatients);
     }
 
     // DEMO LABS
