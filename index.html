@@ -4585,10 +4585,10 @@ async function saveModal(){
             toast('User saved successfully', 'success');
             logSecurityEvent('USER_CREATED', {email: userEmail, name: userName, role: userRoleVal, hospitalId: userHospId, by: currentUser?.uid});
             return;
-    }
         case 'service':
             data = {id:currentEditId, name:document.getElementById('m_svc_name').value.trim(), serviceCode:document.getElementById('m_svc_code').value.trim(), category:document.getElementById('m_svc_category').value, cost:parseFloat(document.getElementById('m_svc_cost').value) || 0, description:document.getElementById('m_svc_desc').value, status:document.getElementById('m_svc_status').value};
             break;
+    }
     try {
         if(currentModalType === 'user'){
             // Special user handling with password hashing
