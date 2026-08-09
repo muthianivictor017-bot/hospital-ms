@@ -4074,8 +4074,8 @@ function openModal(type, editId){
                 <div class="form-row"><div class="form-group"><label>Age</label><input type="number" id="m_patient_age" value="${item.age || ''}"></div><div class="form-group"><label>Gender</label><select id="m_patient_gender"><option value="">Select</option><option value="Male" ${item.gender === 'Male' ? 'selected' : ''}>Male</option><option value="Female" ${item.gender === 'Female' ? 'selected' : ''}>Female</option><option value="Other" ${item.gender === 'Other' ? 'selected' : ''}>Other</option></select></div></div>
                 <div class="form-group"><label>Address</label><input type="text" id="m_patient_address" value="${item.address || ''}"></div>
                 <div style="border:2px dashed var(--border);border-radius:10px;padding:16px;margin:16px 0"><h4 style="font-size:14px;margin-bottom:12px;color:var(--primary)"><i class="fas fa-shield-alt"></i> Insurance Information</h4>
-                <div class="form-row"><div class="form-group"><label>Insurance Provider</label><input type="text" id="m_patient_insurance_provider" value="${item.insuranceProvider || ''}" placeholder="e.g., NHIF, Britam, SHA"></div><div class="form-group"><label>Policy Number</label><input type="text" id="m_patient_policy_number" value="${item.policyNumber || ''}" placeholder="e.g., BC-12345678"></div></div>
-                <div class="form-row"><div class="form-group"><label>Coverage %</label><input type="number" id="m_patient_coverage" value="${item.insuranceCoverage || ''}" min="0" max="100" placeholder="e.g., 80"></div><div class="form-group"><label>Insurance Status</label><select id="m_patient_insurance_status"><option value="">Select</option><option value="Active" ${item.insuranceStatus === 'Active' ? 'selected' : ''}>Active</option><option value="Inactive" ${item.insuranceStatus === 'Inactive' ? 'selected' : ''}>Inactive</option><option value="Pending" ${item.insuranceStatus === 'Pending' ? 'selected' : ''}>Pending Approval</option></select></div></div></div>
+                <div class="form-row"><div class="form-group"><label>Insurance Provider</label><select id="m_patient_insurance_provider" onchange="toggleOtherInsurance(this)"><option value="">Select Provider</option>${getInsuranceProviders().map(p => `<option value="${p}" ${item.insuranceProvider === p ? 'selected' : ''}>${p}</option>`).join('')}<option value="Other" ${item.insuranceProvider && !getInsuranceProviders().includes(item.insuranceProvider) ? 'selected' : ''}>Other (Specify)</option></select><input type="text" id="m_patient_insurance_other" value="${item.insuranceProvider && !getInsuranceProviders().includes(item.insuranceProvider) ? item.insuranceProvider : ''}" placeholder="Enter insurance name" style="margin-top:6px;display:${item.insuranceProvider && !getInsuranceProviders().includes(item.insuranceProvider) ? 'block' : 'none'};font-size:13px"></div><div class="form-group"><label>Policy Number</label><input type="text" id="m_patient_policy_number" value="${item.policyNumber || ''}" placeholder="e.g., BC-12345678"></div></div>
+                <div class="form-row"><div class="form-group"><label>Coverage % <span style="font-size:11px;color:var(--gray)">(What insurance pays)</span></label><input type="number" id="m_patient_coverage" value="${item.insuranceCoverage !== undefined ? item.insuranceCoverage : '100'}" min="0" max="100" placeholder="e.g., 80"></div><div class="form-group"><label>Insurance Status</label><select id="m_patient_insurance_status"><option value="">Select</option><option value="Active" ${item.insuranceStatus === 'Active' ? 'selected' : ''}>Active</option><option value="Inactive" ${item.insuranceStatus === 'Inactive' ? 'selected' : ''}>Inactive</option><option value="Pending" ${item.insuranceStatus === 'Pending' ? 'selected' : ''}>Pending Approval</option></select></div></div></div>
                 <div style="border:2px dashed #bfdbfe;border-radius:10px;padding:16px;margin:16px 0;background:#eff6ff"><h4 style="font-size:14px;margin-bottom:12px;color:#1e40af"><i class="fas fa-shield-alt"></i> SHA (Social Health Authority)</h4>
                 <div class="form-row"><div class="form-group"><label>SHA Membership Number</label><input type="text" id="m_patient_sha_number" value="${item.shaNumber || ''}" placeholder="e.g., SH-12345678"></div><div class="form-group"><label>SHA Status</label><select id="m_patient_sha_status"><option value="">Unknown / Not Registered</option><option value="Active" ${item.shaStatus === 'Active' ? 'selected' : ''}>Active</option><option value="Inactive" ${item.shaStatus === 'Inactive' ? 'selected' : ''}>Inactive</option><option value="Suspended" ${item.shaStatus === 'Suspended' ? 'selected' : ''}>Suspended</option><option value="Pending" ${item.shaStatus === 'Pending' ? 'selected' : ''}>Pending Registration</option></select></div></div>
                 <div class="form-row"><div class="form-group"><label>SHA Coverage Tier</label><select id="m_patient_sha_tier"><option value="">Select Tier</option><option value="Indigent" ${item.shaTier === 'Indigent' ? 'selected' : ''}>Indigent (100%)</option><option value="Vulnerable" ${item.shaTier === 'Vulnerable' ? 'selected' : ''}>Vulnerable (100%)</option><option value="Informal" ${item.shaTier === 'Informal' ? 'selected' : ''}>Informal Sector</option><option value="Formal" ${item.shaTier === 'Formal' ? 'selected' : ''}>Formal Sector</option><option value="Primary" ${item.shaTier === 'Primary' ? 'selected' : ''}>Primary Care</option></select></div><div class="form-group"><label>SHA Verified On</label><input type="date" id="m_patient_sha_verified" value="${item.shaVerifiedDate || ''}"></div></div>
@@ -4134,7 +4134,10 @@ function openModal(type, editId){
                 activeServices.forEach(svc => {
                     if(svc.category !== lastCat){ servicesHtml += `<div style="font-size:11px;font-weight:600;color:var(--gray);text-transform:uppercase;margin:8px 0 4px;padding-top:6px;border-top:1px solid var(--border)">${svc.category || 'General'}</div>`; lastCat = svc.category; }
                     const isChecked = currentSvcIds.includes(svc.id) ? 'checked' : '';
-                    servicesHtml += `<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;cursor:pointer;border-radius:6px;transition:background 0.15s" onmouseover="this.style.background='var(--light)'" onmouseout="this.style.background='transparent'"><input type="checkbox" class="bill-service-check" value="${svc.id}" data-cost="${svc.cost || 0}" onchange="updateBillTotal()" ${isChecked} style="width:16px;height:16px;accent-color:var(--primary)"><span style="flex:1;font-size:13px">${svc.name}</span><span style="font-weight:600;color:var(--primary);font-size:13px">KSh ${parseFloat(svc.cost || 0).toFixed(2)}</span></label>`;
+                    const patientForEdit = item.patientId ? dataCache.patients.find(p => p.id === item.patientId) : null;
+                    const editInsurance = patientForEdit?.insuranceProvider || 'Cash';
+                    const svcCost = getServiceCost(svc, editInsurance);
+                    servicesHtml += `<label style="display:flex;align-items:center;gap:8px;padding:6px 8px;cursor:pointer;border-radius:6px;transition:background 0.15s" onmouseover="this.style.background='var(--light)'" onmouseout="this.style.background='transparent'"><input type="checkbox" class="bill-service-check" value="${svc.id}" data-cost="${svcCost}" onchange="updateBillTotal()" ${isChecked} style="width:16px;height:16px;accent-color:var(--primary)"><span style="flex:1;font-size:13px">${svc.name}</span><span style="font-weight:600;color:var(--primary);font-size:13px">KSh ${svcCost.toFixed(2)}</span></label>`;
                 });
             }
             body.innerHTML = `
@@ -4144,7 +4147,13 @@ function openModal(type, editId){
                 <div id="billServicesList" style="max-height:220px;overflow-y:auto;border:2px solid var(--border);border-radius:10px;padding:10px;background:white">${servicesHtml}</div>
                 <div style="margin-top:10px;display:flex;justify-content:space-between;align-items:center"><span style="font-size:12px;color:var(--gray)">Check services to auto-calculate total</span><span style="font-size:14px;font-weight:600">Auto Total: <span id="billAutoTotal" style="color:var(--primary);font-size:18px">KSh 0.00</span></span></div>
                 </div>
-                <div class="form-row"><div class="form-group"><label>Total Amount (KSh) * <span style="color:var(--gray);font-size:11px">(Editable override)</span></label><input type="number" step="0.01" id="m_bill_amount" value="${item.amount || ''}" onfocus="this.dataset.userEdited='true'" required></div><div class="form-group"><label>Insurance Coverage (KSh)</label><input type="number" step="0.01" id="m_bill_insurance" value="${item.insuranceAmount || '0'}" placeholder="Amount covered by insurance"></div></div>
+                <div id="coverageBreakdown" style="display:none;margin-bottom:16px;padding:14px;background:#f0fdf4;border-radius:8px;border:1px solid #bbf7d0">
+                    <div style="font-size:12px;font-weight:600;color:#166534;margin-bottom:8px"><i class="fas fa-calculator"></i> Coverage Breakdown</div>
+                    <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span>Total Services:</span><span id="bdTotal" style="font-weight:600">KSh 0.00</span></div>
+                    <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;color:var(--primary)"><span>Insurance Covers (<span id="bdPct">0</span>%):</span><span id="bdInsurance" style="font-weight:600">KSh 0.00</span></div>
+                    <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--danger)"><span>Patient Pays (Cash):</span><span id="bdCash" style="font-weight:600">KSh 0.00</span></div>
+                </div>
+                <div class="form-row"><div class="form-group"><label>Total Amount (KSh) * <span style="color:var(--gray);font-size:11px">(Editable override)</span></label><input type="number" step="0.01" id="m_bill_amount" value="${item.amount || ''}" onfocus="this.dataset.userEdited='true'" required></div><div class="form-group"><label>Insurance Coverage (KSh) <span style="font-size:11px;color:var(--gray)">(Auto-calculated)</span></label><input type="number" step="0.01" id="m_bill_insurance" value="${item.insuranceAmount || '0'}" placeholder="Amount covered by insurance"></div></div>
                 <div class="form-row"><div class="form-group"><label><i class="fas fa-shield-heart" style="color:#1e40af"></i> SHA Claim</label><select id="m_bill_sha_claim"><option value="">No SHA Claim</option><option value="Draft" ${item.shaClaimStatus === 'Draft' ? 'selected' : ''}>Create Draft Claim</option><option value="Submitted" ${item.shaClaimStatus === 'Submitted' ? 'selected' : ''}>Submit to SHA</option></select></div><div class="form-group"><label>SHA Claim Amount (KSh)</label><input type="number" step="0.01" id="m_bill_sha_amount" value="${item.shaClaimAmount || ''}" placeholder="Amount to claim from SHA"></div></div>
                 <div class="form-row"><div class="form-group"><label>Status</label><select id="m_bill_status"><option value="Pending" ${(item.status || 'Pending') === 'Pending' ? 'selected' : ''}>Pending</option><option value="Insurance Pending" ${item.status === 'Insurance Pending' ? 'selected' : ''}>Insurance Pending</option><option value="Paid" ${item.status === 'Paid' ? 'selected' : ''}>Paid</option><option value="Cancelled" ${item.status === 'Cancelled' ? 'selected' : ''}>Cancelled</option></select></div><div class="form-group"><label>Due Date</label><input type="date" id="m_bill_due_date" value="${item.dueDate || ''}"></div></div>
                 <div class="form-group"><label>Notes</label><textarea id="m_bill_notes" placeholder="Additional notes...">${item.notes || ''}</textarea></div>`;
@@ -4242,14 +4251,29 @@ function updateBedOptions(selectedBed){
 function updateInsuranceInfo(){
     const patientId = document.getElementById('m_bill_patient').value;
     const box = document.getElementById('insuranceInfoBox');
+    const bd = document.getElementById('coverageBreakdown');
     if(!patientId || !box) return;
     const patient = dataCache.patients.find(p => p.id === patientId);
     if(patient && patient.insuranceProvider && patient.insuranceStatus === 'Active'){
         box.style.display = 'block';
         box.innerHTML = `<i class="fas fa-shield-alt"></i> <strong>${sanitizeHTML(patient.name)}</strong> has active insurance with <strong>${sanitizeHTML(patient.insuranceProvider)}</strong> (Policy: ${sanitizeHTML(patient.policyNumber || 'N/A')}, Coverage: ${patient.insuranceCoverage || 0}%)`;
+        if(bd) bd.style.display = 'block';
     } else {
         box.style.display = 'none';
+        if(bd) bd.style.display = 'none';
     }
+    // Refresh service prices based on patient's insurance
+    const insurance = patient?.insuranceProvider || 'Cash';
+    document.querySelectorAll('.bill-service-check').forEach(cb => {
+        const svc = dataCache.services.find(s => s.id === cb.value);
+        if(svc){
+            const cost = getServiceCost(svc, insurance);
+            cb.dataset.cost = cost;
+            const priceSpan = cb.parentElement.querySelector('span:last-child');
+            if(priceSpan) priceSpan.textContent = 'KSh ' + cost.toFixed(2);
+        }
+    });
+    updateBillTotal();
 }
 
 async function saveModal(){
@@ -4260,9 +4284,9 @@ async function saveModal(){
     switch(currentModalType){
         case 'patient':
             data = {id:currentEditId, name:document.getElementById('m_patient_name').value, phone:document.getElementById('m_patient_phone').value, age:document.getElementById('m_patient_age').value, gender:document.getElementById('m_patient_gender').value, address:document.getElementById('m_patient_address').value, notes:document.getElementById('m_patient_notes').value, lastVisit:new Date().toISOString().split('T')[0],
-                insuranceProvider: document.getElementById('m_patient_insurance_provider').value,
+                insuranceProvider: (document.getElementById('m_patient_insurance_provider').value === 'Other' ? document.getElementById('m_patient_insurance_other').value : document.getElementById('m_patient_insurance_provider').value) || '',
                 policyNumber: document.getElementById('m_patient_policy_number').value,
-                insuranceCoverage: document.getElementById('m_patient_coverage').value,
+                insuranceCoverage: parseFloat(document.getElementById('m_patient_coverage').value) || 100,
                 insuranceStatus: document.getElementById('m_patient_insurance_status').value,
                 currentDepartmentId: document.getElementById('m_patient_dept')?.value || '',
                 currentDepartmentName: dataCache.departments.find(d => d.id === (document.getElementById('m_patient_dept')?.value || ''))?.name || '',
@@ -4323,10 +4347,16 @@ async function saveModal(){
             break;
         case 'billing':
             const billPatientId = document.getElementById('m_bill_patient').value;
+            const billPatient2 = dataCache.patients.find(p => p.id === billPatientId);
+            const billInsuranceProvider = billPatient2?.insuranceProvider || 'Cash';
+            const billCoverage = (billPatient2 && billPatient2.insuranceStatus === 'Active') ? (parseFloat(billPatient2.insuranceCoverage) || 100) : 0;
             const selectedServices = [];
             document.querySelectorAll('.bill-service-check:checked').forEach(cb => {
                 const svc = dataCache.services.find(s => s.id === cb.value);
-                if(svc) selectedServices.push({id: svc.id, name: svc.name, cost: parseFloat(svc.cost) || 0});
+                if(svc){
+                    const svcCost = getServiceCost(svc, billInsuranceProvider);
+                    selectedServices.push({id: svc.id, name: svc.name, cost: svcCost, insuranceProvider: billInsuranceProvider});
+                }
             });
             const autoTotal = selectedServices.reduce((sum, s) => sum + s.cost, 0);
             const manualTotal = parseFloat(document.getElementById('m_bill_amount').value) || 0;
@@ -4335,7 +4365,7 @@ async function saveModal(){
             const billStatus = document.getElementById('m_bill_status').value;
             const shaClaimStatus = document.getElementById('m_bill_sha_claim')?.value || '';
             const shaClaimAmount = parseFloat(document.getElementById('m_bill_sha_amount')?.value) || 0;
-            data = {id:currentEditId, patientId:billPatientId, date:document.getElementById('m_bill_date').value, services:selectedServices, amount:billAmount, insuranceAmount:billInsurance, status:billStatus, dueDate:document.getElementById('m_bill_due_date').value, notes:document.getElementById('m_bill_notes').value, invoiceNumber: currentEditId ? (dataCache.billing.find(b => b.id === currentEditId) || {}).invoiceNumber : 'INV-' + Date.now().toString().slice(-6), shaClaimStatus, shaClaimAmount};
+            data = {id:currentEditId, patientId:billPatientId, date:document.getElementById('m_bill_date').value, services:selectedServices, amount:billAmount, insuranceAmount:billInsurance, insuranceCoverage: billCoverage, status:billStatus, dueDate:document.getElementById('m_bill_due_date').value, notes:document.getElementById('m_bill_notes').value, invoiceNumber: currentEditId ? (dataCache.billing.find(b => b.id === currentEditId) || {}).invoiceNumber : 'INV-' + Date.now().toString().slice(-6), shaClaimStatus, shaClaimAmount};
             if(shaClaimStatus && shaClaimAmount > 0){
                 const shaPatient = dataCache.patients.find(p => p.id === billPatientId);
                 if(shaPatient && shaPatient.shaNumber){
@@ -4645,6 +4675,10 @@ async function saveModal(){
 function updateBillTotal(){
     let total = 0;
     const selected = [];
+    const patientId = document.getElementById('m_bill_patient')?.value;
+    const patient = patientId ? dataCache.patients.find(p => p.id === patientId) : null;
+    const coverage = (patient && patient.insuranceStatus === 'Active') ? (parseFloat(patient.insuranceCoverage) || 100) : 0;
+    const insuranceProvider = patient?.insuranceProvider || 'Cash';
     document.querySelectorAll('.bill-service-check:checked').forEach(cb => {
         const cost = parseFloat(cb.dataset.cost) || 0;
         total += cost;
@@ -4657,6 +4691,28 @@ function updateBillTotal(){
     if(amountInput && !amountInput.dataset.userEdited){
         amountInput.value = total.toFixed(2);
     }
+    // Coverage breakdown
+    const bd = document.getElementById('coverageBreakdown');
+    const bdTotal = document.getElementById('bdTotal');
+    const bdInsurance = document.getElementById('bdInsurance');
+    const bdCash = document.getElementById('bdCash');
+    const bdPct = document.getElementById('bdPct');
+    const insuranceInput = document.getElementById('m_bill_insurance');
+    if(bd && bdTotal && bdInsurance && bdCash && bdPct){
+        if(coverage > 0 && insuranceProvider !== 'Cash'){
+            bd.style.display = 'block';
+            bdTotal.textContent = 'KSh ' + total.toFixed(2);
+            bdPct.textContent = coverage;
+            const insuranceAmt = total * (coverage / 100);
+            const cashAmt = total - insuranceAmt;
+            bdInsurance.textContent = 'KSh ' + insuranceAmt.toFixed(2);
+            bdCash.textContent = 'KSh ' + cashAmt.toFixed(2);
+            if(insuranceInput && !insuranceInput.dataset.userEdited) insuranceInput.value = insuranceAmt.toFixed(2);
+        } else {
+            bd.style.display = 'none';
+            if(insuranceInput && !insuranceInput.dataset.userEdited) insuranceInput.value = '0';
+        }
+    }
 }
 
 // ==================== PAYMENT MODAL ====================
@@ -4668,13 +4724,15 @@ function openPaymentModal(invoiceId){
     const paid = getInvoicePaidTotal(invoice);
     const total = parseFloat(invoice.amount) || 0;
     const insurance = parseFloat(invoice.insuranceAmount) || 0;
+    const coverage = parseFloat(invoice.insuranceCoverage) || 0;
+    const cashPortion = total - insurance;
 
     document.getElementById('paymentModalBody').innerHTML = `
         <div class="payment-summary-box">
             <div class="summary-row"><span>Invoice #:</span><span><strong>${invoice.invoiceNumber || invoice.id.slice(-4)}</strong></span></div>
             <div class="summary-row"><span>Patient:</span><span>${patient.name}</span></div>
             <div class="summary-row"><span>Total Amount:</span><span>KSh ${total.toFixed(2)}</span></div>
-            <div class="summary-row"><span>Insurance Coverage:</span><span style="color:var(--primary)">-KSh ${insurance.toFixed(2)}</span></div>
+            ${coverage > 0 ? `<div class="summary-row"><span>Insurance (${coverage}%):</span><span style="color:var(--primary)">-KSh ${insurance.toFixed(2)}</span></div><div class="summary-row"><span>Patient Cash:</span><span style="color:var(--warning)">KSh ${cashPortion.toFixed(2)}</span></div>` : ''}
             <div class="summary-row"><span>Amount Paid:</span><span style="color:var(--success)">KSh ${paid.toFixed(2)}</span></div>
             <div class="summary-row total"><span>Balance Due:</span><span style="color:var(--danger);font-weight:700">KSh ${balance.toFixed(2)}</span></div>
         </div>
@@ -4756,6 +4814,8 @@ function viewInvoiceDetail(invoiceId){
     const paid = getInvoicePaidTotal(invoice);
     const total = parseFloat(invoice.amount) || 0;
     const insurance = parseFloat(invoice.insuranceAmount) || 0;
+    const coverage = parseFloat(invoice.insuranceCoverage) || 0;
+    const cashPortion = total - insurance;
     const status = getInvoiceStatus(invoice);
 
     currentViewInvoiceId = invoiceId;
@@ -4787,7 +4847,7 @@ function viewInvoiceDetail(invoiceId){
                 <div class="detail-box">
                     <h5><i class="fas fa-file-invoice-dollar"></i> Payment Summary</h5>
                     <p>Total Amount: <strong>KSh ${total.toFixed(2)}</strong></p>
-                    <p>Insurance Coverage: <strong style="color:var(--primary)">-KSh ${insurance.toFixed(2)}</strong></p>
+                    ${coverage > 0 ? `<p>Insurance (${coverage}%): <strong style="color:var(--primary)">-KSh ${insurance.toFixed(2)}</strong></p><p>Patient Cash: <strong style="color:var(--warning)">KSh ${cashPortion.toFixed(2)}</strong></p>` : ''}
                     <p>Amount Paid: <strong style="color:var(--success)">KSh ${paid.toFixed(2)}</strong></p>
                     <p>Balance Due: <strong style="color:${balance > 0 ? 'var(--danger)' : 'var(--success)'}">KSh ${balance.toFixed(2)}</strong></p>
                     ${invoice.notes ? `<p style="margin-top:10px;font-size:12px;color:var(--gray)"><i class="fas fa-sticky-note"></i> ${invoice.notes}</p>` : ''}
@@ -4839,6 +4899,8 @@ function printInvoice(){
     const paid = getInvoicePaidTotal(invoice);
     const total = parseFloat(invoice.amount) || 0;
     const insurance = parseFloat(invoice.insuranceAmount) || 0;
+    const coverage = parseFloat(invoice.insuranceCoverage) || 0;
+    const cashPortion = total - insurance;
     const status = getInvoiceStatus(invoice);
 
     if(currentHospital){
@@ -6534,3 +6596,19 @@ function promptPWAInstall(){
 </script>
 </body>
 </html>
+
+
+function toggleOtherInsurance(select){
+    const otherInput = document.getElementById('m_patient_insurance_other');
+    if(otherInput) otherInput.style.display = select.value === 'Other' ? 'block' : 'none';
+}
+
+function getInsuranceProviders(){
+    const providers = new Set(['Cash','SHA']);
+    dataCache.services.forEach(s => {
+        if(s.costs && typeof s.costs === 'object'){
+            Object.keys(s.costs).forEach(k => providers.add(k));
+        }
+    });
+    return Array.from(providers).sort();
+}
