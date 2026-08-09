@@ -5845,7 +5845,7 @@ const SHAProxy = {
     baseURL: 'https://api.sha.go.ke',
     timeout: 15000,
 
-    async async request(endpoint, method, body, headers = {}){
+    async request(endpoint, method, body, headers = {}){
         const url = `${this.baseURL}${endpoint}`;
         const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), this.timeout);
@@ -5883,7 +5883,7 @@ const SHAProxy = {
         secureSet('medicare_sha_queue', queue);
     },
 
-    async async processQueue(){
+    async processQueue(){
         const queue = secureGet('medicare_sha_queue', []);
         if(!queue.length) return;
         const remaining = [];
@@ -5903,7 +5903,7 @@ const SHAProxy = {
         }
     },
 
-    async async verifyMember(shaNumber, nationalId){
+    async verifyMember(shaNumber, nationalId){
         const settings = secureGet('medicare_security_settings', {});
         const clientId = settings.shaClientId || '';
         const clientSecret = settings.shaClientSecret || '';
@@ -5934,7 +5934,7 @@ const SHAProxy = {
         }
     },
 
-    async async getAuthToken(clientId, clientSecret){
+    async getAuthToken(clientId, clientSecret){
         const cacheKey = 'medicare_sha_token';
         const cached = secureGet(cacheKey, {});
         if(cached.token && cached.expiresAt && new Date(cached.expiresAt) > new Date(Date.now() + 5*60*1000)){
@@ -5952,7 +5952,7 @@ const SHAProxy = {
         return res.accessToken;
     },
 
-    async async submitClaim(claimData){
+    async submitClaim(claimData){
         const settings = secureGet('medicare_security_settings', {});
         const mode = settings.shaMode || 'manual';
 
