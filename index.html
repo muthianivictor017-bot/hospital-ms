@@ -5667,14 +5667,21 @@ function renderSHAClaims(){
     const totalClaimed = dataCache.shaClaims.reduce((s, c) => s + (parseFloat(c.amount) || 0), 0);
     const totalPaid = dataCache.shaClaims.filter(c => c.status === 'Paid').reduce((s, c) => s + (parseFloat(c.amount) || 0), 0);
 
-    document.getElementById('shaTotalClaims').textContent = total;
-    document.getElementById('shaPendingClaims').textContent = pending;
-    document.getElementById('shaApprovedClaims').textContent = approved;
-    document.getElementById('shaRejectedClaims').textContent = rejected;
-    document.getElementById('shaClaimAmount').textContent = 'KSh ' + totalClaimed.toFixed(2);
-    document.getElementById('shaPaidAmount').textContent = 'KSh ' + totalPaid.toFixed(2);
+    const shaTotalEl = document.getElementById('shaTotalClaims');
+    if(shaTotalEl) shaTotalEl.textContent = total;
+    const shaPendingEl = document.getElementById('shaPendingClaims');
+    if(shaPendingEl) shaPendingEl.textContent = pending;
+    const shaApprovedEl = document.getElementById('shaApprovedClaims');
+    if(shaApprovedEl) shaApprovedEl.textContent = approved;
+    const shaRejectedEl = document.getElementById('shaRejectedClaims');
+    if(shaRejectedEl) shaRejectedEl.textContent = rejected;
+    const shaClaimAmtEl = document.getElementById('shaClaimAmount');
+    if(shaClaimAmtEl) shaClaimAmtEl.textContent = 'KSh ' + totalClaimed.toFixed(2);
+    const shaPaidAmtEl = document.getElementById('shaPaidAmount');
+    if(shaPaidAmtEl) shaPaidAmtEl.textContent = 'KSh ' + totalPaid.toFixed(2);
 
     const tbody = document.getElementById('shaClaimsTable');
+    if(!tbody) return;
     if(claims.length === 0){
         tbody.innerHTML = '<tr><td colspan="8" class="empty-state"><i class="fas fa-shield-heart"></i><p>No SHA claims found</p></td></tr>';
     } else {
