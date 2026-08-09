@@ -4121,12 +4121,12 @@ function openModal(type, editId){
             }
             let pharmaHtml = '';
             if(pharmacyItems.length === 0){
-                pharmaHtml = '<div style="padding:12px;color:var(--gray);font-size:13px"><i class="fas fa-info-circle"></i> No pharmacy items in stock. <a href="#" onclick="closeModal();navigateTo('pharmacy');" style="color:var(--primary)">Add pharmacy items first</a>.</div>';
+                pharmaHtml = '<div style="padding:12px;color:var(--gray);font-size:13px"><i class="fas fa-info-circle"></i> No pharmacy items in stock. <a href="#" onclick="closeModal();navigateTo(&#39;pharmacy&#39;);" style="color:var(--primary)">Add pharmacy items first</a>.</div>';
             } else {
                 pharmacyItems.forEach(pi => {
                     const isChecked = currentItemIds.includes(pi.id) ? 'checked' : '';
-                    const qty = isEdit && item.pharmacyItems ? (item.pharmacyItems.find(x => (x.id || x.pharmacyId) === pi.id)?.qty || 1 : 1;
-                    const dosage = isEdit && item.pharmacyItems ? (item.pharmacyItems.find(x => (x.id || x.pharmacyId) === pi.id)?.dosage || '') : '';
+                    const qty = isEdit && item.pharmacyItems ? ((item.pharmacyItems.find(x => (x.id || x.pharmacyId) === pi.id)?.qty) || 1) : 1;
+                    const dosage = isEdit && item.pharmacyItems ? ((item.pharmacyItems.find(x => (x.id || x.pharmacyId) === pi.id)?.dosage) || '') : '';
                     const stockClass = (pi.qty || 0) <= (pi.reorderLevel || 0) ? 'color:var(--danger)' : 'color:var(--success)';
                     pharmaHtml += `<div style="display:flex;align-items:center;gap:10px;padding:8px;border-radius:6px;border:1px solid var(--border);margin-bottom:6px" class="pres-pharma-row"><input type="checkbox" class="pres-pharma-check" value="${pi.id}" data-name="${pi.name}" ${isChecked} style="width:16px;height:16px;accent-color:var(--primary)"><div style="flex:1"><div style="font-weight:600;font-size:13px">${pi.name}</div><div style="font-size:11px;color:var(--gray)">${pi.category || 'General'} | <span style="${stockClass}">Stock: ${pi.qty || 0} ${pi.unit || 'units'}</span></div></div><div style="display:flex;gap:8px"><input type="number" class="pres-pharma-qty" data-id="${pi.id}" value="${qty}" min="1" max="${pi.qty || 0}" placeholder="Qty" style="width:60px;font-size:13px;padding:4px 8px"><input type="text" class="pres-pharma-dosage" data-id="${pi.id}" value="${dosage}" placeholder="Dosage e.g. 1x3 daily" style="width:140px;font-size:13px;padding:4px 8px"></div></div>`;
                 });
