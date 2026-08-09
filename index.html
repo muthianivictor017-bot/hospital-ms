@@ -4295,8 +4295,10 @@ function openModal(type, editId){
                     const isChecked = currentItemIds.includes(pi.id) ? 'checked' : '';
                     const qty = isEdit && item.pharmacyItems ? ((item.pharmacyItems.find(x => (x.id || x.pharmacyId) === pi.id)?.qty) || 1) : 1;
                     const dosage = isEdit && item.pharmacyItems ? ((item.pharmacyItems.find(x => (x.id || x.pharmacyId) === pi.id)?.dosage) || '') : '';
-                    const stockClass = (pi.qty || 0) <= (pi.reorderLevel || 0) ? 'color:var(--danger)' : 'color:var(--success)';
-                    pharmaHtml += `<div style="display:flex;align-items:center;gap:10px;padding:8px;border-radius:6px;border:1px solid var(--border);margin-bottom:6px" class="pres-pharma-row"><input type="checkbox" class="pres-pharma-check" value="${pi.id}" data-name="${pi.name}" ${isChecked} style="width:16px;height:16px;accent-color:var(--primary)"><div style="flex:1"><div style="font-weight:600;font-size:13px">${pi.name}</div><div style="font-size:11px;color:var(--gray)">${pi.category || 'General'} | <span style="${stockClass}">Stock: ${pi.qty || 0} ${pi.unit || 'units'}</span></div></div><div style="display:flex;gap:8px"><input type="number" class="pres-pharma-qty" data-id="${pi.id}" value="${qty}" min="1" max="${pi.qty || 0}" placeholder="Qty" style="width:60px;font-size:13px;padding:4px 8px"><input type="text" class="pres-pharma-dosage" data-id="${pi.id}" value="${dosage}" placeholder="Dosage e.g. 1x3 daily" style="width:140px;font-size:13px;padding:4px 8px"></div></div>`;
+                    const piQty = parseInt(pi.quantity) || 0;
+                    const piMin = parseInt(pi.minQuantity) || 0;
+                    const stockClass = piQty <= piMin ? 'color:var(--danger)' : 'color:var(--success)';
+                    pharmaHtml += `<div style="display:flex;align-items:center;gap:10px;padding:8px;border-radius:6px;border:1px solid var(--border);margin-bottom:6px" class="pres-pharma-row"><input type="checkbox" class="pres-pharma-check" value="${pi.id}" data-name="${pi.name}" ${isChecked} style="width:16px;height:16px;accent-color:var(--primary)"><div style="flex:1"><div style="font-weight:600;font-size:13px">${pi.name}</div><div style="font-size:11px;color:var(--gray)">${pi.category || 'General'} | <span style="${stockClass}">Stock: ${piQty} ${pi.unit || 'units'}</span></div></div><div style="display:flex;gap:8px"><input type="number" class="pres-pharma-qty" data-id="${pi.id}" value="${qty}" min="1" max="${piQty}" placeholder="Qty" style="width:60px;font-size:13px;padding:4px 8px"><input type="text" class="pres-pharma-dosage" data-id="${pi.id}" value="${dosage}" placeholder="Dosage e.g. 1x3 daily" style="width:140px;font-size:13px;padding:4px 8px"></div></div>`;
                 });
             }
             body.innerHTML = `<div class="form-row"><div class="form-group"><label>Patient *</label><select id="m_pres_patient" required><option value="">Select</option>${dataCache.patients.map(p => `<option value="${p.id}" ${item.patientId === p.id ? 'selected' : ''}>${p.name}</option>`).join('')}</select></div><div class="form-group"><label>Doctor *</label><select id="m_pres_doctor" required><option value="">Select</option>${dataCache.doctors.map(d => `<option value="${d.id}" ${item.doctorId === d.id ? 'selected' : ''}>Dr. ${d.name}</option>`).join('')}</select></div></div><div class="form-group"><label>Diagnosis *</label><input type="text" id="m_pres_diagnosis" value="${item.diagnosis || ''}" required></div><div class="form-group"><label>Select Medications from Pharmacy *</label><div id="presPharmaList" style="max-height:240px;overflow-y:auto">${pharmaHtml}</div></div><div class="form-group"><label>General Instructions</label><textarea id="m_pres_instructions" placeholder="e.g., Take after meals, avoid alcohol">${item.instructions || ''}</textarea></div>`;
@@ -5482,9 +5484,11 @@ function dispensePrescription(id){
     const lowStock = [];
     items.forEach(i => {
         const stock = dataCache.pharmacy.find(p => p.id === i.id);
-        if(!stock || (stock.qty || 0) < (i.qty || 1)){
+        const stockQty = parseInt(stock?.quantity) || 0;
+        const reqQty = parseInt(i.qty) || 1;
+        if(!stock || stockQty < reqQty){
             outOfStock.push(i.name);
-        } else if((stock.qty || 0) <= (stock.reorderLevel || 0)){
+        } else if(stockQty <= (parseInt(stock.minQuantity) || 0)){
             lowStock.push(i.name);
         }
     });
@@ -5500,8 +5504,8 @@ function dispensePrescription(id){
     items.forEach(i => {
         const stock = dataCache.pharmacy.find(p => p.id === i.id);
         if(stock){
-            const price = getServiceCost(stock, 'Cash') || stock.unitPrice || 0;
-            const lineTotal = price * (i.qty || 1);
+            const price = getServiceCost(stock, 'Cash') || parseFloat(stock.price) || 0;
+            const lineTotal = price * (parseInt(i.qty) || 1);
             totalCost += lineTotal;
             billServices.push({id: stock.id, name: stock.name + ' (Prescription)', cost: lineTotal});
         }
@@ -5516,7 +5520,7 @@ function dispensePrescription(id){
     items.forEach(i => {
         const stock = dataCache.pharmacy.find(p => p.id === i.id);
         if(stock){
-            stock.qty = Math.max(0, (stock.qty || 0) - (i.qty || 1));
+            stock.quantity = Math.max(0, (parseInt(stock.quantity) || 0) - (parseInt(i.qty) || 1));
             saveData('pharmacy', stock);
         }
     });
@@ -5575,11 +5579,12 @@ function viewPrescription(id){
     const itemsHtml = Array.isArray(items) && items.length > 0 ? items.map(i => {
         if(typeof i === 'object'){
             const stock = dataCache.pharmacy.find(p => p.id === i.id);
-            const stockQty = stock ? (stock.qty || 0) : 0;
-            const stockStatus = stockQty >= (i.qty || 1) ? '<span style="color:var(--success)">In Stock</span>' : stockQty > 0 ? `<span style="color:var(--warning)">Low Stock (${stockQty})</span>` : '<span style="color:var(--danger)">Out of Stock</span>';
-            const unitPrice = stock ? (getServiceCost(stock, 'Cash') || stock.unitPrice || 0) : 0;
-            const lineTotal = unitPrice * (i.qty || 1);
-            return `<tr><td><strong>${i.name}</strong></td><td>${i.qty || 1}</td><td>${i.dosage || '-'}</td><td>KSh ${lineTotal.toFixed(2)}</td><td>${stockStatus}</td></tr>`;
+            const stockQty = stock ? (parseInt(stock.quantity) || 0) : 0;
+            const reqQty = parseInt(i.qty) || 1;
+            const stockStatus = stockQty >= reqQty ? '<span style="color:var(--success)">In Stock</span>' : stockQty > 0 ? `<span style="color:var(--warning)">Low Stock (${stockQty})</span>` : '<span style="color:var(--danger)">Out of Stock</span>';
+            const unitPrice = stock ? (getServiceCost(stock, 'Cash') || parseFloat(stock.price) || 0) : 0;
+            const lineTotal = unitPrice * reqQty;
+            return `<tr><td><strong>${i.name}</strong></td><td>${reqQty}</td><td>${i.dosage || '-'}</td><td>KSh ${lineTotal.toFixed(2)}</td><td>${stockStatus}</td></tr>`;
         }
         return `<tr><td colspan="5">${i}</td></tr>`;
     }).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--gray)">No medications</td></tr>';
@@ -6959,7 +6964,7 @@ function getServiceCost(service, insuranceProvider){
         if(service.costs[provider] !== undefined) return parseFloat(service.costs[provider]) || 0;
         if(service.costs['Cash'] !== undefined) return parseFloat(service.costs['Cash']) || 0;
     }
-    return parseFloat(service.cost) || 0;
+    return parseFloat(service.cost) || parseFloat(service.price) || parseFloat(service.unitPrice) || 0;
 }
 function getServiceCostDisplay(service){
     if(!service) return 'KSh 0.00';
