@@ -410,7 +410,7 @@ body{font-family:'Inter',sans-serif;background:var(--light);color:var(--dark)}
 <div class="nav-item" data-page="billing"><i class="fas fa-file-invoice-dollar"></i><span>Billing</span></div>
 <div class="nav-item admin-only-nav" data-page="reports" style="display:none"><i class="fas fa-chart-pie"></i><span>Reports</span></div>
 <div class="nav-item" data-page="labs"><i class="fas fa-flask"></i><span>Lab Services</span><span class="badge orange" id="labBadge">0</span></div>
-<div class="nav-item" data-page="inventory"><i class="fas fa-pills"></i><span>Inventory</span></div>
+<div class="nav-item" data-page="pharmacy"><i class="fas fa-prescription-bottle-medical"></i><span>Pharmacy</span></div>
 <div class="nav-item" data-page="services"><i class="fas fa-list-alt"></i><span>Services</span><span class="badge" id="servicesBadge">0</span></div>
 <div class="nav-item" data-page="messaging"><i class="fas fa-comment-medical"></i><span>Messaging</span></div>
 <div class="nav-item" data-page="departments"><i class="fas fa-building"></i><span>Departments</span><span class="badge" id="deptBadge">0</span></div>
@@ -523,7 +523,7 @@ body{font-family:'Inter',sans-serif;background:var(--light);color:var(--dark)}
 <div class="page-section" id="page-prescriptions">
 <div class="search-bar"><input type="text" id="prescriptionSearch" placeholder="Search prescriptions..." onkeyup="searchPrescriptions()"><button class="btn-sm btn-primary" onclick="openModal('prescription')"><i class="fas fa-plus"></i> New Prescription</button></div>
 <div class="card"><div class="card-header"><h3>All Prescriptions</h3></div>
-<div class="card-body"><table class="data-table"><thead><tr><th>Date</th><th>Patient</th><th>Doctor</th><th>Diagnosis</th><th>Medications</th><th>Actions</th></tr></thead><tbody id="prescriptionsTable"></tbody></table></div>
+<div class="card-body"><table class="data-table"><thead><tr><th>Date</th><th>Patient</th><th>Doctor</th><th>Diagnosis</th><th>Medications</th><th>Status</th><th>Actions</th></tr></thead><tbody id="prescriptionsTable"></tbody></table></div>
 </div>
 </div>
 
@@ -688,10 +688,10 @@ body{font-family:'Inter',sans-serif;background:var(--light);color:var(--dark)}
 </div>
 
 <!-- INVENTORY PAGE -->
-<div class="page-section" id="page-inventory">
-<div class="search-bar"><input type="text" id="inventorySearch" placeholder="Search inventory..." onkeyup="searchInventory()"><button class="btn-sm btn-primary" onclick="openModal('inventory')"><i class="fas fa-plus"></i> Add Item</button></div>
-<div class="card"><div class="card-header"><h3>Medical Inventory</h3></div>
-<div class="card-body"><table class="data-table"><thead><tr><th>Item Name</th><th>Category</th><th>Quantity</th><th>Unit Price</th><th>Expiry Date</th><th>Status</th><th>Actions</th></tr></thead><tbody id="inventoryTable"></tbody></table></div>
+<div class="page-section" id="page-pharmacy">
+<div class="search-bar"><input type="text" id="pharmacySearch" placeholder="Search pharmacy..." onkeyup="searchPharmacy()"><button class="btn-sm btn-primary" onclick="openModal('pharmacy')"><i class="fas fa-plus"></i> Add Item</button></div>
+<div class="card"><div class="card-header"><h3>Pharmacy</h3></div>
+<div class="card-body"><table class="data-table"><thead><tr><th>Item Name</th><th>Category</th><th>Quantity</th><th>Unit Price</th><th>Expiry Date</th><th>Status</th><th>Actions</th></tr></thead><tbody id="pharmacyTable"></tbody></table></div>
 </div>
 </div>
 
@@ -1176,7 +1176,7 @@ let _offlineWriteQueue = secureGet('medicare_offline_queue', []);
 let _sessionTimer = null;
 
 let dataCache = {
-  patients:[], admissions:[], appointments:[], doctors:[], prescriptions:[], billing:[], inventory:[], wards:[], users:[], labs:[], shaClaims:[], departments:[], departmentAssignments:[], services:[]
+  patients:[], admissions:[], appointments:[], doctors:[], prescriptions:[], billing:[], pharmacy:[], wards:[], users:[], labs:[], shaClaims:[], departments:[], departmentAssignments:[], services:[]
 };
 
 // ==================== PERFORMANCE UTILITIES ====================
@@ -1346,7 +1346,7 @@ function getCollectionName(modalType){
     const map = {
         'patient':'patients','admission':'admissions','appointment':'appointments',
         'ward':'wards','doctor':'doctors','prescription':'prescriptions',
-        'lab':'labs','billing':'billing','inventory':'inventory','user':'users',
+        'lab':'labs','billing':'billing','pharmacy':'pharmacy','user':'users',
         'department':'departments','sendToDept':'departmentAssignments',
         'service':'services','shaClaim':'shaClaims'
     };
@@ -2342,7 +2342,7 @@ function lockScreen(){
     sessionStorage.removeItem('medicare_session_active');
     sessionStorage.removeItem('medicare_session_email');
     sessionStorage.removeItem('medicare_session_hospital');
-    dataCache = {patients:[], admissions:[], appointments:[], doctors:[], prescriptions:[], billing:[], inventory:[], wards:[], users:[], labs:[], departments:[], departmentAssignments:[]};
+    dataCache = {patients:[], admissions:[], appointments:[], doctors:[], prescriptions:[], billing:[], pharmacy:[], wards:[], users:[], labs:[], departments:[], departmentAssignments:[]};
     currentUser = null; currentHospital = null; userRole = ''; isOnline = false;
     loginAttempts = 0; loginLockoutUntil = 0;
     if(auth) auth.signOut().catch(()=>{});
@@ -2362,7 +2362,7 @@ function logout(){
     sessionStorage.removeItem('medicare_session_email');
     sessionStorage.removeItem('medicare_session_hospital');
     logSecurityEvent('LOGOUT', {hospitalId: currentHospital?.hospitalId || currentHospital?.id});
-    dataCache = {patients:[], admissions:[], appointments:[], doctors:[], prescriptions:[], billing:[], inventory:[], wards:[], users:[], labs:[], departments:[], departmentAssignments:[]};
+    dataCache = {patients:[], admissions:[], appointments:[], doctors:[], prescriptions:[], billing:[], pharmacy:[], wards:[], users:[], labs:[], departments:[], departmentAssignments:[]};
     currentUser = null; currentHospital = null; userRole = ''; isOnline = false;
     loginAttempts = 0; loginLockoutUntil = 0;
     if(auth) auth.signOut().catch(()=>{});
@@ -2406,7 +2406,7 @@ function navigateTo(page){
     else if(page === 'prescriptions'){ btn.innerHTML = '<i class="fas fa-plus"></i> New Prescription'; btn.onclick = () => openModal('prescription'); btn.style.display = ''; }
     else if(page === 'billing'){ btn.innerHTML = '<i class="fas fa-plus"></i> New Invoice'; btn.onclick = () => openModal('billing'); btn.style.display = ''; }
     else if(page === 'labs'){ btn.innerHTML = '<i class="fas fa-plus"></i> New Lab Order'; btn.onclick = () => openModal('lab'); btn.style.display = ''; }
-    else if(page === 'inventory'){ btn.innerHTML = '<i class="fas fa-plus"></i> Add Item'; btn.onclick = () => openModal('inventory'); btn.style.display = ''; }
+    else if(page === 'pharmacy'){ btn.innerHTML = '<i class="fas fa-plus"></i> Add Item'; btn.onclick = () => openModal('pharmacy'); btn.style.display = ''; }
     else if(page === 'services'){ btn.innerHTML = '<i class="fas fa-plus"></i> Add Service'; btn.onclick = () => openModal('service'); btn.style.display = ''; }
     else if(page === 'users'){ btn.innerHTML = '<i class="fas fa-plus"></i> Add User'; btn.onclick = () => openModal('user'); btn.style.display = (userRole === 'admin') ? '' : 'none'; }
     else if(page === 'reports'){ btn.innerHTML = '<i class="fas fa-download"></i> Export'; btn.onclick = () => exportReportCSV(); btn.style.display = (userRole === 'admin') ? '' : 'none'; }
@@ -2460,12 +2460,12 @@ function setupRealtimeListeners(){
     realtimeUnsubscribers.forEach(fn => fn());
     realtimeUnsubscribers = [];
     const hospId = currentHospital.hospitalId || currentHospital.id;
-    const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','labs','shaClaims','departments','departmentAssignments','services'];
+    const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','pharmacy','wards','labs','shaClaims','departments','departmentAssignments','services'];
 
     // Throttled refresh to prevent UI freezing on rapid snapshot updates
     const throttledRefresh = throttle((col) => {
         if(!cacheChanged(col)) return; // skip if data hasn't actually changed
-        refreshPageData(col === 'labs' ? 'labs' : col === 'billing' ? 'billing' : col === 'inventory' ? 'inventory' : col === 'wards' ? 'wards' : col === 'doctors' ? 'doctors' : col === 'patients' ? 'patients' : col === 'admissions' ? 'admissions' : col === 'appointments' ? 'appointments' : col === 'prescriptions' ? 'prescriptions' : 'dashboard');
+        refreshPageData(col === 'labs' ? 'labs' : col === 'billing' ? 'billing' : col === 'pharmacy' ? 'pharmacy' : col === 'wards' ? 'wards' : col === 'doctors' ? 'doctors' : col === 'patients' ? 'patients' : col === 'admissions' ? 'admissions' : col === 'appointments' ? 'appointments' : col === 'prescriptions' ? 'prescriptions' : 'dashboard');
         updateStats();
         updateSyncStatus('synced');
     }, 800); // max 1 refresh per 800ms per collection
@@ -2636,7 +2636,7 @@ async function syncLocalToCloud(){
     if(!hospId) return;
 
     console.log('Checking for local data to sync to cloud...');
-    const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','labs','shaClaims','departments','departmentAssignments','services'];
+    const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','pharmacy','wards','labs','shaClaims','departments','departmentAssignments','services'];
     let syncedCount = 0;
 
     for(const col of cols){
@@ -2730,7 +2730,7 @@ async function loadAllData(){
     if(db && isOnline && auth.currentUser){
         if(guardFirestoreOp('loadAllData')){
             try {
-                const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','labs','shaClaims','departments','departmentAssignments','services'];
+                const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','pharmacy','wards','labs','shaClaims','departments','departmentAssignments','services'];
                 // PARALLEL loading: fetch all collections at once instead of sequential (5s timeout each)
                 const colPromises = cols.map(async col => {
                     try {
@@ -2876,7 +2876,7 @@ function secureGet(key, defaultValue){
 
 
 function loadFromLocalStorage(){
-    const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','users','labs','shaClaims','departments','departmentAssignments','services'];
+    const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','pharmacy','wards','users','labs','shaClaims','departments','departmentAssignments','services'];
     for(const col of cols){
         dataCache[col] = secureGet(getStorageKey(col), '[]').filter(i => !i.deletedAt);
     }
@@ -2964,7 +2964,7 @@ function updateSyncStatus(status){
 }
 
 function refreshAllPages(){
-    ['dashboard','patients','admissions','appointments','wards','doctors','prescriptions','billing','labs','inventory','users','sha','departments','services'].forEach(refreshPageData);
+    ['dashboard','patients','admissions','appointments','wards','doctors','prescriptions','billing','labs','pharmacy','users','sha','departments','services'].forEach(refreshPageData);
 }
 
 function refreshPageData(page){
@@ -2978,7 +2978,7 @@ function refreshPageData(page){
         case 'prescriptions': renderPrescriptions(); break;
         case 'labs': renderLabs(); break;
         case 'billing': renderBilling(); break;
-        case 'inventory': renderInventory(); break;
+        case 'pharmacy': renderPharmacy(); break;
         case 'users': if(userRole === 'admin') renderUsers(); break;
         case 'reports': if(userRole === 'admin') generateReports(); break;
         case 'messaging': renderMessaging(); previewTemplate(); break;
@@ -3212,11 +3212,16 @@ function renderAppointments(){
 
 function renderPrescriptions(){
     const tbody = document.getElementById('prescriptionsTable');
-    if(dataCache.prescriptions.length === 0){ tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><i class="fas fa-prescription"></i><p>No prescriptions found</p></td></tr>'; return; }
+    if(dataCache.prescriptions.length === 0){ tbody.innerHTML = '<tr><td colspan="7" class="empty-state"><i class="fas fa-prescription"></i><p>No prescriptions found</p></td></tr>'; return; }
     tbody.innerHTML = dataCache.prescriptions.sort((a,b) => (b.date || '').localeCompare(a.date || '')).map(p => {
         const pt = dataCache.patients.find(x => x.id === p.patientId) || {name:'Unknown'};
         const d = dataCache.doctors.find(x => x.id === p.doctorId) || {name:'Unknown'};
-        return `<tr><td>${p.date || '-'}</td><td>${pt.name}</td><td>Dr. ${d.name}</td><td>${p.diagnosis || '-'}</td><td>${(p.medications || []).join(', ')}</td><td><button class="btn-sm btn-info" onclick="viewPrescription('${p.id}')"><i class="fas fa-eye"></i></button> <button class="btn-sm btn-danger" onclick="deletePrescription('${p.id}')"><i class="fas fa-trash"></i></button></td></tr>`;
+        const items = p.pharmacyItems || p.medications || [];
+        const itemNames = Array.isArray(items) ? items.map(i => typeof i === 'object' ? i.name : i).join(', ') : '-';
+        const status = p.status || 'Pending';
+        const statusClass = status === 'Dispensed' ? 'active' : status === 'Pending' ? 'pending' : 'cancelled';
+        const canDispense = status === 'Pending' && (p.pharmacyItems || []).length > 0;
+        return `<tr><td>${p.date || '-'}</td><td>${pt.name}</td><td>Dr. ${d.name}</td><td>${p.diagnosis || '-'}</td><td>${itemNames || '-'}</td><td><span class="status-badge status-${statusClass}">${status}</span></td><td>${canDispense ? `<button class="btn-sm btn-success" onclick="dispensePrescription('${p.id}')"><i class="fas fa-pills"></i> Dispense</button> ` : ''}<button class="btn-sm btn-info" onclick="viewPrescription('${p.id}')"><i class="fas fa-eye"></i></button> <button class="btn-sm btn-danger" onclick="deletePrescription('${p.id}')"><i class="fas fa-trash"></i></button></td></tr>`;
     }).join('');
 }
 
@@ -3348,15 +3353,15 @@ function downloadCSV(csv, filename){
     document.body.removeChild(a); URL.revokeObjectURL(url);
 }
 
-function renderInventory(){
-    const tbody = document.getElementById('inventoryTable');
-    if(dataCache.inventory.length === 0){ tbody.innerHTML = '<tr><td colspan="7" class="empty-state"><i class="fas fa-pills"></i><p>No inventory items found</p></td></tr>'; return; }
-    tbody.innerHTML = dataCache.inventory.map(item => {
+function renderPharmacy(){
+    const tbody = document.getElementById('pharmacyTable');
+    if(dataCache.pharmacy.length === 0){ tbody.innerHTML = '<tr><td colspan="7" class="empty-state"><i class="fas fa-prescription-bottle-medical"></i><p>No pharmacy items found</p></td></tr>'; return; }
+    tbody.innerHTML = dataCache.pharmacy.map(item => {
         const qty = parseInt(item.quantity) || 0;
         const minQty = parseInt(item.minQuantity) || 10;
         const status = qty <= 0 ? 'cancelled' : qty <= minQty ? 'pending' : 'active';
         const statusText = qty <= 0 ? 'Out of Stock' : qty <= minQty ? 'Low Stock' : 'In Stock';
-        return `<tr><td><strong>${item.name}</strong></td><td>${item.category || '-'}</td><td>${qty} ${item.unit || 'units'}</td><td>KSh ${parseFloat(item.price || 0).toFixed(2)}</td><td>${item.expiryDate || '-'}</td><td><span class="status-badge status-${status}">${statusText}</span></td><td><button class="btn-sm btn-warning" onclick="editInventory('${item.id}')"><i class="fas fa-edit"></i></button> <button class="btn-sm btn-danger" onclick="deleteInventory('${item.id}')"><i class="fas fa-trash"></i></button></td></tr>`;
+        return `<tr><td><strong>${item.name}</strong></td><td>${item.category || '-'}</td><td>${qty} ${item.unit || 'units'}</td><td>KSh ${parseFloat(item.price || 0).toFixed(2)}</td><td>${item.expiryDate || '-'}</td><td><span class="status-badge status-${status}">${statusText}</span></td><td><button class="btn-sm btn-warning" onclick="editPharmacy('${item.id}')"><i class="fas fa-edit"></i></button> <button class="btn-sm btn-danger" onclick="deletePharmacy('${item.id}')"><i class="fas fa-trash"></i></button></td></tr>`;
     }).join('');
 }
 
@@ -3523,7 +3528,7 @@ async function forceSyncAllData(){
     const hospId = currentHospital ? (currentHospital.hospitalId || currentHospital.id) : null;
     if(!hospId){ toast('No hospital ID', 'error'); return; }
 
-    const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','wards','labs','shaClaims','departments','departmentAssignments','services'];
+    const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','pharmacy','wards','labs','shaClaims','departments','departmentAssignments','services'];
     let totalSynced = 0;
 
     for(const col of cols){
@@ -4047,8 +4052,8 @@ function exportReportCSV(){
     downloadCSV(csv, 'financial_report_' + from + '_to_' + to + '.csv');
 }
 
-function _searchInventory(){ const q=document.getElementById('inventorySearch').value.toLowerCase(); document.querySelectorAll('#inventoryTable tr').forEach(r => r.style.display = r.textContent.toLowerCase().includes(q) ? '' : 'none'); }
-const searchInventory = debounce(_searchInventory, 300);
+function _searchPharmacy(){ const q=document.getElementById('pharmacySearch').value.toLowerCase(); document.querySelectorAll('#pharmacyTable tr').forEach(r => r.style.display = r.textContent.toLowerCase().includes(q) ? '' : 'none'); }
+const searchPharmacy = debounce(_searchPharmacy, 300);
 function _searchUsers(){ const q=document.getElementById('userSearch').value.toLowerCase(); document.querySelectorAll('.user-card').forEach(r => r.style.display = r.textContent.toLowerCase().includes(q) ? '' : 'none'); }
 const searchUsers = debounce(_searchUsers, 300);
 
@@ -4109,7 +4114,24 @@ function openModal(type, editId){
             break;
         case 'prescription':
             title.textContent = isEdit ? 'Edit Prescription' : 'New Prescription';
-            body.innerHTML = `<div class="form-row"><div class="form-group"><label>Patient *</label><select id="m_pres_patient" required><option value="">Select</option>${dataCache.patients.map(p => `<option value="${p.id}" ${item.patientId === p.id ? 'selected' : ''}>${p.name}</option>`).join('')}</select></div><div class="form-group"><label>Doctor *</label><select id="m_pres_doctor" required><option value="">Select</option>${dataCache.doctors.map(d => `<option value="${d.id}" ${item.doctorId === d.id ? 'selected' : ''}>Dr. ${d.name}</option>`).join('')}</select></div></div><div class="form-group"><label>Diagnosis *</label><input type="text" id="m_pres_diagnosis" value="${item.diagnosis || ''}" required></div><div class="form-group"><label>Medications *</label><textarea id="m_pres_meds" placeholder="One per line" required>${(item.medications || []).join('\n')}</textarea></div><div class="form-group"><label>Instructions</label><textarea id="m_pres_instructions">${item.instructions || ''}</textarea></div>`;
+            const pharmacyItems = dataCache.pharmacy.filter(p => p.status !== 'Inactive').sort((a,b) => (a.name || '').localeCompare(b.name || ''));
+            let currentItemIds = [];
+            if(isEdit && item.pharmacyItems && item.pharmacyItems.length > 0){
+                currentItemIds = item.pharmacyItems.map(pi => pi.id || pi.pharmacyId || '');
+            }
+            let pharmaHtml = '';
+            if(pharmacyItems.length === 0){
+                pharmaHtml = '<div style="padding:12px;color:var(--gray);font-size:13px"><i class="fas fa-info-circle"></i> No pharmacy items in stock. <a href="#" onclick="closeModal();navigateTo('pharmacy');" style="color:var(--primary)">Add pharmacy items first</a>.</div>';
+            } else {
+                pharmacyItems.forEach(pi => {
+                    const isChecked = currentItemIds.includes(pi.id) ? 'checked' : '';
+                    const qty = isEdit && item.pharmacyItems ? (item.pharmacyItems.find(x => (x.id || x.pharmacyId) === pi.id)?.qty || 1 : 1;
+                    const dosage = isEdit && item.pharmacyItems ? (item.pharmacyItems.find(x => (x.id || x.pharmacyId) === pi.id)?.dosage || '') : '';
+                    const stockClass = (pi.qty || 0) <= (pi.reorderLevel || 0) ? 'color:var(--danger)' : 'color:var(--success)';
+                    pharmaHtml += `<div style="display:flex;align-items:center;gap:10px;padding:8px;border-radius:6px;border:1px solid var(--border);margin-bottom:6px" class="pres-pharma-row"><input type="checkbox" class="pres-pharma-check" value="${pi.id}" data-name="${pi.name}" ${isChecked} style="width:16px;height:16px;accent-color:var(--primary)"><div style="flex:1"><div style="font-weight:600;font-size:13px">${pi.name}</div><div style="font-size:11px;color:var(--gray)">${pi.category || 'General'} | <span style="${stockClass}">Stock: ${pi.qty || 0} ${pi.unit || 'units'}</span></div></div><div style="display:flex;gap:8px"><input type="number" class="pres-pharma-qty" data-id="${pi.id}" value="${qty}" min="1" max="${pi.qty || 0}" placeholder="Qty" style="width:60px;font-size:13px;padding:4px 8px"><input type="text" class="pres-pharma-dosage" data-id="${pi.id}" value="${dosage}" placeholder="Dosage e.g. 1x3 daily" style="width:140px;font-size:13px;padding:4px 8px"></div></div>`;
+                });
+            }
+            body.innerHTML = `<div class="form-row"><div class="form-group"><label>Patient *</label><select id="m_pres_patient" required><option value="">Select</option>${dataCache.patients.map(p => `<option value="${p.id}" ${item.patientId === p.id ? 'selected' : ''}>${p.name}</option>`).join('')}</select></div><div class="form-group"><label>Doctor *</label><select id="m_pres_doctor" required><option value="">Select</option>${dataCache.doctors.map(d => `<option value="${d.id}" ${item.doctorId === d.id ? 'selected' : ''}>Dr. ${d.name}</option>`).join('')}</select></div></div><div class="form-group"><label>Diagnosis *</label><input type="text" id="m_pres_diagnosis" value="${item.diagnosis || ''}" required></div><div class="form-group"><label>Select Medications from Pharmacy *</label><div id="presPharmaList" style="max-height:240px;overflow-y:auto">${pharmaHtml}</div></div><div class="form-group"><label>General Instructions</label><textarea id="m_pres_instructions" placeholder="e.g., Take after meals, avoid alcohol">${item.instructions || ''}</textarea></div>`;
             break;
         case 'lab':
             title.textContent = isEdit ? 'Edit Lab Order' : 'New Lab Order';
@@ -4161,9 +4183,9 @@ function openModal(type, editId){
             if(isEdit && item.patientId) setTimeout(() => updateInsuranceInfo(), 100);
             setTimeout(() => updateBillTotal(), 50);
             break;
-        case 'inventory':
-            title.textContent = isEdit ? 'Edit Item' : 'Add Inventory Item';
-            body.innerHTML = `<div class="form-row"><div class="form-group"><label>Item Name *</label><input type="text" id="m_inv_name" value="${item.name || ''}" required></div><div class="form-group"><label>Category *</label><select id="m_inv_category" required><option value="">Select</option><option value="Medication" ${item.category === 'Medication' ? 'selected' : ''}>Medication</option><option value="Equipment" ${item.category === 'Equipment' ? 'selected' : ''}>Equipment</option><option value="Supplies" ${item.category === 'Supplies' ? 'selected' : ''}>Supplies</option><option value="Other" ${item.category === 'Other' ? 'selected' : ''}>Other</option></select></div></div><div class="form-row"><div class="form-group"><label>Quantity *</label><input type="number" id="m_inv_qty" value="${item.quantity || ''}" required></div><div class="form-group"><label>Unit</label><input type="text" id="m_inv_unit" value="${item.unit || 'units'}"></div></div><div class="form-row"><div class="form-group"><label>Unit Price (KSh)</label><input type="number" step="0.01" id="m_inv_price" value="${item.price || ''}"></div><div class="form-group"><label>Min Quantity Alert</label><input type="number" id="m_inv_min" value="${item.minQuantity || '10'}"></div></div><div class="form-group"><label>Expiry Date</label><input type="date" id="m_inv_expiry" value="${item.expiryDate || ''}"></div><div class="form-group"><label>Notes</label><textarea id="m_inv_notes">${item.notes || ''}</textarea></div>`;
+        case 'pharmacy':
+            title.textContent = isEdit ? 'Edit Pharmacy Item' : 'Add Pharmacy Item';
+            body.innerHTML = `<div class="form-row"><div class="form-group"><label>Item Name *</label><input type="text" id="m_phar_name" value="${item.name || ''}" required></div><div class="form-group"><label>Category *</label><select id="m_phar_category" required><option value="">Select</option><option value="Medication" ${item.category === 'Medication' ? 'selected' : ''}>Medication</option><option value="Equipment" ${item.category === 'Equipment' ? 'selected' : ''}>Equipment</option><option value="Supplies" ${item.category === 'Supplies' ? 'selected' : ''}>Supplies</option><option value="Other" ${item.category === 'Other' ? 'selected' : ''}>Other</option></select></div></div><div class="form-row"><div class="form-group"><label>Quantity *</label><input type="number" id="m_phar_qty" value="${item.quantity || ''}" required></div><div class="form-group"><label>Unit</label><input type="text" id="m_phar_unit" value="${item.unit || 'units'}"></div></div><div class="form-row"><div class="form-group"><label>Unit Price (KSh)</label><input type="number" step="0.01" id="m_inv_price" value="${item.price || ''}"></div><div class="form-group"><label>Min Quantity Alert</label><input type="number" id="m_inv_min" value="${item.minQuantity || '10'}"></div></div><div class="form-group"><label>Expiry Date</label><input type="date" id="m_phar_expiry" value="${item.expiryDate || ''}"></div><div class="form-group"><label>Notes</label><textarea id="m_phar_notes">${item.notes || ''}</textarea></div>`;
             break;
         case 'shaClaim':
             title.textContent = isEdit ? 'Edit SHA Claim' : 'New SHA Claim';
@@ -4339,7 +4361,17 @@ async function saveModal(){
             data = {id:currentEditId, name:document.getElementById('m_doctor_name').value, specialization:document.getElementById('m_doctor_spec').value, phone:document.getElementById('m_doctor_phone').value, email:document.getElementById('m_doctor_email').value, bio:document.getElementById('m_doctor_bio').value};
             break;
         case 'prescription':
-            data = {id:currentEditId, patientId:document.getElementById('m_pres_patient').value, doctorId:document.getElementById('m_pres_doctor').value, diagnosis:document.getElementById('m_pres_diagnosis').value, medications:document.getElementById('m_pres_meds').value.split('\n').filter(m => m.trim()), instructions:document.getElementById('m_pres_instructions').value, date:new Date().toISOString().split('T')[0]};
+            const selectedPharma = [];
+            document.querySelectorAll('.pres-pharma-check:checked').forEach(cb => {
+                const id = cb.value;
+                const name = cb.dataset.name;
+                const qtyInput = document.querySelector(`.pres-pharma-qty[data-id="${id}"]`);
+                const dosageInput = document.querySelector(`.pres-pharma-dosage[data-id="${id}"]`);
+                const qty = parseInt(qtyInput?.value) || 1;
+                const dosage = dosageInput?.value?.trim() || '';
+                selectedPharma.push({id, name, qty, dosage});
+            });
+            data = {id:currentEditId, patientId:document.getElementById('m_pres_patient').value, doctorId:document.getElementById('m_pres_doctor').value, diagnosis:document.getElementById('m_pres_diagnosis').value, pharmacyItems:selectedPharma, instructions:document.getElementById('m_pres_instructions').value, date:new Date().toISOString().split('T')[0], status:currentEditId ? (dataCache.prescriptions.find(p => p.id === currentEditId)?.status || 'Pending') : 'Pending'};
             break;
 
 
@@ -4389,8 +4421,8 @@ async function saveModal(){
                 }
             }
             break;
-        case 'inventory':
-            data = {id:currentEditId, name:document.getElementById('m_inv_name').value, category:document.getElementById('m_inv_category').value, quantity:document.getElementById('m_inv_qty').value, unit:document.getElementById('m_inv_unit').value, price:document.getElementById('m_inv_price').value, minQuantity:document.getElementById('m_inv_min').value, expiryDate:document.getElementById('m_inv_expiry').value, notes:document.getElementById('m_inv_notes').value};
+        case 'pharmacy':
+            data = {id:currentEditId, name:document.getElementById('m_phar_name').value, category:document.getElementById('m_phar_category').value, quantity:document.getElementById('m_phar_qty').value, unit:document.getElementById('m_phar_unit').value, price:document.getElementById('m_inv_price').value, minQuantity:document.getElementById('m_inv_min').value, expiryDate:document.getElementById('m_phar_expiry').value, notes:document.getElementById('m_phar_notes').value};
             break;
         case 'shaClaim':
             const shaPatientId = document.getElementById('m_sha_patient').value;
@@ -4661,7 +4693,7 @@ async function saveModal(){
             return;
         }
         closeModal();
-        refreshPageData(currentModalType === 'patient' ? 'patients' : currentModalType === 'admission' ? 'admissions' : currentModalType === 'appointment' ? 'appointments' : currentModalType === 'ward' ? 'wards' : currentModalType === 'doctor' ? 'doctors' : currentModalType === 'prescription' ? 'prescriptions' : currentModalType === 'billing' ? 'billing' : currentModalType === 'inventory' ? 'inventory' : currentModalType === 'shaClaim' ? 'shaClaims' : 'users');
+        refreshPageData(currentModalType === 'patient' ? 'patients' : currentModalType === 'admission' ? 'admissions' : currentModalType === 'appointment' ? 'appointments' : currentModalType === 'ward' ? 'wards' : currentModalType === 'doctor' ? 'doctors' : currentModalType === 'prescription' ? 'prescriptions' : currentModalType === 'billing' ? 'billing' : currentModalType === 'pharmacy' ? 'pharmacy' : currentModalType === 'shaClaim' ? 'shaClaims' : 'users');
         updateStats();
         btn.innerHTML = 'Save'; btn.disabled = false;
         toast('Saved successfully', 'success');
@@ -5065,7 +5097,7 @@ async function deleteWard(id){ if(!confirm('Delete this ward? All bed data will 
 async function deleteDoctor(id){ if(!confirm('Delete this doctor?'))return; await deleteData('doctors',id); renderDoctors(); updateStats(); toast('Doctor deleted', 'info'); }
 async function deletePrescription(id){ if(!confirm('Delete this prescription?'))return; await deleteData('prescriptions',id); renderPrescriptions(); toast('Prescription deleted', 'info'); }
 async function deleteInvoice(id){ if(!confirm('Delete this invoice?'))return; await deleteData('billing',id); renderBilling(); updateStats(); toast('Invoice deleted', 'info'); }
-async function deleteInventory(id){ if(!confirm('Delete this item?'))return; await deleteData('inventory',id); renderInventory(); toast('Item deleted', 'info'); }
+async function deletePharmacy(id){ if(!confirm('Delete this item?'))return; await deleteData('pharmacy',id); renderPharmacy(); toast('Pharmacy item deleted', 'info'); }
 async function deleteUser(id){ 
     if(userRole !== 'admin'){ toast('Admin only', 'error'); return; } 
     if(!confirm('Delete this user? This will revoke their access immediately.')) return; 
@@ -5104,7 +5136,7 @@ function editPatient(id){ openModal('patient',id); }
 function editAppointment(id){ openModal('appointment',id); }
 function editWard(id){ openModal('ward',id); }
 function editDoctor(id){ openModal('doctor',id); }
-function editInventory(id){ openModal('inventory',id); }
+function editPharmacy(id){ openModal('pharmacy',id); }
 function editUser(id){ if(userRole !== 'admin'){ toast('Admin only', 'error'); return; } openModal('user',id); }
 function editInvoice(id){ openModal('billing',id); }
 
@@ -5250,12 +5282,155 @@ function viewAdmission(id){
     alert(`Admission Details\nPatient: ${patient.name}\nWard: ${ward.name} - Bed ${adm.bedNumber}\nAdmitted: ${adm.admissionDate}\nExpected Discharge: ${adm.expectedDischarge || '-'}\nReason: ${adm.admissionReason}\nStatus: ${adm.status}\nNotes: ${adm.notes || '-'}`);
 }
 
+
+function dispensePrescription(id){
+    const pres = dataCache.prescriptions.find(p => p.id === id);
+    if(!pres) return;
+    if(pres.status === 'Dispensed'){ toast('Already dispensed', 'info'); return; }
+    const items = pres.pharmacyItems || [];
+    if(items.length === 0){ toast('No medications to dispense', 'error'); return; }
+
+    const outOfStock = [];
+    const lowStock = [];
+    items.forEach(i => {
+        const stock = dataCache.pharmacy.find(p => p.id === i.id);
+        if(!stock || (stock.qty || 0) < (i.qty || 1)){
+            outOfStock.push(i.name);
+        } else if((stock.qty || 0) <= (stock.reorderLevel || 0)){
+            lowStock.push(i.name);
+        }
+    });
+
+    if(outOfStock.length > 0){
+        toast('Out of stock: ' + outOfStock.join(', '), 'error');
+        return;
+    }
+
+    // Calculate total cost
+    const billServices = [];
+    let totalCost = 0;
+    items.forEach(i => {
+        const stock = dataCache.pharmacy.find(p => p.id === i.id);
+        if(stock){
+            const price = getServiceCost(stock, 'Cash') || stock.unitPrice || 0;
+            const lineTotal = price * (i.qty || 1);
+            totalCost += lineTotal;
+            billServices.push({id: stock.id, name: stock.name + ' (Prescription)', cost: lineTotal});
+        }
+    });
+
+    const confirmMsg = totalCost > 0 
+        ? `Dispense ${items.length} medication(s) and add KSh ${totalCost.toFixed(2)} to patient bill?`
+        : `Dispense ${items.length} medication(s)?`;
+    if(!confirm(confirmMsg)) return;
+
+    // Deduct from pharmacy stock
+    items.forEach(i => {
+        const stock = dataCache.pharmacy.find(p => p.id === i.id);
+        if(stock){
+            stock.qty = Math.max(0, (stock.qty || 0) - (i.qty || 1));
+            saveData('pharmacy', stock);
+        }
+    });
+
+    // Update prescription status
+    pres.status = 'Dispensed';
+    pres.dispensedAt = new Date().toISOString();
+    pres.dispensedBy = currentUser ? (currentUser.displayName || currentUser.email) : 'System';
+    pres.totalCost = totalCost;
+    saveData('prescriptions', pres);
+
+    // Auto-create bill for patient
+    if(totalCost > 0 && pres.patientId){
+        const patient = dataCache.patients.find(p => p.id === pres.patientId);
+        const insuranceProvider = patient?.insuranceProvider || 'Cash';
+        const coverage = (patient && patient.insuranceStatus === 'Active') ? (parseFloat(patient.insuranceCoverage) || 100) : 0;
+        const insuranceAmt = totalCost * (coverage / 100);
+        const bill = {
+            id: 'bill_' + Date.now().toString(),
+            patientId: pres.patientId,
+            date: new Date().toISOString().split('T')[0],
+            services: billServices,
+            amount: totalCost,
+            insuranceAmount: insuranceAmt,
+            insuranceCoverage: coverage,
+            status: insuranceAmt >= totalCost ? 'Insurance Pending' : 'Pending',
+            dueDate: '',
+            notes: 'Auto-generated from prescription #' + (pres.id || '').slice(-4) + ' dispensed by ' + (pres.dispensedBy || 'System'),
+            invoiceNumber: 'INV-' + Date.now().toString().slice(-6),
+            prescriptionId: pres.id,
+            shaClaimStatus: '',
+            shaClaimAmount: 0
+        };
+        saveData('billing', bill);
+        toast('Dispensed! Bill #' + bill.invoiceNumber + ' created for KSh ' + totalCost.toFixed(2), 'success');
+    } else {
+        toast('Medications dispensed successfully', 'success');
+    }
+
+    renderPrescriptions();
+    renderPharmacy();
+    renderBilling();
+    updateStats();
+
+    if(lowStock.length > 0){
+        setTimeout(() => toast('Low stock alert: ' + lowStock.join(', '), 'warning'), 500);
+    }
+}
+
 function viewPrescription(id){
     const pres = dataCache.prescriptions.find(p => p.id === id);
     if(!pres) return;
     const patient = dataCache.patients.find(p => p.id === pres.patientId) || {name:'Unknown'};
     const doctor = dataCache.doctors.find(d => d.id === pres.doctorId) || {name:'Unknown'};
-    alert(`Prescription\nPatient: ${patient.name}\nDoctor: Dr. ${doctor.name}\nDate: ${pres.date}\nDiagnosis: ${pres.diagnosis}\n\nMedications:\n${(pres.medications || []).join('\n')}\n\nInstructions: ${pres.instructions || '-'}`);
+    const items = pres.pharmacyItems || pres.medications || [];
+    const itemsHtml = Array.isArray(items) && items.length > 0 ? items.map(i => {
+        if(typeof i === 'object'){
+            const stock = dataCache.pharmacy.find(p => p.id === i.id);
+            const stockQty = stock ? (stock.qty || 0) : 0;
+            const stockStatus = stockQty >= (i.qty || 1) ? '<span style="color:var(--success)">In Stock</span>' : stockQty > 0 ? `<span style="color:var(--warning)">Low Stock (${stockQty})</span>` : '<span style="color:var(--danger)">Out of Stock</span>';
+            const unitPrice = stock ? (getServiceCost(stock, 'Cash') || stock.unitPrice || 0) : 0;
+            const lineTotal = unitPrice * (i.qty || 1);
+            return `<tr><td><strong>${i.name}</strong></td><td>${i.qty || 1}</td><td>${i.dosage || '-'}</td><td>KSh ${lineTotal.toFixed(2)}</td><td>${stockStatus}</td></tr>`;
+        }
+        return `<tr><td colspan="5">${i}</td></tr>`;
+    }).join('') : '<tr><td colspan="5" style="text-align:center;color:var(--gray)">No medications</td></tr>';
+    const status = pres.status || 'Pending';
+    const canDispense = status === 'Pending' && (pres.pharmacyItems || []).length > 0;
+    const totalCost = Array.isArray(items) ? items.reduce((sum, i) => {
+        if(typeof i === 'object'){
+            const stock = dataCache.pharmacy.find(p => p.id === i.id);
+            const price = stock ? (getServiceCost(stock, 'Cash') || stock.unitPrice || 0) : 0;
+            return sum + (price * (i.qty || 1));
+        }
+        return sum;
+    }, 0) : 0;
+    document.getElementById('viewInvoiceModalBody').innerHTML = `
+        <div style="padding:20px">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+                <h3 style="margin:0"><i class="fas fa-prescription"></i> Prescription</h3>
+                <span class="status-badge status-${status === 'Dispensed' ? 'active' : status === 'Pending' ? 'pending' : 'cancelled'}">${status}</span>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;font-size:13px">
+                <div><strong>Patient:</strong> ${patient.name}</div>
+                <div><strong>Doctor:</strong> Dr. ${doctor.name}</div>
+                <div><strong>Date:</strong> ${pres.date || '-'}</div>
+                <div><strong>Diagnosis:</strong> ${pres.diagnosis || '-'}</div>
+            </div>
+            <h4 style="font-size:14px;margin-bottom:10px"><i class="fas fa-pills"></i> Medications</h4>
+            <table class="data-table" style="margin-bottom:16px">
+                <thead><tr><th>Item</th><th>Qty</th><th>Dosage</th><th>Cost</th><th>Stock Status</th></tr></thead>
+                <tbody>${itemsHtml}</tbody>
+            </table>
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:12px;background:var(--light);border-radius:8px;margin-bottom:16px">
+                <span style="font-weight:600">Total Cost:</span>
+                <span style="font-size:18px;font-weight:700;color:var(--primary)">KSh ${totalCost.toFixed(2)}</span>
+            </div>
+            ${pres.instructions ? `<div style="background:var(--light);padding:12px;border-radius:8px;font-size:13px;margin-bottom:16px"><strong>Instructions:</strong> ${pres.instructions}</div>` : ''}
+            ${canDispense ? `<div style="text-align:center"><button class="btn btn-success" onclick="dispensePrescription('${id}');document.getElementById('viewInvoiceModalOverlay').classList.remove('active');"><i class="fas fa-pills"></i> Dispense & Bill Patient</button></div>` : ''}
+        </div>
+    `;
+    document.getElementById('viewInvoiceModalOverlay').classList.add('active');
 }
 
 function viewInvoice(id){
@@ -6170,7 +6345,7 @@ function seedNewHospitalData(hospitalId){
     ];
     secureSet(getStorageKey('wards', hospitalId), defaultWards);
     // All other collections start empty
-    const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','inventory','labs','users','services'];
+    const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','pharmacy','labs','users','services'];
     cols.forEach(c => secureSet(getStorageKey(c, hospitalId), []));
 }
 async function loadDemoData(){
@@ -6274,7 +6449,7 @@ async function loadDemoData(){
         {id:'b4',hospitalId:'DEMO',patientId:'p3',date:'2026-07-20',services:['Emergency Visit','Nebulization','Oxygen Therapy'],amount:'450.00',insuranceAmount:'0.00',status:'Pending',invoiceNumber:'INV-004',payments:[]},
         {id:'b5',hospitalId:'DEMO',patientId:'p5',date:'2026-07-15',services:['Cardiac Monitor','Blood Work','Consultation'],amount:'580.00',insuranceAmount:'551.00',status:'Overdue',invoiceNumber:'INV-005',payments:[{id:'pay4',amount:29.00,method:'Cash',date:'2026-07-15',reference:'',notes:'Copay',recordedBy:'System'}]}
     ];
-    const demoInventory = [
+    const demoPharmacy = [
         {id:'i1',hospitalId:'DEMO',name:'Paracetamol 500mg',category:'Medication',quantity:150,unit:'tablets',minQuantity:20,price:'0.50',expiryDate:'2027-06-01',notes:'Pain reliever'},
         {id:'i2',hospitalId:'DEMO',name:'Amoxicillin 500mg',category:'Medication',quantity:80,unit:'capsules',minQuantity:15,price:'1.20',expiryDate:'2027-03-15',notes:'Antibiotic'},
         {id:'i3',hospitalId:'DEMO',name:'Blood Pressure Monitor',category:'Equipment',quantity:5,unit:'units',minQuantity:2,price:'45.00',expiryDate:'',notes:'Digital BP monitor'},
@@ -6291,7 +6466,7 @@ async function loadDemoData(){
         secureSet(getStorageKey('admissions', 'DEMO'), demoAdmissions);
         secureSet(getStorageKey('prescriptions', 'DEMO'), demoPrescriptions);
         secureSet(getStorageKey('billing', 'DEMO'), demoBilling);
-        secureSet(getStorageKey('inventory', 'DEMO'), demoInventory);
+        secureSet(getStorageKey('pharmacy', 'DEMO'), demoPharmacy);
     }
 
     // Sync demo users to medicare_users for user management display
@@ -6310,7 +6485,7 @@ async function loadDemoData(){
     const demoDepartments = [
         {id:'dept1',hospitalId:'DEMO',name:'Emergency & Triage',type:'Triage / Emergency',description:'24/7 emergency care and patient triage',headDoctorId:'d1',headName:'James Anderson',location:'Ground Floor, Block A',phone:'Ext. 101',email:'emergency@medicare.co.ke',capacity:15,status:'Active',services:['Triage Assessment','Emergency Stabilization','Trauma Care','Resuscitation','Ambulance Services']},
         {id:'dept2',hospitalId:'DEMO',name:'Outpatient Department',type:'Outpatient (OPD)',description:'General outpatient consultations',headDoctorId:'d2',headName:'Lisa Martinez',location:'1st Floor, Block B',phone:'Ext. 201',email:'opd@medicare.co.ke',capacity:30,status:'Active',services:['General Consultation','Follow-up Visit','Health Screening','Vaccination','Chronic Disease Management']},
-        {id:'dept3',hospitalId:'DEMO',name:'Pharmacy',type:'Pharmacy',description:'In-house pharmacy and dispensary',headDoctorId:'',headName:'',location:'Ground Floor, Block C',phone:'Ext. 301',email:'pharmacy@medicare.co.ke',capacity:20,status:'Active',services:['Prescription Dispensing','Over-the-Counter Sales','Medication Counseling','Compounding','Drug Inventory']},
+        {id:'dept3',hospitalId:'DEMO',name:'Pharmacy',type:'Pharmacy',description:'In-house pharmacy and dispensary',headDoctorId:'',headName:'',location:'Ground Floor, Block C',phone:'Ext. 301',email:'pharmacy@medicare.co.ke',capacity:20,status:'Active',services:['Prescription Dispensing','Over-the-Counter Sales','Medication Counseling','Compounding','Pharmacy']},
         {id:'dept4',hospitalId:'DEMO',name:'Laboratory',type:'Laboratory',description:'Diagnostic lab services',headDoctorId:'',headName:'',location:'1st Floor, Block C',phone:'Ext. 401',email:'lab@medicare.co.ke',capacity:10,status:'Active',services:['Blood Test','Urine Analysis','COVID-19 Test','Biopsy','Pathology']},
         {id:'dept5',hospitalId:'DEMO',name:'Radiology',type:'Radiology',description:'X-Ray, MRI, CT Scan services',headDoctorId:'d3',headName:'David Thompson',location:'Basement, Block D',phone:'Ext. 501',email:'radiology@medicare.co.ke',capacity:8,status:'Active',services:['X-Ray','MRI Scan','CT Scan','Ultrasound','Mammography']},
         {id:'dept6',hospitalId:'DEMO',name:'Surgery & Theater',type:'Surgery / Theater',description:'Operating theaters and surgical ward',headDoctorId:'d1',headName:'James Anderson',location:'2nd Floor, Block A',phone:'Ext. 601',email:'surgery@medicare.co.ke',capacity:6,status:'Active',services:['General Surgery','Orthopedic Surgery','Laparoscopic Surgery','Post-op Care','Anesthesia']},
@@ -6397,7 +6572,7 @@ window.addEventListener('storage', (e) => {
                     collection === 'prescriptions' ? 'prescriptions' :
                     collection === 'billing' ? 'billing' :
                     collection === 'labs' ? 'labs' :
-                    collection === 'inventory' ? 'inventory' :
+                    collection === 'pharmacy' ? 'pharmacy' :
                     collection === 'users' ? 'users' : 'dashboard'
                 );
                 updateStats();
@@ -6441,7 +6616,7 @@ if(typeof BroadcastChannel !== 'undefined'){
                     msg.collection === 'prescriptions' ? 'prescriptions' :
                     msg.collection === 'billing' ? 'billing' :
                     msg.collection === 'labs' ? 'labs' :
-                    msg.collection === 'inventory' ? 'inventory' :
+                    msg.collection === 'pharmacy' ? 'pharmacy' :
                     msg.collection === 'users' ? 'users' : 'dashboard'
                 );
                 updateStats();
