@@ -6587,6 +6587,40 @@ window.addEventListener('beforeinstallprompt', e => {
     console.log('PWA install prompt available');
 });
 
+
+function getServiceCost(service, insuranceProvider){
+    if(!service) return 0;
+    const provider = (insuranceProvider || 'Cash').trim();
+    if(service.costs && typeof service.costs === 'object'){
+        if(service.costs[provider] !== undefined) return parseFloat(service.costs[provider]) || 0;
+        if(service.costs['Cash'] !== undefined) return parseFloat(service.costs['Cash']) || 0;
+    }
+    return parseFloat(service.cost) || 0;
+}
+function getServiceCostDisplay(service){
+    if(!service) return 'KSh 0.00';
+    if(service.costs && typeof service.costs === 'object'){
+        const keys = Object.keys(service.costs);
+        if(keys.length === 0) return 'KSh 0.00';
+        const cash = service.costs['Cash'];
+        if(cash !== undefined) return `KSh ${parseFloat(cash).toFixed(2)}`;
+        return `KSh ${parseFloat(service.costs[keys[0]]).toFixed(2)}`;
+    }
+    return `KSh ${parseFloat(service.cost || 0).toFixed(2)}`;
+}
+function toggleOtherInsurance(select){
+    const otherInput = document.getElementById('m_patient_insurance_other');
+    if(otherInput) otherInput.style.display = select.value === 'Other' ? 'block' : 'none';
+}
+function getInsuranceProviders(){
+    const providers = new Set(['Cash','SHA']);
+    dataCache.services.forEach(s => {
+        if(s.costs && typeof s.costs === 'object'){
+            Object.keys(s.costs).forEach(k => providers.add(k));
+        }
+    });
+    return Array.from(providers).sort();
+}
 function promptPWAInstall(){
     if(deferredPrompt){
         deferredPrompt.prompt();
@@ -6603,19 +6637,3 @@ function promptPWAInstall(){
 </script>
 </body>
 </html>
-
-
-function toggleOtherInsurance(select){
-    const otherInput = document.getElementById('m_patient_insurance_other');
-    if(otherInput) otherInput.style.display = select.value === 'Other' ? 'block' : 'none';
-}
-
-function getInsuranceProviders(){
-    const providers = new Set(['Cash','SHA']);
-    dataCache.services.forEach(s => {
-        if(s.costs && typeof s.costs === 'object'){
-            Object.keys(s.costs).forEach(k => providers.add(k));
-        }
-    });
-    return Array.from(providers).sort();
-}
