@@ -4128,7 +4128,7 @@ function openModal(type, editId){
             }
             let servicesHtml = '';
             if(activeServices.length === 0){
-                servicesHtml = '<div style="padding:12px;color:var(--gray);font-size:13px"><i class="fas fa-info-circle"></i> No active services in catalog. <a href="#" onclick="closeModal();navigateTo('services');" style="color:var(--primary)">Add services first</a>.</div>';
+                servicesHtml = '<div style="padding:12px;color:var(--gray);font-size:13px"><i class="fas fa-info-circle"></i> No active services in catalog. <a href="#" onclick="closeModal();navigateTo(\'services\');" style="color:var(--primary)">Add services first</a>.</div>';
             } else {
                 let lastCat = '';
                 activeServices.forEach(svc => {
