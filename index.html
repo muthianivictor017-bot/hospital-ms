@@ -1347,7 +1347,8 @@ function getCollectionName(modalType){
         'patient':'patients','admission':'admissions','appointment':'appointments',
         'ward':'wards','doctor':'doctors','prescription':'prescriptions',
         'lab':'labs','billing':'billing','inventory':'inventory','user':'users',
-        'department':'departments','sendToDept':'departmentAssignments'
+        'department':'departments','sendToDept':'departmentAssignments',
+        'service':'services','shaClaim':'shaClaims'
     };
     return map[modalType] || modalType;
 }
@@ -4660,7 +4661,7 @@ async function saveModal(){
             return;
         }
         closeModal();
-        refreshPageData(currentModalType === 'patient' ? 'patients' : currentModalType === 'admission' ? 'admissions' : currentModalType === 'appointment' ? 'appointments' : currentModalType === 'ward' ? 'wards' : currentModalType === 'doctor' ? 'doctors' : currentModalType === 'prescription' ? 'prescriptions' : currentModalType === 'billing' ? 'billing' : currentModalType === 'inventory' ? 'inventory' : currentModalType === 'shaClaim' ? 'sha' : 'users');
+        refreshPageData(currentModalType === 'patient' ? 'patients' : currentModalType === 'admission' ? 'admissions' : currentModalType === 'appointment' ? 'appointments' : currentModalType === 'ward' ? 'wards' : currentModalType === 'doctor' ? 'doctors' : currentModalType === 'prescription' ? 'prescriptions' : currentModalType === 'billing' ? 'billing' : currentModalType === 'inventory' ? 'inventory' : currentModalType === 'shaClaim' ? 'shaClaims' : 'users');
         updateStats();
         btn.innerHTML = 'Save'; btn.disabled = false;
         toast('Saved successfully', 'success');
