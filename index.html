@@ -7189,7 +7189,7 @@ function renderProcurement(){
   }).join('');
   if(!filtered.length) tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:30px;">No procurement records found</td></tr>';
 
-  renderProcurementCharts(filtered);
+  renderInsuranceCharts(filtered);
 }
 
 function deleteProcurement(id){
@@ -7376,9 +7376,9 @@ function renderInsuranceClaims(){
             '<td>KSh '+(c.amount||0).toLocaleString()+'</td>'+
             '<td><span class="badge" style="background:'+(statusColors[c.status]||'#666')+'">'+c.status+'</span></td>'+
             '<td>'+
-                '<button class="btn-icon" onclick="viewInsuranceClaim(''+(c.id||'')+'')" title="View"><i class="fas fa-eye"></i></button>'+
-                '<button class="btn-icon" onclick="editInsuranceClaim(''+(c.id||'')+'')" title="Edit"><i class="fas fa-edit"></i></button>'+
-                '<button class="btn-icon" onclick="deleteInsuranceClaim(''+(c.id||'')+'')" title="Delete"><i class="fas fa-trash"></i></button>'+
+                '<button class="btn-icon" onclick="viewInsuranceClaim(\'+(c.id||"")+\')" title="View"><i class="fas fa-eye"></i></button>'+
+                '<button class="btn-icon" onclick="editInsuranceClaim(\'+(c.id||"")+\')" title="Edit"><i class="fas fa-edit"></i></button>'+
+                '<button class="btn-icon" onclick="deleteInsuranceClaim(\'+(c.id||"")+\')" title="Delete"><i class="fas fa-trash"></i></button>'+
             '</td>'+
         '</tr>';
     }).join('');
@@ -7388,17 +7388,20 @@ function renderInsuranceClaims(){
 function renderInsurancePatients(){
     var patients = getInsurancePatients();
     var tbody = document.getElementById('insPatientsTable');
-    tbody.innerHTML = patients.map(function(p){
-        return '<tr>'+
+    var html = '';
+    for(var i=0;i<patients.length;i++){
+        var p = patients[i];
+        var providerColor = p.insuranceProvider==='SHA'?'#27ae60':p.insuranceProvider==='NHIF'?'#2980b9':'#8e44ad';
+        html += '<tr>'+
             '<td>'+(p.name||'')+'</td>'+
-            '<td><span class="badge" style="background:'+(p.insuranceProvider==='SHA'?'#27ae60':p.insuranceProvider==='NHIF'?'#2980b9':'#8e44ad')+'">'+(p.insuranceProvider||'-')+'</span></td>'+
+            '<td><span class="badge" style="background:'+providerColor+'">'+(p.insuranceProvider||'-')+'</span></td>'+
             '<td>'+(p.policyNumber||p.shaNumber||'-')+'</td>'+
             '<td>'+(p.insuranceStatus||'-')+'</td>'+
             '<td>'+(p.insuranceCoverage||0)+'%</td>'+
-            '<td><button class="btn-icon" onclick="viewPatient(''+(p.id||'')+'')" title="View"><i class="fas fa-eye"></i></button></td>'+
+            '<td><button class="btn-icon" onclick="viewPatient(\'+(p.id||"")+\')" title="View"><i class="fas fa-eye"></i></button></td>'+
         '</tr>';
-    }).join('');
-    if(!patients.length) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;">No insured patients found</td></tr>';
+    }
+    tbody.innerHTML = html || '<tr><td colspan="6" style="text-align:center;padding:30px;">No insured patients found</td></tr>';
 }
 
 function searchInsuranceClaims(){ renderInsuranceClaims(); }
