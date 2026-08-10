@@ -6529,16 +6529,8 @@ function updateSHADashboard(){
 // ==================== DEMO DATA ====================
 
 function seedNewHospitalData(hospitalId){
-    // Create blank hospital with minimal structure
-    const ts = Date.now();
-    const defaultWards = [
-        {id:'w-'+ts,name:'General Ward A',type:'General',hospitalId:hospitalId,beds:[{number:1,status:'available'},{number:2,status:'available'},{number:3,status:'available'},{number:4,status:'available'},{number:5,status:'available'}],description:'General medicine ward'},
-        {id:'w-'+(ts+1),name:'ICU',type:'ICU',hospitalId:hospitalId,beds:[{number:1,status:'available'},{number:2,status:'available'},{number:3,status:'available'}],description:'Intensive Care Unit'},
-        {id:'w-'+(ts+2),name:'Emergency',type:'Emergency',hospitalId:hospitalId,beds:[{number:1,status:'available'},{number:2,status:'available'},{number:3,status:'available'},{number:4,status:'available'}],description:'Emergency observation ward'}
-    ];
-    secureSet(getStorageKey('wards', hospitalId), defaultWards);
-    // All other collections start empty
-    const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','pharmacy','labs','users','services'];
+    // Create completely blank hospital — no pre-populated data
+    const cols = ['patients','admissions','appointments','doctors','prescriptions','billing','pharmacy','wards','labs','users','services','departments','departmentAssignments'];
     cols.forEach(c => secureSet(getStorageKey(c, hospitalId), []));
 }
 async function loadDemoData(){
