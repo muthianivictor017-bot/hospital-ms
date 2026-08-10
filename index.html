@@ -7,178 +7,10 @@
 <title>MediCare Clinic - Hospital Management System</title>
 <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js">
-function testSHAConnection(){
-    const resultEl = document.getElementById('shaTestResult');
-    if(resultEl){
-        resultEl.innerHTML = '<span class="loading-spinner" style="display:inline-block"></span> Testing connection...';
-    }
-    setTimeout(() => {
-        const settings = secureGet('medicare_security_settings', {});
-        const hasCreds = settings.shaClientId && settings.shaClientSecret;
-        if(resultEl){
-            if(hasCreds){
-                resultEl.innerHTML = '<span style="color:var(--success)"><i class="fas fa-check-circle"></i> Credentials present. Ready to connect to SHA API.</span>';
-            } else {
-                resultEl.innerHTML = '<span style="color:var(--warning)"><i class="fas fa-info-circle"></i> No API credentials configured. Running in manual/demo mode.</span>';
-            }
-        }
-        toast('SHA connection test completed', 'success');
-    }, 1200);
-}
-
-function saveSHASettings(){
-    const secSettings = secureGet('medicare_security_settings', {});
-    secSettings.shaFacilityCode = document.getElementById('set_sha_facility')?.value || '';
-    secSettings.shaFacilityName = document.getElementById('set_sha_facility_name')?.value || '';
-    secSettings.shaClientId = document.getElementById('set_sha_client_id')?.value || '';
-    secSettings.shaClientSecret = document.getElementById('set_sha_client_secret')?.value || '';
-    secSettings.shaBaseUrl = document.getElementById('set_sha_base_url')?.value || 'https://api.sha.go.ke';
-    secSettings.shaMode = document.getElementById('set_sha_mode')?.value || 'manual';
-    secSettings.shaAutoCheck = document.getElementById('set_sha_auto_check')?.checked || false;
-    secSettings.updatedAt = new Date().toISOString();
-    secureSet('medicare_security_settings', secSettings);
-
-    if(!dbTerminated && db && currentHospital && auth.currentUser){
-        const hospId = currentHospital.hospitalId || currentHospital.id;
-        db.collection('hospitals').doc(hospId).collection('settings').doc('security').set({
-            ...secSettings,
-            cloudSyncedAt: firebase.firestore.FieldValue.serverTimestamp()
-        }).catch(e => console.warn('Cloud SHA settings save failed:', e));
-    }
-    toast('SHA settings saved', 'success');
-}
-
-</script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js">
-function testSHAConnection(){
-    const resultEl = document.getElementById('shaTestResult');
-    if(resultEl){
-        resultEl.innerHTML = '<span class="loading-spinner" style="display:inline-block"></span> Testing connection...';
-    }
-    setTimeout(() => {
-        const settings = secureGet('medicare_security_settings', {});
-        const hasCreds = settings.shaClientId && settings.shaClientSecret;
-        if(resultEl){
-            if(hasCreds){
-                resultEl.innerHTML = '<span style="color:var(--success)"><i class="fas fa-check-circle"></i> Credentials present. Ready to connect to SHA API.</span>';
-            } else {
-                resultEl.innerHTML = '<span style="color:var(--warning)"><i class="fas fa-info-circle"></i> No API credentials configured. Running in manual/demo mode.</span>';
-            }
-        }
-        toast('SHA connection test completed', 'success');
-    }, 1200);
-}
-
-function saveSHASettings(){
-    const secSettings = secureGet('medicare_security_settings', {});
-    secSettings.shaFacilityCode = document.getElementById('set_sha_facility')?.value || '';
-    secSettings.shaFacilityName = document.getElementById('set_sha_facility_name')?.value || '';
-    secSettings.shaClientId = document.getElementById('set_sha_client_id')?.value || '';
-    secSettings.shaClientSecret = document.getElementById('set_sha_client_secret')?.value || '';
-    secSettings.shaBaseUrl = document.getElementById('set_sha_base_url')?.value || 'https://api.sha.go.ke';
-    secSettings.shaMode = document.getElementById('set_sha_mode')?.value || 'manual';
-    secSettings.shaAutoCheck = document.getElementById('set_sha_auto_check')?.checked || false;
-    secSettings.updatedAt = new Date().toISOString();
-    secureSet('medicare_security_settings', secSettings);
-
-    if(!dbTerminated && db && currentHospital && auth.currentUser){
-        const hospId = currentHospital.hospitalId || currentHospital.id;
-        db.collection('hospitals').doc(hospId).collection('settings').doc('security').set({
-            ...secSettings,
-            cloudSyncedAt: firebase.firestore.FieldValue.serverTimestamp()
-        }).catch(e => console.warn('Cloud SHA settings save failed:', e));
-    }
-    toast('SHA settings saved', 'success');
-}
-
-</script>
-<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js">
-function testSHAConnection(){
-    const resultEl = document.getElementById('shaTestResult');
-    if(resultEl){
-        resultEl.innerHTML = '<span class="loading-spinner" style="display:inline-block"></span> Testing connection...';
-    }
-    setTimeout(() => {
-        const settings = secureGet('medicare_security_settings', {});
-        const hasCreds = settings.shaClientId && settings.shaClientSecret;
-        if(resultEl){
-            if(hasCreds){
-                resultEl.innerHTML = '<span style="color:var(--success)"><i class="fas fa-check-circle"></i> Credentials present. Ready to connect to SHA API.</span>';
-            } else {
-                resultEl.innerHTML = '<span style="color:var(--warning)"><i class="fas fa-info-circle"></i> No API credentials configured. Running in manual/demo mode.</span>';
-            }
-        }
-        toast('SHA connection test completed', 'success');
-    }, 1200);
-}
-
-function saveSHASettings(){
-    const secSettings = secureGet('medicare_security_settings', {});
-    secSettings.shaFacilityCode = document.getElementById('set_sha_facility')?.value || '';
-    secSettings.shaFacilityName = document.getElementById('set_sha_facility_name')?.value || '';
-    secSettings.shaClientId = document.getElementById('set_sha_client_id')?.value || '';
-    secSettings.shaClientSecret = document.getElementById('set_sha_client_secret')?.value || '';
-    secSettings.shaBaseUrl = document.getElementById('set_sha_base_url')?.value || 'https://api.sha.go.ke';
-    secSettings.shaMode = document.getElementById('set_sha_mode')?.value || 'manual';
-    secSettings.shaAutoCheck = document.getElementById('set_sha_auto_check')?.checked || false;
-    secSettings.updatedAt = new Date().toISOString();
-    secureSet('medicare_security_settings', secSettings);
-
-    if(!dbTerminated && db && currentHospital && auth.currentUser){
-        const hospId = currentHospital.hospitalId || currentHospital.id;
-        db.collection('hospitals').doc(hospId).collection('settings').doc('security').set({
-            ...secSettings,
-            cloudSyncedAt: firebase.firestore.FieldValue.serverTimestamp()
-        }).catch(e => console.warn('Cloud SHA settings save failed:', e));
-    }
-    toast('SHA settings saved', 'success');
-}
-
-</script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js">
-function testSHAConnection(){
-    const resultEl = document.getElementById('shaTestResult');
-    if(resultEl){
-        resultEl.innerHTML = '<span class="loading-spinner" style="display:inline-block"></span> Testing connection...';
-    }
-    setTimeout(() => {
-        const settings = secureGet('medicare_security_settings', {});
-        const hasCreds = settings.shaClientId && settings.shaClientSecret;
-        if(resultEl){
-            if(hasCreds){
-                resultEl.innerHTML = '<span style="color:var(--success)"><i class="fas fa-check-circle"></i> Credentials present. Ready to connect to SHA API.</span>';
-            } else {
-                resultEl.innerHTML = '<span style="color:var(--warning)"><i class="fas fa-info-circle"></i> No API credentials configured. Running in manual/demo mode.</span>';
-            }
-        }
-        toast('SHA connection test completed', 'success');
-    }, 1200);
-}
-
-function saveSHASettings(){
-    const secSettings = secureGet('medicare_security_settings', {});
-    secSettings.shaFacilityCode = document.getElementById('set_sha_facility')?.value || '';
-    secSettings.shaFacilityName = document.getElementById('set_sha_facility_name')?.value || '';
-    secSettings.shaClientId = document.getElementById('set_sha_client_id')?.value || '';
-    secSettings.shaClientSecret = document.getElementById('set_sha_client_secret')?.value || '';
-    secSettings.shaBaseUrl = document.getElementById('set_sha_base_url')?.value || 'https://api.sha.go.ke';
-    secSettings.shaMode = document.getElementById('set_sha_mode')?.value || 'manual';
-    secSettings.shaAutoCheck = document.getElementById('set_sha_auto_check')?.checked || false;
-    secSettings.updatedAt = new Date().toISOString();
-    secureSet('medicare_security_settings', secSettings);
-
-    if(!dbTerminated && db && currentHospital && auth.currentUser){
-        const hospId = currentHospital.hospitalId || currentHospital.id;
-        db.collection('hospitals').doc(hospId).collection('settings').doc('security').set({
-            ...secSettings,
-            cloudSyncedAt: firebase.firestore.FieldValue.serverTimestamp()
-        }).catch(e => console.warn('Cloud SHA settings save failed:', e));
-    }
-    toast('SHA settings saved', 'success');
-}
-
-</script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
 :root{--primary:#2563eb;--primary-dark:#1d4ed8;--secondary:#0ea5e9;--success:#10b981;--warning:#f59e0b;--danger:#ef4444;--dark:#1e293b;--light:#f8fafc;--gray:#64748b;--border:#e2e8f0;--shadow:0 4px 6px -1px rgba(0,0,0,0.1);--shadow-lg:0 10px 15px -3px rgba(0,0,0,0.1)}
 *{margin:0;padding:0;box-sizing:border-box}
@@ -549,7 +381,191 @@ body{font-family:'Inter',sans-serif;background:var(--light);color:var(--dark)}
 </div>
 
 <!-- DASHBOARD -->
-<div class="dashboard" id="dashboard">
+    <!-- PROCUREMENT & EXPENSES SECTION -->
+    <div id="procurement" class="page-section">
+      <div class="section-header">
+        <h2><i class="fas fa-shopping-cart"></i> Procurement & Expenses</h2>
+        <div class="section-actions">
+          <button class="btn btn-primary" onclick="openProcurementModal()">
+            <i class="fas fa-plus"></i> New Request
+          </button>
+          <button class="btn btn-secondary" onclick="exportProcurement()">
+            <i class="fas fa-download"></i> Export
+          </button>
+        </div>
+      </div>
+
+      <!-- Stats Cards -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon" style="background:var(--primary)"><i class="fas fa-wallet"></i></div>
+          <div class="stat-info">
+            <h3 id="procTotalSpend">$0.00</h3>
+            <p>Total Spend (Month)</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:var(--warning)"><i class="fas fa-clock"></i></div>
+          <div class="stat-info">
+            <h3 id="procPending">0</h3>
+            <p>Pending Approval</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:var(--success)"><i class="fas fa-check-circle"></i></div>
+          <div class="stat-info">
+            <h3 id="procApproved">0</h3>
+            <p>Approved Orders</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:var(--info)"><i class="fas fa-truck"></i></div>
+          <div class="stat-info">
+            <h3 id="procVendors">0</h3>
+            <p>Active Vendors</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Filters -->
+      <div class="filter-bar">
+        <input type="text" id="procSearch" placeholder="Search items, vendors..." onkeyup="renderProcurement()">
+        <select id="procStatusFilter" onchange="renderProcurement()">
+          <option value="">All Statuses</option>
+          <option value="pending">Pending</option>
+          <option value="approved">Approved</option>
+          <option value="ordered">Ordered</option>
+          <option value="received">Received</option>
+          <option value="paid">Paid</option>
+        </select>
+        <select id="procCategoryFilter" onchange="renderProcurement()">
+          <option value="">All Categories</option>
+          <option value="medical-supplies">Medical Supplies</option>
+          <option value="equipment">Equipment</option>
+          <option value="pharmaceuticals">Pharmaceuticals</option>
+          <option value="office">Office Supplies</option>
+          <option value="utilities">Utilities</option>
+          <option value="maintenance">Maintenance</option>
+          <option value="other">Other</option>
+        </select>
+        <input type="month" id="procMonthFilter" onchange="renderProcurement()">
+      </div>
+
+      <!-- Procurement Table -->
+      <div class="table-container">
+        <table class="data-table" id="procurementTable">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Item / Description</th>
+              <th>Category</th>
+              <th>Vendor</th>
+              <th>Qty</th>
+              <th>Unit Cost</th>
+              <th>Total</th>
+              <th>Status</th>
+              <th>Date</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="procurementBody"></tbody>
+        </table>
+      </div>
+
+      <!-- Charts Row -->
+      <div class="charts-row" style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:20px;">
+        <div class="card">
+          <h3>Expenses by Category</h3>
+          <canvas id="procCategoryChart"></canvas>
+        </div>
+        <div class="card">
+          <h3>Monthly Spending Trend</h3>
+          <canvas id="procTrendChart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- PROCUREMENT MODAL -->
+    <div id="procurementModal" class="modal">
+      <div class="modal-content" style="max-width:700px;">
+        <div class="modal-header">
+          <h3 id="procModalTitle">New Procurement Request</h3>
+          <button class="close-btn" onclick="closeProcurementModal()">&times;</button>
+        </div>
+        <form id="procurementForm" onsubmit="saveProcurement(event)">
+          <input type="hidden" id="procId">
+          <div class="form-row">
+            <div class="form-group">
+              <label>Item Name *</label>
+              <input type="text" id="procItem" required>
+            </div>
+            <div class="form-group">
+              <label>Category *</label>
+              <select id="procCategory" required>
+                <option value="medical-supplies">Medical Supplies</option>
+                <option value="equipment">Equipment</option>
+                <option value="pharmaceuticals">Pharmaceuticals</option>
+                <option value="office">Office Supplies</option>
+                <option value="utilities">Utilities</option>
+                <option value="maintenance">Maintenance</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Vendor *</label>
+              <input type="text" id="procVendor" required list="vendorList">
+              <datalist id="vendorList"></datalist>
+            </div>
+            <div class="form-group">
+              <label>Quantity *</label>
+              <input type="number" id="procQty" min="1" required>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Unit Cost ($) *</label>
+              <input type="number" id="procUnitCost" step="0.01" min="0" required>
+            </div>
+            <div class="form-group">
+              <label>Request Date *</label>
+              <input type="date" id="procDate" required>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Description / Notes</label>
+            <textarea id="procNotes" rows="2"></textarea>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label>Urgency</label>
+              <select id="procUrgency">
+                <option value="normal">Normal</option>
+                <option value="high">High</option>
+                <option value="critical">Critical</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Status</label>
+              <select id="procStatus">
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="ordered">Ordered</option>
+                <option value="received">Received</option>
+                <option value="paid">Paid</option>
+              </select>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeProcurementModal()">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save Request</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="dashboard" id="dashboard">
 <div class="sidebar" id="sidebar">
 <div class="sidebar-header"><h2><i class="fas fa-hospital"></i> MediCare HMS</h2></div>
 <div class="hospital-info">
@@ -568,23 +584,24 @@ body{font-family:'Inter',sans-serif;background:var(--light);color:var(--dark)}
 <div class="nav-menu">
 <div class="nav-section-title">Main</div>
 <div class="nav-item active" data-page="dashboard"><i class="fas fa-chart-line"></i><span>Dashboard</span></div>
+<div class="nav-item" data-page="messaging"><i class="fas fa-comment-medical"></i><span>Messaging</span></div>
+<div class="nav-section-title">Hospital</div>
 <div class="nav-item" data-page="patients"><i class="fas fa-user-injured"></i><span>Patients</span><span class="badge" id="patientBadge">0</span></div>
 <div class="nav-item" data-page="admissions"><i class="fas fa-procedures"></i><span>Admissions</span><span class="badge orange" id="admissionBadge">0</span></div>
 <div class="nav-item" data-page="appointments"><i class="fas fa-calendar-check"></i><span>Appointments</span><span class="badge" id="appointmentBadge">0</span></div>
-<div class="nav-section-title">Hospital</div>
 <div class="nav-item" data-page="wards"><i class="fas fa-bed"></i><span>Wards & Beds</span><span class="badge green" id="wardBadge">0</span></div>
 <div class="nav-item" data-page="doctors"><i class="fas fa-user-md"></i><span>Doctors & Staff</span></div>
 <div class="nav-item" data-page="prescriptions"><i class="fas fa-prescription"></i><span>Prescriptions</span></div>
-<div class="nav-item" data-page="billing"><i class="fas fa-file-invoice-dollar"></i><span>Billing</span></div>
-<div class="nav-item admin-only-nav" data-page="reports" style="display:none"><i class="fas fa-chart-pie"></i><span>Reports</span></div>
 <div class="nav-item" data-page="labs"><i class="fas fa-flask"></i><span>Lab Services</span><span class="badge orange" id="labBadge">0</span></div>
 <div class="nav-item" data-page="pharmacy"><i class="fas fa-prescription-bottle-medical"></i><span>Pharmacy</span></div>
 <div class="nav-item" data-page="services"><i class="fas fa-list-alt"></i><span>Services</span><span class="badge" id="servicesBadge">0</span></div>
-<div class="nav-item" data-page="messaging"><i class="fas fa-comment-medical"></i><span>Messaging</span></div>
 <div class="nav-item" data-page="departments"><i class="fas fa-building"></i><span>Departments</span><span class="badge" id="deptBadge">0</span></div>
-<div class="nav-item" data-page="sha"><i class="fas fa-shield-heart"></i><span>SHA Claims</span><span class="badge orange" id="shaBadge">0</span></div>
-
-<div class="nav-section-title admin-only-nav" style="display:none">Administration</div>
+<div class="nav-section-title">Finance</div>
+<div class="nav-item" data-page="billing"><i class="fas fa-file-invoice-dollar"></i><span>Billing</span></div>
+<div class="nav-item admin-only-nav" data-page="reports" style="display:none"><i class="fas fa-chart-pie"></i><span>Reports</span></div>
+<div class="nav-item" data-page="procurement" onclick="showSection('procurement')"><i class="fas fa-shopping-cart"></i><span>Procurement</span></div>
+<div class="nav-item" data-page="insurance"><i class="fas fa-shield-heart"></i><span>Insurance Claims</span><span class="badge orange" id="insuranceBadge">0</span></div>
+<div class="nav-section-title">Administration</div>
 <div class="nav-item admin-only-nav" data-page="users" style="display:none"><i class="fas fa-users-cog"></i><span>User Management</span></div>
 <div class="nav-item admin-only-nav" data-page="settings" style="display:none"><i class="fas fa-cog"></i><span>Settings</span></div>
 </div>
@@ -915,18 +932,29 @@ body{font-family:'Inter',sans-serif;background:var(--light);color:var(--dark)}
 </div>
 
 <!-- SHA CLAIMS PAGE -->
-<div class="page-section" id="page-sha">
+<div class="page-section" id="page-insurance">
 <div class="stats-grid" style="margin-bottom:16px">
-    <div class="stat-card"><div class="stat-icon blue"><i class="fas fa-file-invoice"></i></div><div class="stat-info"><h3 id="shaPendingClaims">0</h3><p>Pending Claims</p></div></div>
-    <div class="stat-card"><div class="stat-icon green"><i class="fas fa-check-circle"></i></div><div class="stat-info"><h3 id="shaApprovedClaims">0</h3><p>Approved</p></div></div>
-    <div class="stat-card"><div class="stat-icon orange"><i class="fas fa-clock"></i></div><div class="stat-info"><h3 id="shaProcessingClaims">0</h3><p>Processing</p></div></div>
-    <div class="stat-card"><div class="stat-icon red"><i class="fas fa-times-circle"></i></div><div class="stat-info"><h3 id="shaRejectedClaims">0</h3><p>Rejected</p></div></div>
-    <div class="stat-card"><div class="stat-icon teal"><i class="fas fa-money-bill-wave"></i></div><div class="stat-info"><h3 id="shaTotalClaimed">KSh 0</h3><p>Total Claimed</p></div></div>
-    <div class="stat-card"><div class="stat-icon purple"><i class="fas fa-users"></i></div><div class="stat-info"><h3 id="shaCoveredPatients">0</h3><p>SHA Patients</p></div></div>
+    <div class="stat-card"><div class="stat-icon blue"><i class="fas fa-file-invoice"></i></div><div class="stat-info"><h3 id="insPendingClaims">0</h3><p>Pending Claims</p></div></div>
+    <div class="stat-card"><div class="stat-icon green"><i class="fas fa-check-circle"></i></div><div class="stat-info"><h3 id="insApprovedClaims">0</h3><p>Approved</p></div></div>
+    <div class="stat-card"><div class="stat-icon orange"><i class="fas fa-clock"></i></div><div class="stat-info"><h3 id="insProcessingClaims">0</h3><p>Processing</p></div></div>
+    <div class="stat-card"><div class="stat-icon red"><i class="fas fa-times-circle"></i></div><div class="stat-info"><h3 id="insRejectedClaims">0</h3><p>Rejected</p></div></div>
+    <div class="stat-card"><div class="stat-icon teal"><i class="fas fa-money-bill-wave"></i></div><div class="stat-info"><h3 id="insTotalClaimed">KSh 0</h3><p>Total Claimed</p></div></div>
+    <div class="stat-card"><div class="stat-icon purple"><i class="fas fa-hospital-user"></i></div><div class="stat-info"><h3 id="insCoveredPatients">0</h3><p>Insured Patients</p></div></div>
 </div>
 <div class="search-bar">
-    <input type="text" id="shaSearch" placeholder="Search claims..." onkeyup="searchSHAClaims()">
-    <select id="shaStatusFilter" onchange="filterSHAClaims()">
+    <input type="text" id="insSearch" placeholder="Search claims..." onkeyup="searchInsuranceClaims()">
+    <select id="insProviderFilter" onchange="filterInsuranceClaims()">
+        <option value="">All Providers</option>
+        <option value="SHA">SHA (Social Health Authority)</option>
+        <option value="NHIF">NHIF</option>
+        <option value="Jubilee">Jubilee Insurance</option>
+        <option value="Madison">Madison Insurance</option>
+        <option value="AAR">AAR Healthcare</option>
+        <option value="Britam">Britam</option>
+        <option value="CIC">CIC Insurance</option>
+        <option value="Other">Other</option>
+    </select>
+    <select id="insStatusFilter" onchange="filterInsuranceClaims()">
         <option value="">All Status</option>
         <option value="Draft">Draft</option>
         <option value="Submitted">Submitted</option>
@@ -936,17 +964,17 @@ body{font-family:'Inter',sans-serif;background:var(--light);color:var(--dark)}
         <option value="Rejected">Rejected</option>
         <option value="Resubmitted">Resubmitted</option>
     </select>
-    <input type="date" id="shaDateFrom" onchange="filterSHAClaims()" placeholder="From">
-    <input type="date" id="shaDateTo" onchange="filterSHAClaims()" placeholder="To">
-    <button class="btn-sm btn-primary" onclick="openSHAModal()"><i class="fas fa-plus"></i> New Claim</button>
-    <button class="btn-sm btn-gray" onclick="exportSHAClaimsCSV()"><i class="fas fa-download"></i> Export</button>
+    <input type="date" id="insDateFrom" onchange="filterInsuranceClaims()" placeholder="From">
+    <input type="date" id="insDateTo" onchange="filterInsuranceClaims()" placeholder="To">
+    <button class="btn-sm btn-primary" onclick="openInsuranceModal()"><i class="fas fa-plus"></i> New Claim</button>
+    <button class="btn-sm btn-gray" onclick="exportInsuranceClaimsCSV()"><i class="fas fa-download"></i> Export</button>
 </div>
 <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px">
-    <div class="card"><div class="card-header"><h3><i class="fas fa-file-invoice-dollar"></i> SHA Claims</h3></div>
-    <div class="card-body"><table class="data-table"><thead><tr><th>Claim #</th><th>Patient</th><th>SHA No.</th><th>Date</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead><tbody id="shaClaimsTable"></tbody></table></div>
+    <div class="card"><div class="card-header"><h3><i class="fas fa-file-invoice-dollar"></i> Insurance Claims</h3></div>
+    <div class="card-body"><table class="data-table"><thead><tr><th>Claim #</th><th>Patient</th><th>Provider</th><th>Policy No.</th><th>Date</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead><tbody id="insClaimsTable"></tbody></table></div>
     </div>
-    <div class="card"><div class="card-header"><h3><i class="fas fa-user-shield"></i> SHA Patients</h3></div>
-    <div class="card-body"><table class="data-table"><thead><tr><th>Patient</th><th>SHA Number</th><th>Status</th><th>Tier</th><th>Actions</th></tr></thead><tbody id="shaPatientsTable"></tbody></table></div>
+    <div class="card"><div class="card-header"><h3><i class="fas fa-user-shield"></i> Insured Patients</h3></div>
+    <div class="card-body"><table class="data-table"><thead><tr><th>Patient</th><th>Provider</th><th>Policy Number</th><th>Status</th><th>Coverage</th><th>Actions</th></tr></thead><tbody id="insPatientsTable"></tbody></table></div>
     </div>
 </div>
 </div>
@@ -7036,6 +7064,394 @@ function saveSHASettings(){
     }
     toast('SHA settings saved', 'success');
 }
+
+
+/* ==================== PROCUREMENT & EXPENSES MODULE ==================== */
+let procurementChart1 = null, procurementChart2 = null;
+
+function initProcurement(){
+  renderProcurement();
+  updateProcurementStats();
+  populateVendorList();
+  const monthInput = document.getElementById('procMonthFilter');
+  if(monthInput) monthInput.value = new Date().toISOString().slice(0,7);
+}
+
+function getProcurements(){
+  return secureGet('medicare_procurements', []);
+}
+
+function saveProcurements(data){
+  secureSet('medicare_procurements', data);
+  if(window.db && typeof auth !== 'undefined' && auth.currentUser){
+    db.collection('procurements').doc('all').set({data:data, updatedAt:firebase.firestore.FieldValue.serverTimestamp()}).catch(()=>{});
+  }
+}
+
+function openProcurementModal(id){
+  const modal = document.getElementById('procurementModal');
+  const form = document.getElementById('procurementForm');
+  form.reset();
+  document.getElementById('procId').value = '';
+  document.getElementById('procDate').value = new Date().toISOString().split('T')[0];
+  if(id){
+    const items = getProcurements();
+    const item = items.find(function(p){return p.id===id;});
+    if(item){
+      document.getElementById('procModalTitle').textContent = 'Edit Procurement';
+      document.getElementById('procId').value = item.id;
+      document.getElementById('procItem').value = item.item;
+      document.getElementById('procCategory').value = item.category;
+      document.getElementById('procVendor').value = item.vendor;
+      document.getElementById('procQty').value = item.qty;
+      document.getElementById('procUnitCost').value = item.unitCost;
+      document.getElementById('procDate').value = item.date;
+      document.getElementById('procNotes').value = item.notes || '';
+      document.getElementById('procUrgency').value = item.urgency || 'normal';
+      document.getElementById('procStatus').value = item.status;
+    }
+  } else {
+    document.getElementById('procModalTitle').textContent = 'New Procurement Request';
+  }
+  populateVendorList();
+  modal.style.display = 'flex';
+}
+
+function closeProcurementModal(){
+  document.getElementById('procurementModal').style.display = 'none';
+}
+
+function saveProcurement(e){
+  e.preventDefault();
+  const items = getProcurements();
+  const id = document.getElementById('procId').value || 'PROC-'+Date.now();
+  const qty = parseInt(document.getElementById('procQty').value);
+  const unitCost = parseFloat(document.getElementById('procUnitCost').value);
+  const data = {
+    id: id,
+    item: document.getElementById('procItem').value,
+    category: document.getElementById('procCategory').value,
+    vendor: document.getElementById('procVendor').value,
+    qty: qty,
+    unitCost: unitCost,
+    total: qty * unitCost,
+    date: document.getElementById('procDate').value,
+    notes: document.getElementById('procNotes').value,
+    urgency: document.getElementById('procUrgency').value,
+    status: document.getElementById('procStatus').value,
+    createdAt: new Date().toISOString(),
+    createdBy: typeof currentUser !== 'undefined' && currentUser ? currentUser.name : 'Admin'
+  };
+  const idx = items.findIndex(function(p){return p.id===id;});
+  if(idx>=0) items[idx]=data; else items.push(data);
+  saveProcurements(items);
+  closeProcurementModal();
+  renderProcurement();
+  updateProcurementStats();
+  toast('Procurement saved successfully', 'success');
+}
+
+function renderProcurement(){
+  const items = getProcurements();
+  const search = (document.getElementById('procSearch').value||'').toLowerCase();
+  const statusF = document.getElementById('procStatusFilter').value;
+  const catF = document.getElementById('procCategoryFilter').value;
+  const monthF = document.getElementById('procMonthFilter').value;
+
+  let filtered = items.filter(function(p){
+    if(search && p.item.toLowerCase().indexOf(search)===-1 && p.vendor.toLowerCase().indexOf(search)===-1) return false;
+    if(statusF && p.status!==statusF) return false;
+    if(catF && p.category!==catF) return false;
+    if(monthF && p.date && !p.date.startsWith(monthF)) return false;
+    return true;
+  });
+
+  filtered.sort(function(a,b){return new Date(b.date)-new Date(a.date);});
+
+  const tbody = document.getElementById('procurementBody');
+  const statusColors = {pending:'var(--warning)', approved:'var(--info)', ordered:'var(--primary)', received:'var(--success)', paid:'var(--success)'};
+  tbody.innerHTML = filtered.map(function(p){
+    return '<tr>'+
+      '<td>'+p.id+'</td>'+
+      '<td><strong>'+p.item+'</strong>'+(p.notes?'<br><small>'+p.notes+'</small>':'')+'</td>'+
+      '<td>'+p.category.replace(/-/g,' ').replace(/\b\w/g,function(l){return l.toUpperCase();})+'</td>'+
+      '<td>'+p.vendor+'</td>'+
+      '<td>'+p.qty+'</td>'+
+      '<td>$'+p.unitCost.toFixed(2)+'</td>'+
+      '<td><strong>$'+p.total.toFixed(2)+'</strong></td>'+
+      '<td><span class="badge" style="background:'+(statusColors[p.status]||'#666')+'">'+p.status.toUpperCase()+'</span></td>'+
+      '<td>'+p.date+'</td>'+
+      '<td>'+
+        '<button class="btn-icon" onclick="openProcurementModal(''+p.id+'')" title="Edit"><i class="fas fa-edit"></i></button>'+
+        '<button class="btn-icon" onclick="deleteProcurement(''+p.id+'')" title="Delete"><i class="fas fa-trash"></i></button>'+
+      '</td>'+
+    '</tr>';
+  }).join('');
+  if(!filtered.length) tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;padding:30px;">No procurement records found</td></tr>';
+
+  renderProcurementCharts(filtered);
+}
+
+function deleteProcurement(id){
+  if(!confirm('Delete this procurement record?')) return;
+  let items = getProcurements();
+  items = items.filter(function(p){return p.id!==id;});
+  saveProcurements(items);
+  renderProcurement();
+  updateProcurementStats();
+  toast('Procurement deleted', 'info');
+}
+
+function updateProcurementStats(){
+  const items = getProcurements();
+  const thisMonth = new Date().toISOString().slice(0,7);
+  const monthItems = items.filter(function(p){return p.date && p.date.startsWith(thisMonth);});
+  const totalSpend = monthItems.reduce(function(s,p){return s+(p.total||0);},0);
+  const pending = items.filter(function(p){return p.status==='pending';}).length;
+  const approved = items.filter(function(p){return p.status==='approved'||p.status==='ordered'||p.status==='received'||p.status==='paid';}).length;
+  const vendors = [...new Set(items.map(function(p){return p.vendor;}).filter(function(v){return v;}))].length;
+
+  document.getElementById('procTotalSpend').textContent = '$'+totalSpend.toFixed(2);
+  document.getElementById('procPending').textContent = pending;
+  document.getElementById('procApproved').textContent = approved;
+  document.getElementById('procVendors').textContent = vendors;
+}
+
+function populateVendorList(){
+  const items = getProcurements();
+  const vendors = [...new Set(items.map(function(p){return p.vendor;}).filter(function(v){return v;}))];
+  const datalist = document.getElementById('vendorList');
+  if(datalist) datalist.innerHTML = vendors.map(function(v){return '<option value="'+v+'">';}).join('');
+}
+
+function renderProcurementCharts(data){
+  const ctx1 = document.getElementById('procCategoryChart');
+  const ctx2 = document.getElementById('procTrendChart');
+  if(!ctx1 || !ctx2) return;
+
+  const catTotals = {};
+  data.forEach(function(p){ catTotals[p.category]=(catTotals[p.category]||0)+(p.total||0); });
+  const labels1 = Object.keys(catTotals).map(function(c){return c.replace(/-/g,' ').replace(/\b\w/g,function(l){return l.toUpperCase();});});
+  const values1 = Object.values(catTotals);
+
+  if(procurementChart1) procurementChart1.destroy();
+  procurementChart1 = new Chart(ctx1, {
+    type: 'doughnut',
+    data: { labels: labels1, datasets: [{ data: values1, backgroundColor: ['#3498db','#2ecc71','#e74c3c','#f39c12','#9b59b6','#1abc9c','#95a5a6'] }] },
+    options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+  });
+
+  const months = {};
+  const now = new Date();
+  for(var i=5;i>=0;i--){
+    var d = new Date(now.getFullYear(), now.getMonth()-i, 1);
+    var key = d.toISOString().slice(0,7);
+    months[key] = 0;
+  }
+  data.forEach(function(p){ if(months[p.date.slice(0,7)]!==undefined) months[p.date.slice(0,7)]+=(p.total||0); });
+  var labels2 = Object.keys(months).map(function(m){var parts=m.split('-'); return new Date(parts[0],parts[1]-1).toLocaleString('default',{month:'short'});});
+
+  if(procurementChart2) procurementChart2.destroy();
+  procurementChart2 = new Chart(ctx2, {
+    type: 'bar',
+    data: { labels: labels2, datasets: [{ label: 'Spending ($)', data: Object.values(months), backgroundColor: '#3498db' }] },
+    options: { responsive: true, scales: { y: { beginAtZero: true } } }
+  });
+}
+
+function exportProcurement(){
+  const items = getProcurements();
+  var csv = 'ID,Item,Category,Vendor,Qty,UnitCost,Total,Status,Date,Urgency,CreatedBy\n' +
+    items.map(function(p){
+      return [p.id, '"'+(p.item||'').replace(/"/g,'""')+'"', p.category, '"'+(p.vendor||'').replace(/"/g,'""')+'"', p.qty, p.unitCost, p.total, p.status, p.date, p.urgency, '"'+((p.createdBy||'').replace(/"/g,'""'))+'"'].join(',');
+    }).join('\n');
+  var blob = new Blob([csv], {type:'text/csv'});
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url; a.download = 'procurement_export_'+new Date().toISOString().slice(0,10)+'.csv';
+  a.click(); URL.revokeObjectURL(url);
+  toast('Procurement data exported', 'success');
+}
+
+/* Hook into showSection to init procurement when shown */
+(function(){
+  var origShowSection = window.showSection;
+  if(origShowSection){
+    window.showSection = function(section){
+      origShowSection(section);
+      if(section==='procurement') initProcurement();
+      if(section==='insurance') initInsuranceClaims();
+    };
+  }
+})();
+
+
+/* Seed demo procurement data */
+(function(){
+  if(!secureGet('medicare_procurements', null)){
+    var demo = [
+      {id:'PROC-001', item:'Surgical Masks (Box of 50)', category:'medical-supplies', vendor:'MedSupply Co', qty:20, unitCost:12.50, total:250.00, date:'2026-08-01', notes:'Standard PPE restock', urgency:'normal', status:'received', createdAt:'2026-08-01T10:00:00Z', createdBy:'Admin'},
+      {id:'PROC-002', item:'Blood Pressure Monitor', category:'equipment', vendor:'HealthTech Ltd', qty:3, unitCost:189.99, total:569.97, date:'2026-08-05', notes:'For cardiology ward', urgency:'high', status:'ordered', createdAt:'2026-08-05T14:30:00Z', createdBy:'Admin'},
+      {id:'PROC-003', item:'Amoxicillin 500mg', category:'pharmaceuticals', vendor:'PharmaDirect', qty:100, unitCost:0.85, total:85.00, date:'2026-08-08', notes:'Monthly antibiotic stock', urgency:'normal', status:'pending', createdAt:'2026-08-08T09:15:00Z', createdBy:'Admin'},
+      {id:'PROC-004', item:'Ultrasound Machine Service', category:'maintenance', vendor:'MediServ Inc', qty:1, unitCost:1200.00, total:1200.00, date:'2026-08-10', notes:'Annual maintenance contract', urgency:'high', status:'approved', createdAt:'2026-08-10T11:00:00Z', createdBy:'Admin'},
+      {id:'PROC-005', item:'Office Printer Paper (A4)', category:'office', vendor:'OfficeMax', qty:50, unitCost:5.99, total:299.50, date:'2026-07-15', notes:'Reception and admin use', urgency:'normal', status:'paid', createdAt:'2026-07-15T08:45:00Z', createdBy:'Admin'},
+      {id:'PROC-006', item:'Defibrillator Pads', category:'medical-supplies', vendor:'MedSupply Co', qty:10, unitCost:45.00, total:450.00, date:'2026-07-22', notes:'Emergency stock', urgency:'critical', status:'paid', createdAt:'2026-07-22T16:20:00Z', createdBy:'Admin'},
+      {id:'PROC-007', item:'Electricity Bill - July', category:'utilities', vendor:'City Power', qty:1, unitCost:2450.00, total:2450.00, date:'2026-07-31', notes:'Monthly utility payment', urgency:'normal', status:'paid', createdAt:'2026-07-31T10:00:00Z', createdBy:'Admin'},
+      {id:'PROC-008', item:'Patient Wheelchairs', category:'equipment', vendor:'MobilityPlus', qty:5, unitCost:320.00, total:1600.00, date:'2026-08-09', notes:'For patient transport', urgency:'normal', status:'pending', createdAt:'2026-08-09T13:10:00Z', createdBy:'Admin'}
+    ];
+    secureSet('medicare_procurements', demo);
+  }
+})();
+
+
+/* ==================== UNIFIED INSURANCE CLAIMS MODULE ==================== */
+
+function initInsuranceClaims(){
+    renderInsuranceClaims();
+    renderInsurancePatients();
+    updateInsuranceDashboard();
+}
+
+function getInsuranceClaims(){
+    var claims = secureGet('medicare_sha_claims', []);
+    claims.forEach(function(c){
+        if(!c.insuranceProvider) c.insuranceProvider = 'SHA';
+    });
+    return claims;
+}
+
+function saveInsuranceClaims(claims){
+    secureSet('medicare_sha_claims', claims);
+    if(window.db && typeof auth !== 'undefined' && auth.currentUser){
+        db.collection('sha_claims').doc('all').set({data:claims, updatedAt:firebase.firestore.FieldValue.serverTimestamp()}).catch(function(){});
+    }
+}
+
+function getInsurancePatients(){
+    var patients = secureGet('medicare_patients', []);
+    return patients.filter(function(p){
+        return p.insuranceProvider && p.insuranceProvider !== 'Cash' && p.insuranceStatus === 'Active';
+    });
+}
+
+function updateInsuranceDashboard(){
+    var claims = getInsuranceClaims();
+    document.getElementById('insPendingClaims').textContent = claims.filter(function(c){return c.status==='Draft'||c.status==='Submitted';}).length;
+    document.getElementById('insApprovedClaims').textContent = claims.filter(function(c){return c.status==='Approved'||c.status==='Partially Paid';}).length;
+    document.getElementById('insProcessingClaims').textContent = claims.filter(function(c){return c.status==='Processing';}).length;
+    document.getElementById('insRejectedClaims').textContent = claims.filter(function(c){return c.status==='Rejected';}).length;
+    var total = claims.reduce(function(s,c){return s+(c.amount||0);},0);
+    document.getElementById('insTotalClaimed').textContent = 'KSh '+total.toLocaleString();
+    document.getElementById('insCoveredPatients').textContent = getInsurancePatients().length;
+}
+
+function renderInsuranceClaims(){
+    var claims = getInsuranceClaims();
+    var search = (document.getElementById('insSearch').value||'').toLowerCase();
+    var providerF = document.getElementById('insProviderFilter').value;
+    var statusF = document.getElementById('insStatusFilter').value;
+    var fromD = document.getElementById('insDateFrom').value;
+    var toD = document.getElementById('insDateTo').value;
+
+    var filtered = claims.filter(function(c){
+        if(search && c.patientName && c.patientName.toLowerCase().indexOf(search)===-1 && c.claimNumber && c.claimNumber.toLowerCase().indexOf(search)===-1) return false;
+        if(providerF && c.insuranceProvider !== providerF) return false;
+        if(statusF && c.status !== statusF) return false;
+        if(fromD && c.date && c.date < fromD) return false;
+        if(toD && c.date && c.date > toD) return false;
+        return true;
+    });
+
+    filtered.sort(function(a,b){return new Date(b.date||0)-new Date(a.date||0);});
+
+    var tbody = document.getElementById('insClaimsTable');
+    var statusColors = {Draft:'#95a5a6', Submitted:'#3498db', Processing:'#f39c12', Approved:'#2ecc71', 'Partially Paid':'#1abc9c', Rejected:'#e74c3c', Resubmitted:'#9b59b6'};
+    tbody.innerHTML = filtered.map(function(c){
+        return '<tr>'+
+            '<td>'+(c.claimNumber||c.id||'')+'</td>'+
+            '<td>'+(c.patientName||'')+'</td>'+
+            '<td><span class="badge" style="background:'+(c.insuranceProvider==='SHA'?'#27ae60':c.insuranceProvider==='NHIF'?'#2980b9':'#8e44ad')+'">'+(c.insuranceProvider||'SHA')+'</span></td>'+
+            '<td>'+(c.shaNumber||c.policyNumber||'-')+'</td>'+
+            '<td>'+(c.date||'')+'</td>'+
+            '<td>KSh '+(c.amount||0).toLocaleString()+'</td>'+
+            '<td><span class="badge" style="background:'+(statusColors[c.status]||'#666')+'">'+c.status+'</span></td>'+
+            '<td>'+
+                '<button class="btn-icon" onclick="viewInsuranceClaim(''+(c.id||'')+'')" title="View"><i class="fas fa-eye"></i></button>'+
+                '<button class="btn-icon" onclick="editInsuranceClaim(''+(c.id||'')+'')" title="Edit"><i class="fas fa-edit"></i></button>'+
+                '<button class="btn-icon" onclick="deleteInsuranceClaim(''+(c.id||'')+'')" title="Delete"><i class="fas fa-trash"></i></button>'+
+            '</td>'+
+        '</tr>';
+    }).join('');
+    if(!filtered.length) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;padding:30px;">No insurance claims found</td></tr>';
+}
+
+function renderInsurancePatients(){
+    var patients = getInsurancePatients();
+    var tbody = document.getElementById('insPatientsTable');
+    tbody.innerHTML = patients.map(function(p){
+        return '<tr>'+
+            '<td>'+(p.name||'')+'</td>'+
+            '<td><span class="badge" style="background:'+(p.insuranceProvider==='SHA'?'#27ae60':p.insuranceProvider==='NHIF'?'#2980b9':'#8e44ad')+'">'+(p.insuranceProvider||'-')+'</span></td>'+
+            '<td>'+(p.policyNumber||p.shaNumber||'-')+'</td>'+
+            '<td>'+(p.insuranceStatus||'-')+'</td>'+
+            '<td>'+(p.insuranceCoverage||0)+'%</td>'+
+            '<td><button class="btn-icon" onclick="viewPatient(''+(p.id||'')+'')" title="View"><i class="fas fa-eye"></i></button></td>'+
+        '</tr>';
+    }).join('');
+    if(!patients.length) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;padding:30px;">No insured patients found</td></tr>';
+}
+
+function searchInsuranceClaims(){ renderInsuranceClaims(); }
+function filterInsuranceClaims(){ renderInsuranceClaims(); }
+
+function viewInsuranceClaim(id){
+    var claims = getInsuranceClaims();
+    var claim = claims.find(function(c){return c.id===id;});
+    if(!claim) return;
+    alert('Claim: '+(claim.claimNumber||claim.id)+'
+Patient: '+(claim.patientName||'')+'
+Provider: '+(claim.insuranceProvider||'SHA')+'
+Amount: KSh '+(claim.amount||0).toLocaleString()+'
+Status: '+(claim.status||''));
+}
+
+function editInsuranceClaim(id){
+    openSHAModal(id);
+}
+
+function deleteInsuranceClaim(id){
+    if(!confirm('Delete this insurance claim?')) return;
+    var claims = getInsuranceClaims().filter(function(c){return c.id!==id;});
+    saveInsuranceClaims(claims);
+    renderInsuranceClaims();
+    updateInsuranceDashboard();
+    toast('Insurance claim deleted', 'info');
+}
+
+function exportInsuranceClaimsCSV(){
+    var claims = getInsuranceClaims();
+    var csv = 'ClaimID,Patient,Provider,PolicyNumber,Date,Amount,Status,Notes
+'+
+        claims.map(function(c){
+            return [c.id||'', '"'+((c.patientName||'').replace(/"/g,'""'))+'"', c.insuranceProvider||'SHA', '"'+((c.shaNumber||c.policyNumber||'').replace(/"/g,'""'))+'"', c.date||'', c.amount||0, c.status||'', '"'+((c.notes||'').replace(/"/g,'""'))+'"'].join(',');
+        }).join('
+');
+    var blob = new Blob([csv], {type:'text/csv'});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = 'insurance_claims_'+new Date().toISOString().slice(0,10)+'.csv';
+    a.click(); URL.revokeObjectURL(url);
+    toast('Insurance claims exported', 'success');
+}
+
+function openInsuranceModal(){
+    openSHAModal();
+}
+
+/* Backward compatibility wrappers */
+function searchSHAClaims(){ renderInsuranceClaims(); }
+function filterSHAClaims(){ renderInsuranceClaims(); }
+function exportSHAClaimsCSV(){ exportInsuranceClaimsCSV(); }
 
 </script>
 </body>
