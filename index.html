@@ -7318,8 +7318,8 @@ function renderProcurement(){
       '<td><span class="badge" style="background:'+(statusColors[p.status]||'#666')+'">'+p.status.toUpperCase()+'</span></td>'+
       '<td>'+p.date+'</td>'+
       '<td>'+
-        '<button class="btn-icon" onclick="openProcurementModal('\''+p.id+'\'')" title="Edit"><i class="fas fa-edit"></i></button>'+
-        '<button class="btn-icon" onclick="deleteProcurement('\''+p.id+'\'')" title="Delete"><i class="fas fa-trash"></i></button>'+
+        '<button class="btn-icon" onclick="openProcurementModal(\'\'+p.id+\'\')" title="Edit"><i class="fas fa-edit"></i></button>'+
+        '<button class="btn-icon" onclick="deleteProcurement(\'\'+p.id+\'\')" title="Delete"><i class="fas fa-trash"></i></button>'+
       '</td>'+
     '</tr>';
   }).join('');
