@@ -2472,7 +2472,7 @@ function navigateTo(page){
     else if(page === 'users'){ btn.innerHTML = '<i class="fas fa-plus"></i> Add User'; btn.onclick = () => openModal('user'); btn.style.display = (userRole === 'admin') ? '' : 'none'; }
     else if(page === 'reports'){ btn.innerHTML = '<i class="fas fa-download"></i> Export'; btn.onclick = () => exportReportCSV(); btn.style.display = (userRole === 'admin') ? '' : 'none'; }
     else if(page === 'messaging'){ btn.innerHTML = '<i class="fas fa-paper-plane"></i> Send Bulk'; btn.onclick = () => sendBulkReminders(); btn.style.display = ''; }
-    else if(page === 'sha'){ btn.innerHTML = '<i class="fas fa-plus"></i> New Claim'; btn.onclick = () => openSHAModal(); btn.style.display = ''; }
+    else if(page === 'insurance'){ btn.innerHTML = '<i class="fas fa-plus"></i> New Claim'; btn.onclick = () => openSHAModal(); btn.style.display = ''; }
     else if(page === 'procurement'){ btn.innerHTML = '<i class="fas fa-plus"></i> New Request'; btn.onclick = () => openProcurementModal(); btn.style.display = ''; }
     else if(page === 'departments'){ btn.innerHTML = '<i class="fas fa-plus"></i> Add Department'; btn.onclick = () => openModal('department'); btn.style.display = ''; }
     else { btn.style.display = 'none'; }
@@ -2489,7 +2489,7 @@ function navigateTo(page){
         renderDepartments();
         renderDepartmentQueue();
     }
-    if(page === 'sha'){
+    if(page === 'insurance'){
         renderSHAClaims();
         renderSHAPatients();
         updateSHADashboard();
@@ -3044,7 +3044,7 @@ function refreshPageData(page){
         case 'users': if(userRole === 'admin') renderUsers(); break;
         case 'reports': if(userRole === 'admin') generateReports(); break;
         case 'messaging': renderMessaging(); previewTemplate(); break;
-        case 'sha': renderSHAClaims(); renderSHAPatients(); updateSHADashboard(); break;
+        case 'insurance': renderSHAClaims(); renderSHAPatients(); updateSHADashboard(); break;
         case 'departments': renderDepartments(); renderDepartmentQueue(); break;
         case 'services': renderServices(); break;
         case 'procurement': renderProcurement(); break;
@@ -5944,9 +5944,9 @@ function updateSHAPatientInfo(){
 }
 
 function renderSHAClaims(){
-    const statusFilter = document.getElementById('shaStatusFilter')?.value;
-    const from = document.getElementById('shaDateFrom')?.value;
-    const to = document.getElementById('shaDateTo')?.value;
+    const statusFilter = document.getElementById('insStatusFilter')?.value;
+    const from = document.getElementById('insDateFrom')?.value;
+    const to = document.getElementById('insDateTo')?.value;
 
     let claims = dataCache.shaClaims;
     if(statusFilter) claims = claims.filter(c => c.status === statusFilter);
@@ -5957,24 +5957,24 @@ function renderSHAClaims(){
     const total = dataCache.shaClaims.length;
     const pending = dataCache.shaClaims.filter(c => c.status === 'Pending' || c.status === 'Submitted').length;
     const approved = dataCache.shaClaims.filter(c => c.status === 'Approved').length;
+    const processing = dataCache.shaClaims.filter(c => c.status === 'Processing').length;
     const rejected = dataCache.shaClaims.filter(c => c.status === 'Rejected').length;
     const totalClaimed = dataCache.shaClaims.reduce((s, c) => s + (parseFloat(c.amount) || 0), 0);
-    const totalPaid = dataCache.shaClaims.filter(c => c.status === 'Paid').reduce((s, c) => s + (parseFloat(c.amount) || 0), 0);
 
-    const shaTotalEl = document.getElementById('shaTotalClaims');
-    if(shaTotalEl) shaTotalEl.textContent = total;
-    const shaPendingEl = document.getElementById('shaPendingClaims');
-    if(shaPendingEl) shaPendingEl.textContent = pending;
-    const shaApprovedEl = document.getElementById('shaApprovedClaims');
-    if(shaApprovedEl) shaApprovedEl.textContent = approved;
-    const shaRejectedEl = document.getElementById('shaRejectedClaims');
-    if(shaRejectedEl) shaRejectedEl.textContent = rejected;
-    const shaClaimAmtEl = document.getElementById('shaClaimAmount');
-    if(shaClaimAmtEl) shaClaimAmtEl.textContent = 'KSh ' + totalClaimed.toFixed(2);
-    const shaPaidAmtEl = document.getElementById('shaPaidAmount');
-    if(shaPaidAmtEl) shaPaidAmtEl.textContent = 'KSh ' + totalPaid.toFixed(2);
+    const elPending = document.getElementById('insPendingClaims');
+    if(elPending) elPending.textContent = pending;
+    const elApproved = document.getElementById('insApprovedClaims');
+    if(elApproved) elApproved.textContent = approved;
+    const elProcessing = document.getElementById('insProcessingClaims');
+    if(elProcessing) elProcessing.textContent = processing;
+    const elRejected = document.getElementById('insRejectedClaims');
+    if(elRejected) elRejected.textContent = rejected;
+    const elTotal = document.getElementById('insTotalClaimed');
+    if(elTotal) elTotal.textContent = 'KSh ' + totalClaimed.toFixed(2);
+    const elCovered = document.getElementById('insCoveredPatients');
+    if(elCovered) elCovered.textContent = dataCache.patients.filter(p => p.shaNumber).length;
 
-    const tbody = document.getElementById('shaClaimsTable');
+    const tbody = document.getElementById('insClaimsTable');
     if(!tbody) return;
     if(claims.length === 0){
         tbody.innerHTML = '<tr><td colspan="8" class="empty-state"><i class="fas fa-shield-heart"></i><p>No SHA claims found</p></td></tr>';
@@ -6003,7 +6003,7 @@ function renderSHAClaims(){
 
 function renderSHAPatients(){
     const shaPatients = dataCache.patients.filter(p => p.shaNumber);
-    const tbody = document.getElementById('shaPatientsTable');
+    const tbody = document.getElementById('insPatientsTable');
     if(shaPatients.length === 0){
         tbody.innerHTML = '<tr><td colspan="6" class="empty-state"><i class="fas fa-user-shield"></i><p>No patients with SHA registration</p></td></tr>';
     } else {
@@ -6025,7 +6025,7 @@ function renderSHAPatients(){
 }
 
 function searchSHAClaims(){
-    const q = document.getElementById('shaSearch')?.value.toLowerCase() || '';
+    const q = document.getElementById('insSearch')?.value.toLowerCase() || '';
     document.querySelectorAll('#shaClaimsTable tr').forEach(r => {
         r.style.display = r.textContent.toLowerCase().includes(q) ? '' : 'none';
     });
