@@ -7328,8 +7328,7 @@ function deleteInsuranceClaim(id){
 
 function exportInsuranceClaimsCSV(){
     var claims = getInsuranceClaims();
-    var csv = 'ClaimID,Patient,Provider,PolicyNumber,Date,Amount,Status,Notes
-'+
+    var csv = 'ClaimID,Patient,Provider,PolicyNumber,Date,Amount,Status,Notes\n'+
         claims.map(function(c){
             return [c.id||'', '"'+((c.patientName||'').replace(/"/g,'""'))+'"', c.insuranceProvider||'SHA', '"'+((c.shaNumber||c.policyNumber||'').replace(/"/g,'""'))+'"', c.date||'', c.amount||0, c.status||'', '"'+((c.notes||'').replace(/"/g,'""'))+'"'].join(',');
         }).join('\n');
