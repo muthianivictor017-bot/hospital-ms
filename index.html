@@ -2009,6 +2009,22 @@ window.showSignIn = function(){
 
 // Demo account quick-login
 // ==================== LOGIN FORM ====================
+function showSignUp(){
+    document.getElementById('loginForm').style.display = 'none';
+    document.getElementById('hospitalRegForm').style.display = 'block';
+    document.getElementById('showSignUpBtn').style.display = 'none';
+    document.getElementById('showSignInBtn').style.display = '';
+    document.getElementById('loginError').style.display = 'none';
+}
+function showSignIn(){
+    document.getElementById('hospitalRegForm').style.display = 'none';
+    document.getElementById('loginForm').style.display = 'block';
+    document.getElementById('showSignUpBtn').style.display = '';
+    document.getElementById('showSignInBtn').style.display = 'none';
+    document.getElementById('loginError').style.display = 'none';
+}
+
+
 document.getElementById('loginForm').addEventListener('submit', async (e) => {
     e.preventDefault();
     if(isLoginLockedOut()) return;
@@ -7464,11 +7480,7 @@ function viewInsuranceClaim(id){
     var claims = getInsuranceClaims();
     var claim = claims.find(function(c){return c.id===id;});
     if(!claim) return;
-    alert('Claim: '+(claim.claimNumber||claim.id)+'
-Patient: '+(claim.patientName||'')+'
-Provider: '+(claim.insuranceProvider||'SHA')+'
-Amount: KSh '+(claim.amount||0).toLocaleString()+'
-Status: '+(claim.status||''));
+    alert(`Claim: ${claim.claimNumber||claim.id}\nPatient: ${claim.patientName||''}\nProvider: ${claim.insuranceProvider||'SHA'}\nAmount: KSh ${(claim.amount||0).toLocaleString()}\nStatus: ${claim.status||''}`);
 }
 
 function editInsuranceClaim(id){
