@@ -1990,23 +1990,6 @@ function showDashboard(){
     }
 }
 
-window.showSignUp = function(){
-    document.getElementById('loginForm').style.display = 'none';
-    document.getElementById('hospitalRegForm').style.display = 'block';
-    document.getElementById('showSignUpBtn').style.display = 'none';
-    document.getElementById('showSignInBtn').style.display = '';
-    document.getElementById('loginError').style.display = 'none';
-    document.getElementById('loginSuccess').style.display = 'none';
-}
-window.showSignIn = function(){
-    document.getElementById('loginForm').style.display = 'block';
-    document.getElementById('hospitalRegForm').style.display = 'none';
-    document.getElementById('showSignUpBtn').style.display = '';
-    document.getElementById('showSignInBtn').style.display = 'none';
-    document.getElementById('loginError').style.display = 'none';
-    document.getElementById('loginSuccess').style.display = 'none';
-}
-
 // Demo account quick-login
 // ==================== LOGIN FORM ====================
 function showSignUp(){
@@ -2039,76 +2022,56 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
 
     const btn = document.getElementById('loginBtn');
     const btnText = document.getElementById('loginBtnText');
-    btn.disabled = true; 
+    btn.disabled = true;
     btnText.innerHTML = '<span class="loading-spinner"></span>';
+    _loginInProgress = true;
+
     let firebaseSuccess = false;
 
-    // ========== ONLINE FIREBASE LOGIN (Strict) ==========
-    _loginInProgress = true; // Tell auth handler not to block while we authenticate
+    // ========== ONLINE FIREBASE LOGIN ==========
     if(auth && navigator.onLine){
         try {
             const cred = await auth.signInWithEmailAndPassword(email, password);
             await cred.user.getIdToken(true);
 
-            // 1. Try to read hospitalUsers doc from Firestore
-            let userDoc = null;
+            let userData = null;
             let firestoreBlocked = false;
-
             let hospDoc = null;
+
             try {
                 hospDoc = await promiseTimeout(db.collection('hospitals').doc(hospitalId).get(), 5000);
             } catch(e) {
-                console.warn('hospitals read failed:', e.code);
                 if(e.code === 'permission-denied') firestoreBlocked = true;
             }
 
             try {
-                userDoc = await promiseTimeout(db.collection('hospitalUsers').doc(cred.user.uid).get(), 5000);
+                const userDoc = await promiseTimeout(db.collection('hospitalUsers').doc(cred.user.uid).get(), 5000);
+                if(userDoc.exists) userData = userDoc.data();
             } catch(e) {
-                console.warn('hospitalUsers read failed:', e.code);
                 if(e.code === 'permission-denied' || e.message === 'Timeout'){
                     firestoreBlocked = true;
                     firestorePermissionError = e.code || 'timeout';
-                    console.log('Firestore access blocked, will use localStorage fallback');
                 } else {
                     showError('Cannot verify account. Network error.');
                     await auth.signOut();
-                    btn.disabled = false; btnText.textContent = 'Sign In';
-                    return;
+                    btn.disabled = false; btnText.textContent = 'Sign In'; _loginInProgress = false; return;
                 }
             }
 
-            let userData = null;
-            if(userDoc && userDoc.exists){
-                userData = userDoc.data();
-            } else if(firestoreBlocked) {
-                // Firestore blocked by rules - try localStorage fallback
-                console.log('Attempting localStorage fallback for user verification');
+            // Fallback to localStorage if Firestore user doc missing
+            if(!userData){
                 const localUsers = secureGet('medicare_users_local', []);
-                const localUser = localUsers.find(u => u.email === email && u.hospitalId === hospitalId);
-                if(localUser){
-                    userData = localUser;
-                    console.log('Found user in localStorage fallback');
+                userData = localUsers.find(u => u.email === email && u.hospitalId === hospitalId);
+                if(!userData){
+                    const hospUsers = secureGet(getStorageKey('users', hospitalId), []);
+                    userData = hospUsers.find(u => u.email === email);
                 }
             }
 
+            // Cross-device fallback: create minimal profile if hospital exists
             if(!userData){
-                // Try hospital-specific localStorage as last resort
-                const hospUsers = secureGet(getStorageKey('users', hospitalId), []);
-                const hospUser = hospUsers.find(u => u.email === email);
-                if(hospUser){
-                    userData = hospUser;
-                    console.log('Found user in hospital-specific localStorage');
-                }
-            }
-
-            if(!userData){
-                // CROSS-DEVICE FALLBACK: Valid Firebase Auth but no profile anywhere.
-                // This happens when registration was done offline on another device.
-                // If the hospital exists (in Firestore or localStorage), create a minimal profile.
                 const localHospitals = secureGet('medicare_hospitals', []);
                 const localHosp = localHospitals.find(h => h.hospitalId === hospitalId);
-
                 if(localHosp || (hospDoc && hospDoc.exists)){
                     userData = {
                         hospitalId: hospitalId,
@@ -2117,101 +2080,69 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
                         role: 'admin',
                         uid: cred.user.uid
                     };
-                    console.log('Cross-device login: created minimal user profile for', email);
-
-                    // Save to Firestore for future devices
                     if(db && isOnline && !firestoreBlocked){
                         try {
                             await db.collection('hospitalUsers').doc(cred.user.uid).set({
-                                hospitalId: hospitalId,
-                                name: userData.name,
-                                email: email,
-                                role: 'admin',
-                                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                                autoCreated: true
+                                hospitalId, name: userData.name, email,
+                                role: 'admin', createdAt: firebase.firestore.FieldValue.serverTimestamp(), autoCreated: true
                             });
-                            console.log('Auto-created hospitalUsers doc in Firestore');
-                        } catch(e) {
-                            console.warn('Could not auto-create Firestore user doc:', e);
-                        }
+                        } catch(e) {}
                     }
-
-                    // Save to localStorage for offline use
                     const localUsers = secureGet('medicare_users_local', []);
                     if(!localUsers.find(u => u.email === email && u.hospitalId === hospitalId)){
-                        localUsers.push({
-                            uid: cred.user.uid,
-                            hospitalId: hospitalId,
-                            name: userData.name,
-                            email: email,
-                            role: 'admin'
-                        });
+                        localUsers.push({uid: cred.user.uid, hospitalId, name: userData.name, email, role: 'admin'});
                         secureSet('medicare_users_local', localUsers);
                     }
                 } else {
                     showError('Account not registered in this hospital system. Contact your administrator.');
                     await auth.signOut();
-                    btn.disabled = false; btnText.textContent = 'Sign In';
-                    logSecurityEvent('LOGIN_FAIL', {reason: 'hospitalUsers doc missing', email, hospitalId});
-                    return;
+                    btn.disabled = false; btnText.textContent = 'Sign In'; _loginInProgress = false;
+                    logSecurityEvent('LOGIN_FAIL', {reason: 'hospitalUsers doc missing', email, hospitalId}); return;
                 }
             }
 
-            // 2. hospitalId MUST match exactly
             if(userData.hospitalId !== hospitalId){
                 showError('Not authorized for hospital ' + hospitalId + '.');
                 await auth.signOut();
-                btn.disabled = false; btnText.textContent = 'Sign In';
-                logSecurityEvent('LOGIN_FAIL', {reason: 'hospitalId mismatch', email, expected: hospitalId, actual: userData.hospitalId});
-                return;
+                btn.disabled = false; btnText.textContent = 'Sign In'; _loginInProgress = false;
+                logSecurityEvent('LOGIN_FAIL', {reason: 'hospitalId mismatch', email, expected: hospitalId, actual: userData.hospitalId}); return;
             }
 
             userRole = userData.role || 'staff';
 
-            // 3. Try to load hospital doc from Firestore, fallback to localStorage
-
             if(hospDoc && hospDoc.exists){
                 currentHospital = {id: hospitalId, ...hospDoc.data()};
             } else {
-                // Fallback to localStorage hospital data (works for both blocked and missing cases)
                 const localHospitals = secureGet('medicare_hospitals', []);
                 const localHosp = localHospitals.find(h => h.hospitalId === hospitalId);
                 if(localHosp){
                     currentHospital = localHosp;
-                    console.log('Using localStorage hospital fallback' + (firestoreBlocked ? ' (Firestore rules blocked)' : ''));
                 } else {
                     showError('Hospital data not found. Register this hospital first or contact administrator.');
                     await auth.signOut();
-                    btn.disabled = false; btnText.textContent = 'Sign In';
-                    logSecurityEvent('LOGIN_FAIL', {reason: 'hospital doc missing', email, hospitalId});
-                    return;
+                    btn.disabled = false; btnText.textContent = 'Sign In'; _loginInProgress = false;
+                    logSecurityEvent('LOGIN_FAIL', {reason: 'hospital doc missing', email, hospitalId}); return;
                 }
             }
 
-            // CROSS-DEVICE SYNC: If we have local user data but Firestore is accessible,
-            // push the local user record to cloud so other devices can find it
-            if(!dbTerminated && db && !firestoreBlocked && currentHospital){
+            // Sync local user record to Firestore for cross-device access
+            if(db && !firestoreBlocked && currentHospital){
                 const localAuthUsers = secureGet('medicare_users_local', []);
                 const localMe = localAuthUsers.find(u => u.email === email && u.hospitalId === hospitalId);
                 if(localMe && localMe.uid === cred.user.uid){
                     try {
                         await db.collection('hospitalUsers').doc(cred.user.uid).set({
-                            hospitalId: hospitalId,
-                            name: localMe.name || email.split('@')[0],
-                            email: email,
-                            role: localMe.role || 'staff',
-                            phone: localMe.phone || '',
+                            hospitalId, name: localMe.name || email.split('@')[0], email,
+                            role: localMe.role || 'staff', phone: localMe.phone || '',
                             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
                         }, {merge: true});
-                        console.log('Pushed local user record to Firestore for cross-device access');
-                    } catch(syncErr){
-                        console.warn('Could not push local user to Firestore:', syncErr.code);
-                    }
+                    } catch(e) {}
                 }
             }
+
             currentUser = cred.user;
 
-            // 4. Cross-check localStorage consistency (if exists)
+            // Cross-check localStorage consistency
             const localUsers = secureGet('medicare_users_local', []);
             const localUser = localUsers.find(u => u.email === email && u.hospitalId === hospitalId);
             if(localUser && localUser.role && localUser.role !== userRole){
@@ -2223,69 +2154,43 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
             // Save verified session
             secureSet('medicare_currentHospital', currentHospital);
             const sessionHmac = await computeHMAC({role: userRole, email, uid: cred.user.uid, hospitalId});
-            secureSet('medicare_currentUser', {
-                role: userRole,
-                email: email,
-                uid: cred.user.uid,
-                hospitalId: hospitalId,
-                hmac: sessionHmac
-            });
+            secureSet('medicare_currentUser', {role: userRole, email, uid: cred.user.uid, hospitalId, hmac: sessionHmac});
 
-            // Sync user to local auth cache
             const localAuthUsers = secureGet('medicare_users_local', '[]');
             const existingIdx = localAuthUsers.findIndex(u => u.email === email && u.hospitalId === hospitalId);
             const localEntry = {
-                uid: cred.user.uid,
-                hospitalId: hospitalId,
-                name: userData.name || cred.user.displayName || email.split('@')[0],
-                email: email,
-                role: userRole,
-                phone: userData.phone || '',
-                updatedAt: new Date().toISOString()
+                uid: cred.user.uid, hospitalId, name: userData.name || cred.user.displayName || email.split('@')[0],
+                email, role: userRole, phone: userData.phone || '', updatedAt: new Date().toISOString()
             };
-            if(existingIdx >= 0){
-                localAuthUsers[existingIdx] = {...localAuthUsers[existingIdx], ...localEntry};
-            } else {
-                localAuthUsers.push(localEntry);
-            }
+            if(existingIdx >= 0) localAuthUsers[existingIdx] = {...localAuthUsers[existingIdx], ...localEntry};
+            else localAuthUsers.push(localEntry);
             secureSet('medicare_users_local', localAuthUsers);
 
             firebaseSuccess = true;
-            // Re-init Firestore after successful auth to ensure clean queue
             if(dbTerminated || !db) await reinitFirestore();
-            // Mark this browser session as authenticated
             _loginInProgress = false;
             sessionStorage.setItem('medicare_session_active', 'true');
             sessionStorage.setItem('medicare_session_email', email);
             sessionStorage.setItem('medicare_session_hospital', hospitalId);
             logSecurityEvent('LOGIN_SUCCESS', {email, hospitalId, method: 'firebase', role: userRole});
             btn.disabled = false; btnText.textContent = 'Sign In';
-            showDashboard();
-            loadAllData();
-            return;
+            showDashboard(); loadAllData(); return;
 
         } catch(fbErr){
-            console.warn('Firebase login error:', fbErr.code, fbErr.message);
-
             if(fbErr.code === 'auth/user-not-found' || fbErr.code === 'auth/wrong-password' || fbErr.code === 'auth/invalid-credential' || fbErr.code === 'auth/invalid-email'){
                 recordFailedLogin();
                 _loginInProgress = false;
                 showError('Invalid email or password.');
-                btn.disabled = false; btnText.textContent = 'Sign In';
-                return;
+                btn.disabled = false; btnText.textContent = 'Sign In'; return;
             }
-
-            if(fbErr.code === 'auth/network-request-failed' || !navigator.onLine){
-                console.log('Network issue, will attempt offline fallback if available');
-            } else {
+            if(fbErr.code !== 'auth/network-request-failed' && navigator.onLine){
                 showError('Login failed: ' + fbErr.message);
-                btn.disabled = false; btnText.textContent = 'Sign In';
-                return;
+                btn.disabled = false; btnText.textContent = 'Sign In'; _loginInProgress = false; return;
             }
         }
     }
 
-    // ========== OFFLINE FALLBACK (Only when browser is offline) ==========
+    // ========== OFFLINE FALLBACK ==========
     if(!firebaseSuccess && !navigator.onLine){
         try {
             const hospitals = secureGet('medicare_hospitals', []);
@@ -2294,75 +2199,55 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
 
             let user = null;
             const hospUsers = secureGet(getStorageKey('users', hospitalId), []);
-            for(const u of hospUsers){ if(u.email === email && u.passwordHash){ const valid = await verifyPassword(password, u.passwordHash); if(valid){ user = u; break; } } }
-
+            for(const u of hospUsers){ if(u.email === email && u.passwordHash){ if(await verifyPassword(password, u.passwordHash)){ user = u; break; } } }
             if(!user){
                 const users = secureGet('medicare_users_local', []);
-                for(const u of users){ if(u.email === email && u.hospitalId === hospitalId && u.passwordHash){ const valid = await verifyPassword(password, u.passwordHash); if(valid){ user = u; break; } } }
+                for(const u of users){ if(u.email === email && u.hospitalId === hospitalId && u.passwordHash){ if(await verifyPassword(password, u.passwordHash)){ user = u; break; } } }
             }
-
             if(!user) throw new Error('Invalid offline credentials.');
             if(user.hospitalId !== hospitalId) throw new Error('Hospital mismatch in offline data.');
 
             currentUser = {email: user.email, displayName: user.name, uid: user.uid || user.id};
             userRole = user.role || 'staff';
             currentHospital = hospital;
-
             secureSet('medicare_currentHospital', currentHospital);
             secureSet('medicare_currentUser', {
-                role: userRole,
-                email,
-                uid: user.uid || user.id,
-                hospitalId,
+                role: userRole, email, uid: user.uid || user.id, hospitalId,
                 hmac: await computeHMAC({role: userRole, email, uid: user.uid || user.id, hospitalId})
             });
-
             isOnline = false;
             document.getElementById('offlineBadge').style.display = 'inline-flex';
-            btn.disabled = false; btnText.textContent = 'Sign In';
             _loginInProgress = false;
             sessionStorage.setItem('medicare_session_active', 'true');
             sessionStorage.setItem('medicare_session_email', email);
             sessionStorage.setItem('medicare_session_hospital', hospitalId);
             logSecurityEvent('LOGIN_SUCCESS', {email, hospitalId, method: 'offline'});
-            showDashboard();
-            loadAllData();
+            btn.disabled = false; btnText.textContent = 'Sign In';
+            showDashboard(); loadAllData();
         } catch(err){
             showError(err.message);
-            btn.disabled = false;
-            btnText.textContent = 'Sign In';
+            btn.disabled = false; btnText.textContent = 'Sign In'; _loginInProgress = false;
         }
     } else if(!firebaseSuccess){
         _loginInProgress = false;
         showError('Authentication failed. Please check your credentials and try again.');
-        btn.disabled = false;
-        btnText.textContent = 'Sign In';
+        btn.disabled = false; btnText.textContent = 'Sign In';
     }
-});// ==================== REGISTRATION FORM ====================
+});
+// ==================== REGISTRATION FORM ====================
 document.getElementById('hospitalRegForm').addEventListener('submit', async (e) => {
     e.preventDefault();
 
-    // ENFORCE: Hospital registration must be enabled
     if(!ENABLE_HOSPITAL_REGISTRATION){
-        showError('Hospital registration is disabled. Contact your system administrator.');
-        return;
+        showError('Hospital registration is disabled. Contact your system administrator.'); return;
     }
 
     const privateCode = document.getElementById('regPrivateCode').value.trim();
-    if(!privateCode){
-        showError('Private registration code is required.');
-        return;
-    }
+    if(!privateCode){ showError('Private registration code is required.'); return; }
     if(privateCode !== PRIVATE_REGISTRATION_CODE){
-        showError('Invalid registration code. Access denied.');
-        // Log failed attempt for security audit
-        console.warn('Failed registration attempt with code:', privateCode, 'at', new Date().toISOString());
-        return;
+        showError('Invalid registration code. Access denied.'); return;
     }
-    if(_registrationInProgress){
-        showError('Registration already in progress. Please wait.');
-        return;
-    }
+    if(_registrationInProgress){ showError('Registration already in progress. Please wait.'); return; }
     _registrationInProgress = true;
 
     const hospName = document.getElementById('regHospName').value.trim();
@@ -2377,72 +2262,60 @@ document.getElementById('hospitalRegForm').addEventListener('submit', async (e) 
     const btnText = document.getElementById('regBtnText');
     btn.disabled = true; btnText.innerHTML = '<span class="loading-spinner"></span>';
     let firebaseSuccess = false;
-
     let cred = null;
+
+    // Helper to save locally
+    const saveLocal = (uid) => {
+        const hospitals = secureGet('medicare_hospitals', []);
+        if(!hospitals.find(h => h.hospitalId === hospId)){
+            hospitals.push({name: hospName, hospitalId: hospId, license: hospLicense, address: hospAddress, phone: hospPhone, email: hospEmail});
+            secureSet('medicare_hospitals', hospitals);
+        }
+        const hospUsers = secureGet(getStorageKey('users', hospId), []);
+        if(!hospUsers.find(u => u.email === hospEmail)){
+            hospUsers.push({id: uid, uid, hospitalId: hospId, name: adminName, email: hospEmail, password: adminPassword, role: 'admin'});
+            secureSet(getStorageKey('users', hospId), hospUsers);
+        }
+        const users = secureGet('medicare_users_local', []);
+        if(!users.find(u => u.email === hospEmail && u.hospitalId === hospId)){
+            users.push({uid, hospitalId: hospId, name: adminName, email: hospEmail, password: adminPassword, role: 'admin'});
+            secureSet('medicare_users_local', users);
+        }
+        currentHospital = {name: hospName, hospitalId: hospId, license: hospLicense, address: hospAddress, phone: hospPhone, email: hospEmail};
+        currentUser = cred ? cred.user : {email: hospEmail, displayName: adminName, uid};
+        userRole = 'admin';
+        secureSet('medicare_currentHospital', currentHospital);
+        secureSet('medicare_currentUser', {role: 'admin', email: hospEmail, uid});
+        seedNewHospitalData(hospId);
+    };
+
     // Try Firebase first
     if(auth && isOnline){
         try {
             cred = await auth.createUserWithEmailAndPassword(hospEmail, adminPassword);
-
-            // CRITICAL: Force token refresh so Firestore rules recognize the new user
             await cred.user.getIdToken(true);
             await new Promise(r => setTimeout(r, 300));
 
             if(!dbTerminated && db) {
-            // Write hospital doc
-            await db.collection('hospitals').doc(hospId).set({
-                name: hospName, hospitalId: hospId, license: hospLicense,
-                address: hospAddress, phone: hospPhone, email: hospEmail,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp(), createdBy: cred.user.uid
-            });
-
-            // Write user doc
-            await db.collection('hospitalUsers').doc(cred.user.uid).set({
-                hospitalId: hospId, name: adminName, email: hospEmail,
-                role: 'admin', createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-
+                await db.collection('hospitals').doc(hospId).set({
+                    name: hospName, hospitalId: hospId, license: hospLicense,
+                    address: hospAddress, phone: hospPhone, email: hospEmail,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(), createdBy: cred.user.uid
+                });
+                await db.collection('hospitalUsers').doc(cred.user.uid).set({
+                    hospitalId: hospId, name: adminName, email: hospEmail,
+                    role: 'admin', createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
             }
-            // CRITICAL: Wait for auth state to fully propagate before any reads
             await new Promise(r => setTimeout(r, 800));
             await cred.user.getIdToken(true);
 
-            _registrationInProgress = false;
             showSuccess('Hospital registered! Signing you in...');
             logSecurityEvent('REGISTRATION_SUCCESS', {email: hospEmail, hospitalId: hospId, name: hospName});
-
             const uid = cred.user.uid;
+            saveLocal(uid);
 
-            // ALWAYS save to localStorage first (guaranteed to work)
-            const hospitals = secureGet('medicare_hospitals', []);
-            if(!hospitals.find(h => h.hospitalId === hospId)){
-                hospitals.push({name: hospName, hospitalId: hospId, license: hospLicense, address: hospAddress, phone: hospPhone, email: hospEmail});
-                secureSet('medicare_hospitals', hospitals);
-            }
-            const hospUsers = secureGet(getStorageKey('users', hospId), []);
-            if(!hospUsers.find(u => u.email === hospEmail)){
-                hospUsers.push({id: uid, uid: uid, hospitalId: hospId, name: adminName, email: hospEmail, password: adminPassword, role: 'admin'});
-                secureSet(getStorageKey('users', hospId), hospUsers);
-            }
-            const users = secureGet('medicare_users_local', []);
-            if(!users.find(u => u.email === hospEmail && u.hospitalId === hospId)){
-                users.push({uid, hospitalId: hospId, name: adminName, email: hospEmail, password: adminPassword, role: 'admin'});
-                secureSet('medicare_users_local', users);
-            }
-            seedNewHospitalData(hospId);
-
-            currentHospital = {name: hospName, hospitalId: hospId, license: hospLicense, address: hospAddress, phone: hospPhone, email: hospEmail};
-            currentUser = cred.user;
-            userRole = 'admin';
-            secureSet('medicare_currentHospital', currentHospital);
-            secureSet('medicare_currentUser', {role: 'admin', email: hospEmail, uid: uid});
-
-            // Mark session as active
-            sessionStorage.setItem('medicare_session_active', 'true');
-            sessionStorage.setItem('medicare_session_email', hospEmail);
-            sessionStorage.setItem('medicare_session_hospital', hospId);
-
-            // AGGRESSIVE FIRESTORE SYNC: Try multiple times to write to cloud
+            // Aggressive Firestore sync
             let firestoreSyncOk = false;
             for(let attempt = 0; attempt < 3; attempt++){
                 try {
@@ -2457,81 +2330,45 @@ document.getElementById('hospitalRegForm').addEventListener('submit', async (e) 
                         hospitalId: hospId, name: adminName, email: hospEmail,
                         role: 'admin', createdAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
-                    firestoreSyncOk = true;
-                    console.log('Registration synced to Firestore on attempt', attempt + 1);
-                    break;
+                    firestoreSyncOk = true; break;
                 } catch(syncErr){
-                    console.warn('Firestore sync attempt', attempt + 1, 'failed:', syncErr.code);
-                    if(syncErr.code === 'permission-denied') break; // No point retrying if rules block
+                    if(syncErr.code === 'permission-denied') break;
                     await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
                 }
             }
-
             if(!firestoreSyncOk){
-                // Queue for background sync when rules are fixed
-                queueUserSync({
-                    uid: uid,
-                    name: adminName,
-                    email: hospEmail,
-                    role: 'admin',
-                    phone: hospPhone,
-                    hospitalId: hospId,
-                    createdByAdmin: false
-                });
-                console.warn('Registration saved locally. Cloud sync queued. Fix Firestore rules for multi-device access.');
+                queueUserSync({uid, name: adminName, email: hospEmail, role: 'admin', phone: hospPhone, hospitalId: hospId, createdByAdmin: false});
             }
 
             if(dbTerminated || !db) await reinitFirestore();
-            showDashboard(); 
-            loadAllData();
+            _registrationInProgress = false;
+            sessionStorage.setItem('medicare_session_active', 'true');
+            sessionStorage.setItem('medicare_session_email', hospEmail);
+            sessionStorage.setItem('medicare_session_hospital', hospId);
+            showDashboard(); loadAllData();
             firebaseSuccess = true;
         } catch(fbErr){
-            console.warn('Firebase registration failed:', fbErr.code, fbErr.message);
             logSecurityEvent('REGISTRATION_FAIL', {error: fbErr.code, message: fbErr.message, email: hospEmail, hospitalId: hospId});
             if(fbErr.code === 'auth/email-already-in-use'){
-                // Account already exists in Firebase Auth. Try to sign in with the provided password.
                 _registrationInProgress = false;
                 showError('This email is already registered. Please log in instead, or use a different email.');
                 showSignIn();
-                // Pre-fill the login form
                 document.getElementById('loginEmail').value = hospEmail;
                 document.getElementById('loginHospitalId').value = hospId;
                 document.getElementById('loginPassword').focus();
-                btn.disabled = false; btnText.textContent = 'Register Hospital';
-                return;
+                btn.disabled = false; btnText.textContent = 'Register Hospital'; return;
             }
             if(fbErr.code === 'permission-denied' && cred && cred.user){
-                _registrationInProgress = false;
-                // Auth account WAS created, but Firestore is blocked. Save locally and let user in.
                 showSuccess('Account created! Firestore rules block cloud sync. Saving locally...');
-                const hospitals = secureGet('medicare_hospitals', []);
-                if(!hospitals.find(h => h.hospitalId === hospId)){
-                    hospitals.push({name: hospName, hospitalId: hospId, license: hospLicense, address: hospAddress, phone: hospPhone, email: hospEmail});
-                    secureSet('medicare_hospitals', hospitals);
-                }
-                const uid = cred.user.uid;
-                const hospUsers = secureGet(getStorageKey('users', hospId), []);
-                if(!hospUsers.find(u => u.email === hospEmail)){
-                    hospUsers.push({id: uid, uid: uid, hospitalId: hospId, name: adminName, email: hospEmail, password: adminPassword, role: 'admin'});
-                    secureSet(getStorageKey('users', hospId), hospUsers);
-                }
-                const users = secureGet('medicare_users_local', []);
-                if(!users.find(u => u.email === hospEmail && u.hospitalId === hospId)){
-                    users.push({uid, hospitalId: hospId, name: adminName, email: hospEmail, password: adminPassword, role: 'admin'});
-                    secureSet('medicare_users_local', users);
-                }
-                currentUser = cred.user;
-                userRole = 'admin';
-                currentHospital = {name: hospName, hospitalId: hospId, license: hospLicense, address: hospAddress, phone: hospPhone, email: hospEmail};
-                secureSet('medicare_currentHospital', currentHospital);
-                secureSet('medicare_currentUser', {role: 'admin', email: hospEmail, uid: cred.user.uid});
-                seedNewHospitalData(hospId);
-                showDashboard(); 
-                loadAllData();
+                saveLocal(cred.user.uid);
+                _registrationInProgress = false;
+                sessionStorage.setItem('medicare_session_active', 'true');
+                sessionStorage.setItem('medicare_session_email', hospEmail);
+                sessionStorage.setItem('medicare_session_hospital', hospId);
+                showDashboard(); loadAllData();
                 firebaseSuccess = true;
             } else {
-                _registrationInProgress = false;
-                console.warn('Falling back to offline registration...');
+                console.warn('Firebase registration failed, falling back to offline:', fbErr.code);
             }
         }
     }
@@ -2541,30 +2378,23 @@ document.getElementById('hospitalRegForm').addEventListener('submit', async (e) 
         try {
             const hospitals = secureGet('medicare_hospitals', []);
             if(hospitals.find(h => h.hospitalId === hospId)) throw new Error('Hospital ID already exists');
-            hospitals.push({name: hospName, hospitalId: hospId, license: hospLicense, address: hospAddress, phone: hospPhone, email: hospEmail});
-            secureSet('medicare_hospitals', hospitals);
             const uid = Date.now().toString();
-            const hospUsers = secureGet(getStorageKey('users', hospId), []);
-            hospUsers.push({id: uid, uid: uid, hospitalId: hospId, name: adminName, email: hospEmail, password: adminPassword, role: 'admin'});
-            secureSet(getStorageKey('users', hospId), hospUsers);
-            const users = secureGet('medicare_users_local', []);
-            users.push({uid, hospitalId: hospId, name: adminName, email: hospEmail, password: adminPassword, role: 'admin'});
-            secureSet('medicare_users_local', users);
-            currentUser = {email: hospEmail, displayName: adminName, uid};
-            userRole = 'admin';
-            currentHospital = {name: hospName, hospitalId: hospId};
-            secureSet('medicare_currentHospital', currentHospital);
-            secureSet('medicare_currentUser', {role: 'admin', email: hospEmail, uid});
+            saveLocal(uid);
             isOnline = false;
             document.getElementById('offlineBadge').style.display = 'inline-flex';
             _registrationInProgress = false;
             showSuccess('Hospital registered offline!');
-            seedNewHospitalData(hospId);
+            sessionStorage.setItem('medicare_session_active', 'true');
+            sessionStorage.setItem('medicare_session_email', hospEmail);
+            sessionStorage.setItem('medicare_session_hospital', hospId);
             setTimeout(() => { showDashboard(); loadAllData(); }, 1000);
-        } catch(err){ _registrationInProgress = false; showError(err.message); btn.disabled=false; btnText.textContent='Register Hospital'; }
+        } catch(err){
+            _registrationInProgress = false;
+            showError(err.message);
+            btn.disabled = false; btnText.textContent = 'Register Hospital';
+        }
     }
 });
-
 function lockScreen(){
     _sessionGateBlocked = false;
     _loginInProgress = false;
