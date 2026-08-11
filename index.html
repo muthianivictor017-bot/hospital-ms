@@ -3441,6 +3441,7 @@ function calculateWardCost(admission){
     if(hours > 0) breakdown += (breakdown ? ' + ' : '') + `${hours} hr${hours>1?'s':''} @ KSh ${pricePerHour.toFixed(2)} = KSh ${hourCost.toFixed(2)}`;
 
     return {days, hours, cost: totalCost, breakdown, pricePerDay, pricePerHour}
+}
 function generateWardBill(admissionId){
     const adm = dataCache.admissions.find(a => a.id === admissionId);
     if(!adm || adm.status !== 'Admitted') return;
@@ -3448,12 +3449,7 @@ function generateWardBill(admissionId){
     const ward = dataCache.wards.find(w => w.id === adm.wardId) || {name:'Unknown'};
     const wc = calculateWardCost(adm);
     if(wc.cost <= 0){ toast('No ward charges to bill', 'warning'); return; }
-    const editableCost = prompt('Ward charges for ' + patient.name + ' - ' + ward.name + ':
-' + wc.breakdown + '
-
-Total: KSh ' + wc.cost.toFixed(2) + '
-
-Enter amount to bill:', wc.cost.toFixed(2));
+    const editableCost = prompt('Ward charges for ' + patient.name + ' - ' + ward.name + ':\n' + wc.breakdown + '\n\nTotal: KSh ' + wc.cost.toFixed(2) + '\n\nEnter amount to bill:', wc.cost.toFixed(2));
     const billAmount = parseFloat(editableCost);
     if(isNaN(billAmount) || billAmount <= 0){ toast('Bill cancelled', 'info'); return; }
     const billId = 'BILL-' + Date.now();
@@ -3466,8 +3462,6 @@ Enter amount to bill:', wc.cost.toFixed(2));
     saveData('billing', dataCache.billing[dataCache.billing.length-1]);
     toast('Ward bill of KSh ' + billAmount.toFixed(2) + ' added', 'success');
     renderBilling();
-}
-;
 }
 
 function renderWards(){
@@ -5637,7 +5631,7 @@ function viewAdmission(id){
     const patient = dataCache.patients.find(p => p.id === adm.patientId) || {name:'Unknown'};
     const ward = dataCache.wards.find(w => w.id === adm.wardId) || {name:'Unknown'};
     const wc = calculateWardCost(adm);
-    alert(`Admission Details\nPatient: ${patient.name}\nWard: ${ward.name} - Bed ${adm.bedNumber}\nAdmitted: ${adm.admissionDate} ${adm.admissionTime || ''}\nExpected Discharge: ${adm.expectedDischarge || '-'}\nReason: ${adm.admissionReason}\nStatus: ${adm.status}\nNotes: ${adm.notes || '-'}`);
+    alert(`Admission Details\nPatient: ${patient.name}\nWard: ${ward.name} - Bed ${adm.bedNumber}\nAdmitted: ${adm.admissionDate} ${adm.admissionTime || ''}\nExpected Discharge: ${adm.expectedDischarge || '-'}\nReason: ${adm.admissionReason}\nStatus: ${adm.status}\nNotes: ${adm.notes || '-'}\n\nWard Charges:\n${wc.breakdown || 'No charges'}\nTotal: KSh ${wc.cost.toFixed(2)}`);
 }
 
 
