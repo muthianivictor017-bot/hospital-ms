@@ -708,7 +708,7 @@ body{font-family:'Inter',sans-serif;background:var(--light);color:var(--dark)}
 <button class="btn-sm btn-primary" onclick="openModal('lab')"><i class="fas fa-plus"></i> New Lab Order</button>
 </div>
 <div class="card"><div class="card-header"><h3><i class="fas fa-flask"></i> Laboratory Services</h3></div>
-<div class="card-body"><table class="data-table"><thead><tr><th>Date</th><th>Patient</th><th>Test Type</th><th>Department</th><th>Ordered By</th><th>Status</th><th>Results</th><th>Actions</th></tr></thead><tbody id="labsTable"></tbody></table></div>
+<div class="card-body"><table class="data-table"><thead><tr><th>Date</th><th>Patient</th><th>Test Type</th><th>Department</th><th>Ordered By</th><th>Cost</th><th>Status</th><th>Results</th><th>Actions</th></tr></thead><tbody id="labsTable"></tbody></table></div>
 </div>
 </div>
 
@@ -926,6 +926,12 @@ body{font-family:'Inter',sans-serif;background:var(--light);color:var(--dark)}
         <div class="section-actions">
           <button class="btn btn-primary" onclick="openProcurementModal()">
             <i class="fas fa-plus"></i> New Request
+          </button>
+          <button class="btn btn-success" onclick="openPurchaseModal()">
+            <i class="fas fa-shopping-bag"></i> New Purchase
+          </button>
+          <button class="btn btn-warning" onclick="openExpenseModal()">
+            <i class="fas fa-receipt"></i> Record Expense
           </button>
           <button class="btn btn-secondary" onclick="exportProcurement()">
             <i class="fas fa-download"></i> Export
@@ -4048,7 +4054,7 @@ const filterLabs = debounce(_filterLabs, 300);
 
 function renderLabsTable(labs){
     const tbody = document.getElementById('labsTable');
-    if(labs.length === 0){ tbody.innerHTML = '<tr><td colspan="8" class="empty-state"><i class="fas fa-flask"></i><p>No lab tests found</p></td></tr>'; return; }
+    if(labs.length === 0){ tbody.innerHTML = '<tr><td colspan="9" class="empty-state"><i class="fas fa-flask"></i><p>No lab tests found</p></td></tr>'; return; }
     tbody.innerHTML = labs.sort((a,b) => (b.dateOrdered || '').localeCompare(a.dateOrdered || '')).map(l => {
         const p = dataCache.patients.find(pt => pt.id === l.patientId) || {name:'Unknown'};
         const d = dataCache.doctors.find(dr => dr.id === l.doctorId) || {name:'Unknown'};
@@ -4059,6 +4065,7 @@ function renderLabsTable(labs){
             <td>${l.testType || '-'}</td>
             <td>${l.departmentName ? `<span class="status-badge status-admitted" style="font-size:10px"><i class="fas fa-building"></i> ${l.departmentName}</span>` : '-'}</td>
             <td>Dr. ${d.name}</td>
+            <td style="font-weight:600;color:var(--primary)">KSh ${parseFloat(l.cost || 0).toFixed(2)}</td>
             <td><span class="status-badge status-${statusClass}">${l.status || 'Pending'}</span></td>
             <td>${l.results ? '<i class="fas fa-check-circle" style="color:var(--success)"></i> ' + (l.results.length > 30 ? l.results.substring(0,30)+'...' : l.results) : '<span style="color:var(--gray)">-</span>'}</td>
             <td>
@@ -4369,7 +4376,7 @@ function openModal(type, editId){
             break;
         case 'lab':
             title.textContent = isEdit ? 'Edit Lab Order' : 'New Lab Order';
-            body.innerHTML = `<div class="form-row"><div class="form-group"><label>Patient *</label><select id="m_lab_patient" required><option value="">Select</option>${dataCache.patients.map(p => `<option value="${p.id}" ${item.patientId === p.id ? 'selected' : ''}>${p.name}</option>`).join('')}</select></div><div class="form-group"><label>Ordering Doctor *</label><select id="m_lab_doctor" required><option value="">Select</option>${dataCache.doctors.map(d => `<option value="${d.id}" ${item.doctorId === d.id ? 'selected' : ''}>Dr. ${d.name}</option>`).join('')}</select></div></div><div class="form-row"><div class="form-group"><label>Department</label><select id="m_lab_department"><option value="">Select Department (Optional)</option>${dataCache.departments.filter(d => d.status === 'Active').map(d => `<option value="${d.id}" ${item.departmentId === d.id ? 'selected' : ''}>${d.name}</option>`).join('')}</select></div><div class="form-group"></div></div><div class="form-row"><div class="form-group"><label>Test Type *</label><select id="m_lab_type" required><option value="">Select Test</option><option value="Blood Test" ${item.testType === 'Blood Test' ? 'selected' : ''}>Blood Test</option><option value="Urine Analysis" ${item.testType === 'Urine Analysis' ? 'selected' : ''}>Urine Analysis</option><option value="X-Ray" ${item.testType === 'X-Ray' ? 'selected' : ''}>X-Ray</option><option value="MRI" ${item.testType === 'MRI' ? 'selected' : ''}>MRI</option><option value="CT Scan" ${item.testType === 'CT Scan' ? 'selected' : ''}>CT Scan</option><option value="Ultrasound" ${item.testType === 'Ultrasound' ? 'selected' : ''}>Ultrasound</option><option value="ECG" ${item.testType === 'ECG' ? 'selected' : ''}>ECG</option><option value="Biopsy" ${item.testType === 'Biopsy' ? 'selected' : ''}>Biopsy</option><option value="COVID-19 Test" ${item.testType === 'COVID-19 Test' ? 'selected' : ''}>COVID-19 Test</option><option value="Other" ${item.testType === 'Other' ? 'selected' : ''}>Other</option></select></div><div class="form-group"><label>Status</label><select id="m_lab_status"><option value="Pending" ${(item.status || 'Pending') === 'Pending' ? 'selected' : ''}>Pending</option><option value="In Progress" ${item.status === 'In Progress' ? 'selected' : ''}>In Progress</option><option value="Completed" ${item.status === 'Completed' ? 'selected' : ''}>Completed</option><option value="Cancelled" ${item.status === 'Cancelled' ? 'selected' : ''}>Cancelled</option></select></div></div><div class="form-row"><div class="form-group"><label>Date Ordered *</label><input type="date" id="m_lab_date_ordered" value="${item.dateOrdered || new Date().toISOString().split('T')[0]}" required></div><div class="form-group"><label>Date Completed</label><input type="date" id="m_lab_date_completed" value="${item.dateCompleted || ''}"></div></div><div class="form-group"><label>Results</label><textarea id="m_lab_results" placeholder="Enter test results...">${item.results || ''}</textarea></div><div class="form-group"><label>Notes</label><textarea id="m_lab_notes" placeholder="Additional notes...">${item.notes || ''}</textarea></div>`;
+            body.innerHTML = `<div class="form-row"><div class="form-group"><label>Patient *</label><select id="m_lab_patient" required><option value="">Select</option>${dataCache.patients.map(p => `<option value="${p.id}" ${item.patientId === p.id ? 'selected' : ''}>${p.name}</option>`).join('')}</select></div><div class="form-group"><label>Ordering Doctor *</label><select id="m_lab_doctor" required><option value="">Select</option>${dataCache.doctors.map(d => `<option value="${d.id}" ${item.doctorId === d.id ? 'selected' : ''}>Dr. ${d.name}</option>`).join('')}</select></div></div><div class="form-row"><div class="form-group"><label>Department</label><select id="m_lab_department"><option value="">Select Department (Optional)</option>${dataCache.departments.filter(d => d.status === 'Active').map(d => `<option value="${d.id}" ${item.departmentId === d.id ? 'selected' : ''}>${d.name}</option>`).join('')}</select></div><div class="form-group"><label>Test Cost (KSh) *</label><input type="number" step="0.01" id="m_lab_cost" value="${item.cost || ''}" placeholder="e.g., 1500" required></div></div><div class="form-row"><div class="form-group"><label>Test Type *</label><select id="m_lab_type" required><option value="">Select Test</option><option value="Blood Test" ${item.testType === 'Blood Test' ? 'selected' : ''}>Blood Test</option><option value="Urine Analysis" ${item.testType === 'Urine Analysis' ? 'selected' : ''}>Urine Analysis</option><option value="X-Ray" ${item.testType === 'X-Ray' ? 'selected' : ''}>X-Ray</option><option value="MRI" ${item.testType === 'MRI' ? 'selected' : ''}>MRI</option><option value="CT Scan" ${item.testType === 'CT Scan' ? 'selected' : ''}>CT Scan</option><option value="Ultrasound" ${item.testType === 'Ultrasound' ? 'selected' : ''}>Ultrasound</option><option value="ECG" ${item.testType === 'ECG' ? 'selected' : ''}>ECG</option><option value="Biopsy" ${item.testType === 'Biopsy' ? 'selected' : ''}>Biopsy</option><option value="COVID-19 Test" ${item.testType === 'COVID-19 Test' ? 'selected' : ''}>COVID-19 Test</option><option value="Other" ${item.testType === 'Other' ? 'selected' : ''}>Other</option></select></div><div class="form-group"><label>Status</label><select id="m_lab_status"><option value="Pending" ${(item.status || 'Pending') === 'Pending' ? 'selected' : ''}>Pending</option><option value="In Progress" ${item.status === 'In Progress' ? 'selected' : ''}>In Progress</option><option value="Completed" ${item.status === 'Completed' ? 'selected' : ''}>Completed</option><option value="Cancelled" ${item.status === 'Cancelled' ? 'selected' : ''}>Cancelled</option></select></div></div><div class="form-row"><div class="form-group"><label>Date Ordered *</label><input type="date" id="m_lab_date_ordered" value="${item.dateOrdered || new Date().toISOString().split('T')[0]}" required></div><div class="form-group"><label>Date Completed</label><input type="date" id="m_lab_date_completed" value="${item.dateCompleted || ''}"></div></div><div class="form-group"><label>Results</label><textarea id="m_lab_results" placeholder="Enter test results...">${item.results || ''}</textarea></div><div class="form-group"><label>Notes</label><textarea id="m_lab_notes" placeholder="Additional notes...">${item.notes || ''}</textarea></div>`;
             break;
         case 'billing':
             title.textContent = isEdit ? 'Edit Invoice' : 'New Invoice';
@@ -4744,7 +4751,35 @@ async function saveModal(){
 
         case 'lab':
             const labDeptId = document.getElementById('m_lab_department')?.value || '';
-            data = {id:currentEditId, patientId:document.getElementById('m_lab_patient').value, doctorId:document.getElementById('m_lab_doctor').value, departmentId: labDeptId, departmentName: dataCache.departments.find(d => d.id === labDeptId)?.name || '', testType:document.getElementById('m_lab_type').value, status:document.getElementById('m_lab_status').value, dateOrdered:document.getElementById('m_lab_date_ordered').value, dateCompleted:document.getElementById('m_lab_date_completed').value, results:document.getElementById('m_lab_results').value, notes:document.getElementById('m_lab_notes').value};
+            const labCost = parseFloat(document.getElementById('m_lab_cost').value) || 0;
+            const labStatus = document.getElementById('m_lab_status').value;
+            const labPatientId = document.getElementById('m_lab_patient').value;
+            data = {id:currentEditId, patientId:labPatientId, doctorId:document.getElementById('m_lab_doctor').value, departmentId: labDeptId, departmentName: dataCache.departments.find(d => d.id === labDeptId)?.name || '', testType:document.getElementById('m_lab_type').value, status:labStatus, dateOrdered:document.getElementById('m_lab_date_ordered').value, dateCompleted:document.getElementById('m_lab_date_completed').value, results:document.getElementById('m_lab_results').value, notes:document.getElementById('m_lab_notes').value, cost:labCost};
+            // Auto-bill when lab is completed
+            if(labStatus === 'Completed' && labCost > 0 && !currentEditId){
+                const labPatient = dataCache.patients.find(p => p.id === labPatientId);
+                const labInsurance = labPatient?.insuranceProvider || 'Cash';
+                const labCoverage = (labPatient && labPatient.insuranceStatus === 'Active') ? (parseFloat(labPatient.insuranceCoverage) || 100) : 0;
+                const labInsuranceAmt = labCost * (labCoverage / 100);
+                const labBill = {
+                    id: 'bill_lab_'+Date.now().toString(),
+                    patientId: labPatientId,
+                    date: new Date().toISOString().split('T')[0],
+                    services: [{id: data.id, name: 'Lab Test: ' + data.testType, cost: labCost}],
+                    amount: labCost,
+                    insuranceAmount: labInsuranceAmt,
+                    insuranceCoverage: labCoverage,
+                    status: labInsuranceAmt >= labCost ? 'Insurance Pending' : 'Pending',
+                    dueDate: '',
+                    notes: 'Auto-generated from lab order #' + (data.id || '').slice(-4),
+                    invoiceNumber: 'INV-' + Date.now().toString().slice(-6),
+                    labId: data.id,
+                    shaClaimStatus: '',
+                    shaClaimAmount: 0
+                };
+                saveData('billing', labBill);
+                toast('Lab bill created: ' + labBill.invoiceNumber + ' for KSh ' + labCost.toFixed(2), 'success');
+            }
             break;
         case 'billing':
             const billPatientId = document.getElementById('m_bill_patient').value;
@@ -5352,6 +5387,10 @@ function viewLab(id){
                 <div style="flex:1;background:var(--light);padding:14px;border-radius:10px">
                     <h5 style="font-size:11px;text-transform:uppercase;color:var(--gray);margin-bottom:8px"><i class="fas fa-info-circle"></i> Status</h5>
                     <p><span class="status-badge status-${statusClass}">${lab.status || 'Pending'}</span></p>
+                </div>
+                <div style="flex:1;background:var(--light);padding:14px;border-radius:10px">
+                    <h5 style="font-size:11px;text-transform:uppercase;color:var(--gray);margin-bottom:8px"><i class="fas fa-tag"></i> Test Cost</h5>
+                    <p style="font-size:18px;font-weight:700;color:var(--primary)">KSh ${parseFloat(lab.cost || 0).toFixed(2)}</p>
                 </div>
             </div>
             <div style="display:flex;gap:16px;margin-bottom:20px">
@@ -7236,6 +7275,7 @@ function saveProcurement(e){
   const id = document.getElementById('procId').value || 'PROC-'+Date.now();
   const qty = parseInt(document.getElementById('procQty').value);
   const unitCost = parseFloat(document.getElementById('procUnitCost').value);
+  const status = document.getElementById('procStatus').value;
   const data = {
     id: id,
     item: document.getElementById('procItem').value,
@@ -7247,13 +7287,44 @@ function saveProcurement(e){
     date: document.getElementById('procDate').value,
     notes: document.getElementById('procNotes').value,
     urgency: document.getElementById('procUrgency').value,
-    status: document.getElementById('procStatus').value,
+    status: status,
     createdAt: new Date().toISOString(),
     createdBy: typeof currentUser !== 'undefined' && currentUser ? currentUser.name : 'Admin'
   };
   const idx = items.findIndex(function(p){return p.id===id;});
   if(idx>=0) items[idx]=data; else items.push(data);
   saveProcurements(items);
+  // Auto-add to pharmacy stock when received
+  if(status === 'received'){
+    const itemName = data.item;
+    const catMap = {
+      'medical-supplies':'Supplies','equipment':'Equipment','pharmaceuticals':'Medication',
+      'office':'Other','utilities':'Other','maintenance':'Other','other':'Other'
+    };
+    const pharmacyCat = catMap[data.category] || 'Other';
+    let existing = dataCache.pharmacy.find(function(p){return p.name && p.name.toLowerCase() === itemName.toLowerCase();});
+    if(existing){
+      existing.quantity = (parseInt(existing.quantity) || 0) + qty;
+      if(unitCost > 0) existing.price = unitCost;
+      if(data.notes) existing.notes = (existing.notes ? existing.notes + ' | ' : '') + 'Restocked from procurement #' + id;
+      saveData('pharmacy', existing);
+      toast('Stock updated: ' + itemName + ' (+' + qty + ' units)', 'success');
+    } else {
+      const newItem = {
+        id: 'PHAR-'+Date.now(),
+        name: itemName,
+        category: pharmacyCat,
+        quantity: qty,
+        unit: 'units',
+        price: unitCost || 0,
+        minQuantity: 10,
+        expiryDate: '',
+        notes: 'Added from procurement #' + id + (data.notes ? ' | ' + data.notes : '')
+      };
+      saveData('pharmacy', newItem);
+      toast('New stock added: ' + itemName + ' (' + qty + ' units)', 'success');
+    }
+  }
   closeProcurementModal();
   renderProcurement();
   updateProcurementStats();
@@ -7552,6 +7623,32 @@ function exportInsuranceClaimsCSV(){
 
 function openInsuranceModal(){
     openSHAModal();
+}
+
+
+/* ---------- Purchase & Expense Quick Entry ---------- */
+function openPurchaseModal(){
+    const modal = document.getElementById('procurementModal');
+    const form  = document.getElementById('procurementForm');
+    form.reset();
+    document.getElementById('procId').value = '';
+    document.getElementById('procModalTitle').textContent = 'New Purchase';
+    document.getElementById('procStatus').value = 'ordered';
+    document.getElementById('procDate').value = new Date().toISOString().split('T')[0];
+    modal.classList.add('active');
+}
+
+function openExpenseModal(){
+    const modal = document.getElementById('procurementModal');
+    const form  = document.getElementById('procurementForm');
+    form.reset();
+    document.getElementById('procId').value = '';
+    document.getElementById('procModalTitle').textContent = 'Record Expense';
+    document.getElementById('procCategory').value = 'utilities';
+    document.getElementById('procStatus').value = 'paid';
+    document.getElementById('procQty').value = '1';
+    document.getElementById('procDate').value = new Date().toISOString().split('T')[0];
+    modal.classList.add('active');
 }
 
 </script>
