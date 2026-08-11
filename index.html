@@ -4470,24 +4470,34 @@ function openModal(type, editId){
             `;
             break;
         case 'sendToDept':
-            title.textContent = 'Send Patient to Department';
+            title.textContent = 'Department Visit & Routing';
             const sendPatient = dataCache.patients.find(p => p.id === editId);
             const availableDepts = dataCache.departments.filter(d => d.status === 'Active');
             const deptOpts = availableDepts.map(d => `<option value="${d.id}">${d.name} (${d.type})</option>`).join('');
             const doctorOpts = dataCache.doctors.map(d => `<option value="${d.id}">Dr. ${d.name}</option>`).join('');
             const labTestOpts = ['Blood Test','Urine Analysis','X-Ray','MRI','CT Scan','Ultrasound','ECG','Biopsy','COVID-19 Test','Other'].map(t => `<option value="${t}">${t}</option>`).join('');
             body.innerHTML = `
-                <div class="form-group"><label>Patient</label><input type="text" value="${sendPatient ? sendPatient.name : 'Unknown'}" disabled></div>
-                <div class="form-row"><div class="form-group"><label>Select Department *</label><select id="m_send_dept" onchange="toggleDeptFields()" required><option value="">Select Department</option>${deptOpts}</select></div><div class="form-group"><label>Attending Doctor *</label><select id="m_send_doctor" required><option value="">Select Doctor</option>${doctorOpts}</select></div></div>
+                <div class="form-group"><label>Patient</label><input type="text" value="${sendPatient ? sendPatient.name : 'Unknown'}" disabled style="background:var(--light);font-weight:600"></div>
+                <div class="form-row"><div class="form-group"><label>Department *</label><select id="m_send_dept" onchange="toggleDeptFields()" required><option value="">Select Department</option>${deptOpts}</select></div><div class="form-group"><label>Attending Doctor *</label><select id="m_send_doctor" required><option value="">Select Doctor</option>${doctorOpts}</select></div></div>
                 <div class="form-row"><div class="form-group"><label>Priority</label><select id="m_send_priority"><option value="Normal">Normal</option><option value="Urgent">Urgent</option><option value="Critical">Critical</option></select></div><div class="form-group"><label>Reason for Visit</label><input type="text" id="m_send_reason" placeholder="e.g., Chest pain, follow-up"></div></div>
-                <div class="form-group"><label>Initial Diagnosis / Complaint</label><textarea id="m_send_diagnosis" placeholder="Enter initial diagnosis or presenting complaint..."></textarea></div>
-                <div class="form-group"><label>Treatment / Services to Render</label><textarea id="m_send_treatment" placeholder="What treatment or services will be provided? e.g., Blood test, wound dressing, consultation..."></textarea></div>
+                <div style="border:2px solid var(--border);border-radius:12px;padding:16px;margin:16px 0;background:var(--light)">
+                    <h4 style="font-size:14px;margin-bottom:12px;color:var(--primary)"><i class="fas fa-file-medical"></i> Clinical Record</h4>
+                    <div class="form-group"><label>Diagnosis / Complaint</label><textarea id="m_send_diagnosis" rows="2" placeholder="Enter diagnosis or presenting complaint..."></textarea></div>
+                    <div class="form-group"><label>Treatment / Services Planned</label><textarea id="m_send_treatment" rows="2" placeholder="What treatment or services will be provided?"></textarea></div>
+                    <div class="form-group"><label>Clinical Notes</label><textarea id="m_send_notes" rows="2" placeholder="Additional notes..."></textarea></div>
+                </div>
                 <div id="labFields" style="display:none;border:2px dashed #bfdbfe;border-radius:10px;padding:14px;margin:14px 0;background:#eff6ff">
-                    <h4 style="font-size:13px;margin-bottom:10px;color:#1e40af"><i class="fas fa-flask"></i> Laboratory Order (Auto-created)</h4>
+                    <h4 style="font-size:13px;margin-bottom:10px;color:#1e40af"><i class="fas fa-flask"></i> Laboratory Order (Auto-created if Lab Dept)</h4>
                     <div class="form-row"><div class="form-group"><label>Test Type</label><select id="m_send_lab_type"><option value="">Select Test</option>${labTestOpts}</select></div><div class="form-group"><label>Urgency</label><select id="m_send_lab_urgency"><option value="Routine">Routine</option><option value="Urgent">Urgent</option><option value="STAT">STAT (Emergency)</option></select></div></div>
                 </div>
-                <div class="form-group"><label>Notes</label><textarea id="m_send_notes" placeholder="Any additional notes for the department..."></textarea></div>
+                <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;padding-top:16px;border-top:2px solid var(--border)">
+                    <button type="button" class="btn btn-primary" style="flex:1;min-width:140px" onclick="saveDeptVisit('save')"><i class="fas fa-save"></i> Record Visit</button>
+                    <button type="button" class="btn btn-success" style="flex:1;min-width:140px" onclick="saveDeptVisit('pharmacy')"><i class="fas fa-prescription-bottle-medical"></i> Send to Pharmacy</button>
+                    <button type="button" class="btn btn-info" style="flex:1;min-width:140px" onclick="saveDeptVisit('lab')"><i class="fas fa-flask"></i> Send to Lab</button>
+                    <button type="button" class="btn btn-warning" style="flex:1;min-width:140px" onclick="saveDeptVisit('transfer')"><i class="fas fa-exchange-alt"></i> Transfer Dept</button>
+                </div>
             `;
+            document.getElementById('modalSaveBtn').style.display = 'none';
             break;
     }
     overlay.classList.add('active');
@@ -4495,6 +4505,7 @@ function openModal(type, editId){
 
 function closeModal(){
     document.getElementById('modalOverlay').classList.remove('active');
+    document.getElementById('modalSaveBtn').style.display = '';
     currentModalType = '';
     currentEditId = null;
 }
@@ -4539,6 +4550,115 @@ function updateInsuranceInfo(){
         }
     });
     updateBillTotal();
+}
+
+
+async function saveDeptVisit(action){
+    const sendPatientId = currentEditId;
+    const sendDeptId = document.getElementById('m_send_dept').value;
+    const sendDoctorId = document.getElementById('m_send_doctor').value;
+    const sendPriority = document.getElementById('m_send_priority').value;
+    const sendReason = document.getElementById('m_send_reason').value;
+    const sendDiagnosis = document.getElementById('m_send_diagnosis').value;
+    const sendTreatment = document.getElementById('m_send_treatment').value;
+    const sendNotes = document.getElementById('m_send_notes').value;
+
+    if(!sendDeptId){ toast('Please select a department', 'error'); return; }
+    if(!sendDoctorId){ toast('Please select an attending doctor', 'error'); return; }
+
+    const targetDept = dataCache.departments.find(d => d.id === sendDeptId);
+    const targetDoctor = dataCache.doctors.find(d => d.id === sendDoctorId);
+
+    // Close any existing active assignment for this patient
+    const existing = dataCache.departmentAssignments.filter(a => a.patientId === sendPatientId && a.status === 'Active');
+    for(const ex of existing){
+        ex.status = 'Transferred';
+        ex.dischargedAt = new Date().toISOString();
+        await saveData('departmentAssignments', ex);
+    }
+
+    // Update patient current department
+    const sendPatientData = dataCache.patients.find(p => p.id === sendPatientId);
+    if(sendPatientData){
+        sendPatientData.currentDepartmentId = sendDeptId;
+        sendPatientData.currentDepartmentName = targetDept ? targetDept.name : '';
+        await saveData('patients', sendPatientData);
+    }
+
+    // Create new assignment with full record
+    const assignment = {
+        patientId: sendPatientId,
+        departmentId: sendDeptId,
+        departmentName: targetDept ? targetDept.name : '',
+        departmentType: targetDept ? targetDept.type : '',
+        doctorId: sendDoctorId,
+        doctorName: targetDoctor ? targetDoctor.name : '',
+        priority: sendPriority,
+        reason: sendReason,
+        diagnosis: sendDiagnosis,
+        treatmentPlanned: sendTreatment,
+        notes: sendNotes,
+        status: 'Active',
+        assignedBy: currentUser ? (currentUser.displayName || currentUser.email) : 'System',
+        assignedAt: new Date().toISOString()
+    };
+    await saveData('departmentAssignments', assignment);
+
+    // If Lab department, auto-create lab order
+    if(targetDept && (targetDept.type === 'Laboratory' || targetDept.name.toLowerCase().includes('lab'))){
+        const labType = document.getElementById('m_send_lab_type').value || 'Blood Test';
+        const labUrgency = document.getElementById('m_send_lab_urgency').value || 'Routine';
+        const labOrder = {
+            patientId: sendPatientId,
+            doctorId: sendDoctorId,
+            departmentId: sendDeptId,
+            departmentName: targetDept ? targetDept.name : '',
+            testType: labType,
+            status: labUrgency === 'STAT' ? 'In Progress' : 'Pending',
+            dateOrdered: new Date().toISOString().split('T')[0],
+            notes: 'Auto-created from department assignment: ' + sendReason + '. ' + sendNotes,
+            departmentAssignmentId: assignment.id,
+            urgency: labUrgency
+        };
+        await saveData('labs', labOrder);
+        toast(`Lab order created: ${labType} (${labUrgency})`, 'success');
+    }
+
+    // Handle routing actions
+    if(action === 'save'){
+        closeModal();
+        renderDepartmentQueue(); renderDepartments(); renderPatients(); updateStats();
+        toast(`Patient visit recorded in ${targetDept ? targetDept.name : 'department'}`, 'success');
+    } else if(action === 'pharmacy'){
+        closeModal();
+        renderDepartmentQueue(); renderDepartments(); renderPatients(); updateStats();
+        setTimeout(() => {
+            openModal('prescription');
+            setTimeout(() => {
+                const patientSelect = document.getElementById('m_pres_patient');
+                if(patientSelect) patientSelect.value = sendPatientId;
+            }, 100);
+        }, 300);
+    } else if(action === 'lab'){
+        closeModal();
+        renderDepartmentQueue(); renderDepartments(); renderPatients(); updateStats();
+        setTimeout(() => {
+            openModal('lab');
+            setTimeout(() => {
+                const patientSelect = document.getElementById('m_lab_patient');
+                const deptSelect = document.getElementById('m_lab_department');
+                if(patientSelect) patientSelect.value = sendPatientId;
+                if(deptSelect) deptSelect.value = sendDeptId;
+            }, 100);
+        }, 300);
+    } else if(action === 'transfer'){
+        closeModal();
+        renderDepartmentQueue(); renderDepartments(); renderPatients(); updateStats();
+        setTimeout(() => {
+            openModal('sendToDept', sendPatientId);
+            toast('Select the next department for transfer', 'info');
+        }, 300);
+    }
 }
 
 async function saveModal(){
@@ -4711,77 +4831,7 @@ async function saveModal(){
             };
             break;
         case 'sendToDept':
-            const sendPatientId = currentEditId;
-            const sendDeptId = document.getElementById('m_send_dept').value;
-            const sendDoctorId = document.getElementById('m_send_doctor').value;
-            const sendPriority = document.getElementById('m_send_priority').value;
-            const sendReason = document.getElementById('m_send_reason').value;
-            const sendDiagnosis = document.getElementById('m_send_diagnosis').value;
-            const sendTreatment = document.getElementById('m_send_treatment').value;
-            const sendNotes = document.getElementById('m_send_notes').value;
-            if(!sendDeptId){ toast('Please select a department', 'error'); btn.innerHTML='Save'; btn.disabled=false; return; }
-            if(!sendDoctorId){ toast('Please select an attending doctor', 'error'); btn.innerHTML='Save'; btn.disabled=false; return; }
-            const targetDept = dataCache.departments.find(d => d.id === sendDeptId);
-            const targetDoctor = dataCache.doctors.find(d => d.id === sendDoctorId);
-            // Close any existing active assignment for this patient
-            const existing = dataCache.departmentAssignments.filter(a => a.patientId === sendPatientId && a.status === 'Active');
-            for(const ex of existing){
-                ex.status = 'Transferred';
-                ex.dischargedAt = new Date().toISOString();
-                await saveData('departmentAssignments', ex);
-            }
-            // Update patient current department
-            const sendPatientData = dataCache.patients.find(p => p.id === sendPatientId);
-            if(sendPatientData){
-                sendPatientData.currentDepartmentId = sendDeptId;
-                sendPatientData.currentDepartmentName = targetDept ? targetDept.name : '';
-                await saveData('patients', sendPatientData);
-            }
-            // Create new assignment with full record
-            const assignment = {
-                patientId: sendPatientId,
-                departmentId: sendDeptId,
-                departmentName: targetDept ? targetDept.name : '',
-                departmentType: targetDept ? targetDept.type : '',
-                doctorId: sendDoctorId,
-                doctorName: targetDoctor ? targetDoctor.name : '',
-                priority: sendPriority,
-                reason: sendReason,
-                diagnosis: sendDiagnosis,
-                treatmentPlanned: sendTreatment,
-                notes: sendNotes,
-                status: 'Active',
-                assignedBy: currentUser ? (currentUser.displayName || currentUser.email) : 'System',
-                assignedAt: new Date().toISOString()
-            };
-            await saveData('departmentAssignments', assignment);
-            // If Lab department, auto-create lab order
-            if(targetDept && (targetDept.type === 'Laboratory' || targetDept.name.toLowerCase().includes('lab'))){
-                const labType = document.getElementById('m_send_lab_type').value || 'Blood Test';
-                const labUrgency = document.getElementById('m_send_lab_urgency').value || 'Routine';
-                const labOrder = {
-                    patientId: sendPatientId,
-                    doctorId: sendDoctorId,
-                    departmentId: sendDeptId,
-                    departmentName: targetDept ? targetDept.name : '',
-                    testType: labType,
-                    status: labUrgency === 'STAT' ? 'In Progress' : 'Pending',
-                    dateOrdered: new Date().toISOString().split('T')[0],
-                    notes: 'Auto-created from department assignment: ' + sendReason + '. ' + sendNotes,
-                    departmentAssignmentId: assignment.id,
-                    urgency: labUrgency
-                };
-                await saveData('labs', labOrder);
-                toast(`Lab order created: ${labType} (${labUrgency})`, 'success');
-            }
-            closeModal();
-            renderDepartments();
-            renderDepartmentQueue();
-            renderPatients();
-            updateStats();
-            btn.innerHTML='Save'; btn.disabled=false;
-            toast(`Patient sent to ${targetDept ? targetDept.name : 'department'}`, 'success');
-            return;
+            return saveDeptVisit('save');
         case 'user':
             if(userRole !== 'admin'){ toast('Admin only', 'error'); closeModal(); return; }
             const userEmail = document.getElementById('m_user_email').value.trim().toLowerCase();
