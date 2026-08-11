@@ -3590,17 +3590,102 @@ function renderSettings(){
         </div>
     `;
 
+    // Insurance Pricing Settings (admin only)
+    const pricingSection = document.createElement('div');
+    pricingSection.id = 'settingsPricingSection';
+    pricingSection.className = 'card';
+    pricingSection.style.marginTop = '20px';
+    pricingSection.innerHTML = `
+        <div class="card-header"><h3><i class="fas fa-percentage"></i> Insurance Pricing Rules</h3></div>
+        <div class="card-body" id="insurancePricingBody">
+            <p style="font-size:13px;color:var(--gray);margin-bottom:16px">
+                Set percentage markup or discount for each insurance provider. This applies to ALL services and lab tests.
+                <br><strong>Positive</strong> = patient pays more. <strong>Negative</strong> = patient pays less (discount).
+            </p>
+            <div id="insurancePricingRulesList"></div>
+            <div style="margin-top:16px;display:flex;gap:10px">
+                <button class="btn btn-primary" style="width:auto;padding:10px 24px" onclick="saveInsurancePricingSettings()"><i class="fas fa-save"></i> Save Pricing Rules</button>
+                <button class="btn btn-secondary" style="width:auto;padding:10px 24px" onclick="resetInsurancePricingDefaults()"><i class="fas fa-undo"></i> Reset Defaults</button>
+            </div>
+        </div>
+    `;
+
     const settingsContent = document.getElementById('settingsContent');
     if(settingsContent && !document.getElementById('settingsSecuritySection')){
         settingsContent.appendChild(securitySection);
         settingsContent.appendChild(syncSection);
+        settingsContent.appendChild(pricingSection);
     } else if(settingsContent) {
-        // If security section already exists, just add sync section if missing
         if(!document.getElementById('syncStatusMessage')){
             settingsContent.appendChild(syncSection);
         }
+        if(!document.getElementById('settingsPricingSection')){
+            settingsContent.appendChild(pricingSection);
+        }
     }
+    renderInsurancePricingRules();
 }
+
+function renderInsurancePricingRules(){
+    const container = document.getElementById('insurancePricingRulesList');
+    if(!container) return;
+    const rules = getInsurancePricingRules();
+    const providers = Object.keys(rules);
+    if(providers.length === 0){
+        container.innerHTML = '<p style="color:var(--gray)">No pricing rules configured.</p>';
+        return;
+    }
+    container.innerHTML = providers.map(function(key){
+        const rule = rules[key];
+        const val = parseFloat(rule.markup) || 0;
+        const color = val > 0 ? 'var(--danger)' : val < 0 ? 'var(--success)' : 'var(--gray)';
+        const sign = val > 0 ? '+' : '';
+        return `<div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
+            <div style="flex:1;font-weight:600;font-size:13px">${rule.label || key}</div>
+            <div style="display:flex;align-items:center;gap:8px">
+                <input type="number" id="pricing_rule_${key}" value="${val}" step="0.1" style="width:80px;padding:6px 10px;border:2px solid var(--border);border-radius:8px;font-size:13px;text-align:right" onchange="previewPricingRule('${key}', this.value)">
+                <span style="font-size:13px;color:var(--gray)">%</span>
+            </div>
+            <div id="pricing_preview_${key}" style="min-width:100px;font-size:12px;font-weight:600;color:${color}">${sign}${val.toFixed(1)}%</div>
+        </div>`;
+    }).join('');
+}
+
+function previewPricingRule(provider, value){
+    const val = parseFloat(value) || 0;
+    const preview = document.getElementById('pricing_preview_' + provider);
+    if(!preview) return;
+    const color = val > 0 ? 'var(--danger)' : val < 0 ? 'var(--success)' : 'var(--gray)';
+    const sign = val > 0 ? '+' : '';
+    preview.style.color = color;
+    preview.textContent = sign + val.toFixed(1) + '%';
+}
+
+function saveInsurancePricingSettings(){
+    if(userRole !== 'admin'){ toast('Admin only', 'error'); return; }
+    const rules = getInsurancePricingRules();
+    Object.keys(rules).forEach(function(key){
+        const input = document.getElementById('pricing_rule_' + key);
+        if(input){
+            rules[key].markup = parseFloat(input.value) || 0;
+        }
+    });
+    saveInsurancePricingRules(rules);
+    toast('Insurance pricing rules saved', 'success');
+    logSecurityEvent('PRICING_RULES_CHANGED', {by: currentUser?.uid, hospitalId: currentHospital?.hospitalId});
+}
+
+function resetInsurancePricingDefaults(){
+    if(!confirm('Reset all insurance pricing rules to 0% (no markup/discount)?')) return;
+    const rules = getInsurancePricingRules();
+    Object.keys(rules).forEach(function(key){
+        rules[key].markup = 0;
+    });
+    saveInsurancePricingRules(rules);
+    renderInsurancePricingRules();
+    toast('Pricing rules reset to defaults', 'success');
+}
+
 
 async function forceSyncAllUsers(){
     if(userRole !== 'admin'){ toast('Admin only', 'error'); return; }
@@ -4376,7 +4461,7 @@ function openModal(type, editId){
             break;
         case 'lab':
             title.textContent = isEdit ? 'Edit Lab Order' : 'New Lab Order';
-            body.innerHTML = `<div class="form-row"><div class="form-group"><label>Patient *</label><select id="m_lab_patient" required><option value="">Select</option>${dataCache.patients.map(p => `<option value="${p.id}" ${item.patientId === p.id ? 'selected' : ''}>${p.name}</option>`).join('')}</select></div><div class="form-group"><label>Ordering Doctor *</label><select id="m_lab_doctor" required><option value="">Select</option>${dataCache.doctors.map(d => `<option value="${d.id}" ${item.doctorId === d.id ? 'selected' : ''}>Dr. ${d.name}</option>`).join('')}</select></div></div><div class="form-row"><div class="form-group"><label>Department</label><select id="m_lab_department"><option value="">Select Department (Optional)</option>${dataCache.departments.filter(d => d.status === 'Active').map(d => `<option value="${d.id}" ${item.departmentId === d.id ? 'selected' : ''}>${d.name}</option>`).join('')}</select></div><div class="form-group"><label>Test Cost (KSh) *</label><input type="number" step="0.01" id="m_lab_cost" value="${item.cost || ''}" placeholder="e.g., 1500" required></div></div><div class="form-row"><div class="form-group"><label>Test Type *</label><select id="m_lab_type" required><option value="">Select Test</option><option value="Blood Test" ${item.testType === 'Blood Test' ? 'selected' : ''}>Blood Test</option><option value="Urine Analysis" ${item.testType === 'Urine Analysis' ? 'selected' : ''}>Urine Analysis</option><option value="X-Ray" ${item.testType === 'X-Ray' ? 'selected' : ''}>X-Ray</option><option value="MRI" ${item.testType === 'MRI' ? 'selected' : ''}>MRI</option><option value="CT Scan" ${item.testType === 'CT Scan' ? 'selected' : ''}>CT Scan</option><option value="Ultrasound" ${item.testType === 'Ultrasound' ? 'selected' : ''}>Ultrasound</option><option value="ECG" ${item.testType === 'ECG' ? 'selected' : ''}>ECG</option><option value="Biopsy" ${item.testType === 'Biopsy' ? 'selected' : ''}>Biopsy</option><option value="COVID-19 Test" ${item.testType === 'COVID-19 Test' ? 'selected' : ''}>COVID-19 Test</option><option value="Other" ${item.testType === 'Other' ? 'selected' : ''}>Other</option></select></div><div class="form-group"><label>Status</label><select id="m_lab_status"><option value="Pending" ${(item.status || 'Pending') === 'Pending' ? 'selected' : ''}>Pending</option><option value="In Progress" ${item.status === 'In Progress' ? 'selected' : ''}>In Progress</option><option value="Completed" ${item.status === 'Completed' ? 'selected' : ''}>Completed</option><option value="Cancelled" ${item.status === 'Cancelled' ? 'selected' : ''}>Cancelled</option></select></div></div><div class="form-row"><div class="form-group"><label>Date Ordered *</label><input type="date" id="m_lab_date_ordered" value="${item.dateOrdered || new Date().toISOString().split('T')[0]}" required></div><div class="form-group"><label>Date Completed</label><input type="date" id="m_lab_date_completed" value="${item.dateCompleted || ''}"></div></div><div class="form-group"><label>Results</label><textarea id="m_lab_results" placeholder="Enter test results...">${item.results || ''}</textarea></div><div class="form-group"><label>Notes</label><textarea id="m_lab_notes" placeholder="Additional notes...">${item.notes || ''}</textarea></div>`;
+            body.innerHTML = `<div class="form-row"><div class="form-group"><label>Patient *</label><select id="m_lab_patient" required onchange="autoFillLabCost()"><option value="">Select</option>${dataCache.patients.map(p => `<option value="${p.id}" ${item.patientId === p.id ? 'selected' : ''}>${p.name}</option>`).join('')}</select></div><div class="form-group"><label>Ordering Doctor *</label><select id="m_lab_doctor" required><option value="">Select</option>${dataCache.doctors.map(d => `<option value="${d.id}" ${item.doctorId === d.id ? 'selected' : ''}>Dr. ${d.name}</option>`).join('')}</select></div></div><div class="form-row"><div class="form-group"><label>Department</label><select id="m_lab_department"><option value="">Select Department (Optional)</option>${dataCache.departments.filter(d => d.status === 'Active').map(d => `<option value="${d.id}" ${item.departmentId === d.id ? 'selected' : ''}>${d.name}</option>`).join('')}</select></div><div class="form-group"><label>Test Cost (KSh) *</label><input type="number" step="0.01" id="m_lab_cost" value="${item.cost || ''}" placeholder="e.g., 1500" required></div></div><div class="form-row"><div class="form-group"><label>Test Type *</label><select id="m_lab_type" required onchange="autoFillLabCost()"><option value="">Select Test</option><optgroup label="From Services Catalog">${dataCache.services.filter(s => s.category === 'Laboratory' && s.status === 'Active').map(s => `<option value="${s.name}" ${item.testType === s.name ? 'selected' : ''}>${s.name} — KSh ${parseFloat(s.cost || 0).toFixed(0)}</option>`).join('')}</optgroup><optgroup label="Standard Tests"><option value="Blood Test" ${item.testType === 'Blood Test' ? 'selected' : ''}>Blood Test</option><option value="Urine Analysis" ${item.testType === 'Urine Analysis' ? 'selected' : ''}>Urine Analysis</option><option value="X-Ray" ${item.testType === 'X-Ray' ? 'selected' : ''}>X-Ray</option><option value="MRI" ${item.testType === 'MRI' ? 'selected' : ''}>MRI</option><option value="CT Scan" ${item.testType === 'CT Scan' ? 'selected' : ''}>CT Scan</option><option value="Ultrasound" ${item.testType === 'Ultrasound' ? 'selected' : ''}>Ultrasound</option><option value="ECG" ${item.testType === 'ECG' ? 'selected' : ''}>ECG</option><option value="Biopsy" ${item.testType === 'Biopsy' ? 'selected' : ''}>Biopsy</option><option value="COVID-19 Test" ${item.testType === 'COVID-19 Test' ? 'selected' : ''}>COVID-19 Test</option><option value="Other" ${item.testType === 'Other' ? 'selected' : ''}>Other</option></optgroup></select></div><div class="form-group"><label>Status</label><select id="m_lab_status"><option value="Pending" ${(item.status || 'Pending') === 'Pending' ? 'selected' : ''}>Pending</option><option value="In Progress" ${item.status === 'In Progress' ? 'selected' : ''}>In Progress</option><option value="Completed" ${item.status === 'Completed' ? 'selected' : ''}>Completed</option><option value="Cancelled" ${item.status === 'Cancelled' ? 'selected' : ''}>Cancelled</option></select></div></div><div class="form-row"><div class="form-group"><label>Date Ordered *</label><input type="date" id="m_lab_date_ordered" value="${item.dateOrdered || new Date().toISOString().split('T')[0]}" required></div><div class="form-group"><label>Date Completed</label><input type="date" id="m_lab_date_completed" value="${item.dateCompleted || ''}"></div></div><div class="form-group"><label>Results</label><textarea id="m_lab_results" placeholder="Enter test results...">${item.results || ''}</textarea></div><div class="form-group"><label>Notes</label><textarea id="m_lab_notes" placeholder="Additional notes...">${item.notes || ''}</textarea></div>`;
             break;
         case 'billing':
             title.textContent = isEdit ? 'Edit Invoice' : 'New Invoice';
@@ -7123,14 +7208,54 @@ window.addEventListener('beforeinstallprompt', e => {
 });
 
 
+// ==================== INSURANCE PRICING RULES ====================
+function getInsurancePricingRules(){
+    return secureGet('medicare_insurance_pricing_rules', {
+        'Cash': {markup: 0, label: 'Cash / Self Pay'},
+        'SHA': {markup: 0, label: 'SHA (Social Health Authority)'},
+        'NHIF': {markup: 0, label: 'NHIF'},
+        'Jubilee': {markup: 0, label: 'Jubilee Insurance'},
+        'Madison': {markup: 0, label: 'Madison Insurance'},
+        'AAR': {markup: 0, label: 'AAR Healthcare'},
+        'Britam': {markup: 0, label: 'Britam'},
+        'CIC': {markup: 0, label: 'CIC Insurance'},
+        'Other': {markup: 0, label: 'Other'}
+    });
+}
+
+function saveInsurancePricingRules(rules){
+    secureSet('medicare_insurance_pricing_rules', rules);
+    // Sync to cloud
+    if(!dbTerminated && db && currentHospital && auth.currentUser){
+        const hospId = currentHospital.hospitalId || currentHospital.id;
+        db.collection('hospitals').doc(hospId).collection('settings').doc('insurancePricing').set({
+            rules: rules,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedBy: currentUser ? currentUser.uid : 'unknown'
+        }).catch(function(e){ console.warn('Cloud sync of pricing rules failed:', e); });
+    }
+}
+
+function applyInsuranceMarkup(baseCost, insuranceProvider){
+    const rules = getInsurancePricingRules();
+    const provider = (insuranceProvider || 'Cash').trim();
+    const rule = rules[provider];
+    if(!rule) return baseCost;
+    const markup = parseFloat(rule.markup) || 0;
+    return baseCost * (1 + markup / 100);
+}
+
 function getServiceCost(service, insuranceProvider){
     if(!service) return 0;
     const provider = (insuranceProvider || 'Cash').trim();
+    // 1. Service-level override takes highest priority
     if(service.costs && typeof service.costs === 'object'){
         if(service.costs[provider] !== undefined) return parseFloat(service.costs[provider]) || 0;
         if(service.costs['Cash'] !== undefined) return parseFloat(service.costs['Cash']) || 0;
     }
-    return parseFloat(service.cost) || parseFloat(service.price) || parseFloat(service.unitPrice) || 0;
+    // 2. Apply global insurance pricing rule markup to base cost
+    const baseCost = parseFloat(service.cost) || parseFloat(service.price) || parseFloat(service.unitPrice) || 0;
+    return applyInsuranceMarkup(baseCost, provider);
 }
 function getServiceCostDisplay(service){
     if(!service) return 'KSh 0.00';
@@ -7649,6 +7774,22 @@ function openExpenseModal(){
     document.getElementById('procQty').value = '1';
     document.getElementById('procDate').value = new Date().toISOString().split('T')[0];
     modal.classList.add('active');
+}
+
+
+function autoFillLabCost(){
+    const type = document.getElementById('m_lab_type').value;
+    const costInput = document.getElementById('m_lab_cost');
+    const patientId = document.getElementById('m_lab_patient')?.value;
+    if(!type || !costInput) return;
+    const svc = dataCache.services.find(s => s.category === 'Laboratory' && s.status === 'Active' && s.name === type);
+    if(!svc) return;
+    const patient = patientId ? dataCache.patients.find(p => p.id === patientId) : null;
+    const insurance = patient?.insuranceProvider || 'Cash';
+    const cost = getServiceCost(svc, insurance);
+    if(cost > 0){
+        costInput.value = cost.toFixed(2);
+    }
 }
 
 </script>
