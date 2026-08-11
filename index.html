@@ -3395,19 +3395,79 @@ function renderAdmissions(){
                 <h4>${patient.name} <span style="font-weight:400;color:var(--gray);font-size:13px">(${patient.age}/${patient.gender})</span></h4>
                 <p><i class="fas fa-bed"></i> ${ward.name} - Bed ${a.bedNumber || '-'} | <i class="fas fa-user-md"></i> Dr. ${doctor.name}</p>
                 <div class="admission-meta">
-                    <span><i class="fas fa-calendar-plus"></i> Admitted: ${a.admissionDate || '-'}</span>
+                    <span><i class="fas fa-calendar-plus"></i> Admitted: ${a.admissionDate || '-'} ${a.admissionTime || ''}</span>
                     <span><i class="fas fa-calendar-minus"></i> Expected Discharge: ${a.expectedDischarge || '-'}</span>
                     <span><i class="fas fa-stethoscope"></i> ${a.admissionReason || '-'}</span>
+                    ${a.status === 'Admitted' ? '<span style="color:var(--primary);font-weight:600"><i class="fas fa-coins"></i> Ward Cost: KSh ' + (calculateWardCost(a).cost).toFixed(2) + '</span>' : ''}
                 </div>
             </div>
             <div class="admission-actions">
                 <span class="status-badge status-${statusClass}">${a.status}</span>
                 <button class="btn-sm btn-info" onclick="viewAdmission('${a.id}')"><i class="fas fa-eye"></i></button>
-                ${a.status === 'Admitted' ? `<button class="btn-sm btn-success" onclick="dischargePatient('${a.id}')"><i class="fas fa-sign-out-alt"></i> Discharge</button>` : ''}
+                ${a.status === 'Admitted' ? `<button class="btn-sm btn-warning" onclick="generateWardBill('${a.id}')"><i class="fas fa-file-invoice"></i> Ward Bill</button><button class="btn-sm btn-success" onclick="dischargePatient('${a.id}')"><i class="fas fa-sign-out-alt"></i> Discharge</button>` : ''}
                 <button class="btn-sm btn-danger" onclick="deleteAdmission('${a.id}')"><i class="fas fa-trash"></i></button>
             </div>
         </div>`;
     }).join('');
+}
+
+
+function calculateWardCost(admission){
+    if(!admission || !admission.wardId) return {days:0, hours:0, cost:0, breakdown:''};
+    const ward = dataCache.wards.find(w => w.id === admission.wardId);
+    if(!ward) return {days:0, hours:0, cost:0, breakdown:''};
+
+    const pricePerDay = parseFloat(ward.pricePerDay) || 0;
+    const pricePerHour = parseFloat(ward.pricePerHour) || 0;
+
+    const admitDate = new Date(admission.admissionDate + 'T' + (admission.admissionTime || '00:00'));
+    const endDate = admission.dischargeDate 
+        ? new Date(admission.dischargeDate + 'T' + (admission.dischargeTime || '23:59'))
+        : new Date();
+
+    const diffMs = endDate - admitDate;
+    if(diffMs <= 0) return {days:0, hours:0, cost:0, breakdown:''};
+
+    const totalHours = Math.ceil(diffMs / (1000 * 60 * 60));
+    const days = Math.floor(totalHours / 24);
+    const hours = totalHours % 24;
+
+    const dayCost = days * pricePerDay;
+    const hourCost = hours * pricePerHour;
+    const totalCost = dayCost + hourCost;
+
+    let breakdown = '';
+    if(days > 0) breakdown += `${days} day${days>1?'s':''} @ KSh ${pricePerDay.toFixed(2)} = KSh ${dayCost.toFixed(2)}`;
+    if(hours > 0) breakdown += (breakdown ? ' + ' : '') + `${hours} hr${hours>1?'s':''} @ KSh ${pricePerHour.toFixed(2)} = KSh ${hourCost.toFixed(2)}`;
+
+    return {days, hours, cost: totalCost, breakdown, pricePerDay, pricePerHour}
+function generateWardBill(admissionId){
+    const adm = dataCache.admissions.find(a => a.id === admissionId);
+    if(!adm || adm.status !== 'Admitted') return;
+    const patient = dataCache.patients.find(p => p.id === adm.patientId) || {name:'Unknown'};
+    const ward = dataCache.wards.find(w => w.id === adm.wardId) || {name:'Unknown'};
+    const wc = calculateWardCost(adm);
+    if(wc.cost <= 0){ toast('No ward charges to bill', 'warning'); return; }
+    const editableCost = prompt('Ward charges for ' + patient.name + ' - ' + ward.name + ':
+' + wc.breakdown + '
+
+Total: KSh ' + wc.cost.toFixed(2) + '
+
+Enter amount to bill:', wc.cost.toFixed(2));
+    const billAmount = parseFloat(editableCost);
+    if(isNaN(billAmount) || billAmount <= 0){ toast('Bill cancelled', 'info'); return; }
+    const billId = 'BILL-' + Date.now();
+    dataCache.billing.push({
+        id: billId, patientId: adm.patientId, patientName: patient.name,
+        invoiceNumber: 'INV-' + Math.floor(Math.random()*90000+10000),
+        services: 'Ward Stay: ' + ward.name + ' (' + wc.days + 'd ' + wc.hours + 'h)', amount: billAmount,
+        status: 'Pending', date: new Date().toISOString().split('T')[0], createdAt: new Date().toISOString()
+    });
+    saveData('billing', dataCache.billing[dataCache.billing.length-1]);
+    toast('Ward bill of KSh ' + billAmount.toFixed(2) + ' added', 'success');
+    renderBilling();
+}
+;
 }
 
 function renderWards(){
@@ -3428,7 +3488,7 @@ function renderWards(){
                 </div>
             </div>
             <div class="ward-card-body">
-                <p style="color:var(--gray);font-size:12px;margin-bottom:10px">${w.type || 'General Ward'} | Capacity: ${beds.length} beds</p>
+                <p style="color:var(--gray);font-size:12px;margin-bottom:10px">${w.type || 'General Ward'} | Capacity: ${beds.length} beds | <strong style="color:var(--primary)">KSh ${(w.pricePerDay||0).toFixed(0)}/day</strong>${w.pricePerHour ? ' + KSh '+(w.pricePerHour).toFixed(0)+'/hr' : ''}</p>
                 <div class="bed-grid">
                     ${beds.map((bed, idx) => `<div class="bed-item ${bed.status}" onclick="toggleBedStatus('${w.id}', ${idx})">
                         <i class="fas fa-bed"></i>
@@ -4343,7 +4403,7 @@ function openModal(type, editId){
             break;
         case 'admission':
             title.textContent = isEdit ? 'Edit Admission' : 'Admit Patient';
-            body.innerHTML = `<div class="form-row"><div class="form-group"><label>Patient *</label><select id="m_admit_patient" required><option value="">Select Patient</option>${dataCache.patients.map(p => `<option value="${p.id}" ${item.patientId === p.id ? 'selected' : ''}>${p.name}</option>`).join('')}</select></div><div class="form-group"><label>Attending Doctor *</label><select id="m_admit_doctor" required><option value="">Select Doctor</option>${dataCache.doctors.map(d => `<option value="${d.id}" ${item.doctorId === d.id ? 'selected' : ''}>Dr. ${d.name}</option>`).join('')}</select></div></div><div class="form-row"><div class="form-group"><label>Ward *</label><select id="m_admit_ward" onchange="updateBedOptions()" required><option value="">Select Ward</option>${dataCache.wards.map(w => `<option value="${w.id}" ${item.wardId === w.id ? 'selected' : ''}>${w.name}</option>`).join('')}</select></div><div class="form-group"><label>Bed Number *</label><select id="m_admit_bed" required><option value="">Select Ward First</option></select></div></div><div class="form-row"><div class="form-group"><label>Admission Date *</label><input type="date" id="m_admit_date" value="${item.admissionDate || new Date().toISOString().split('T')[0]}" required></div><div class="form-group"><label>Expected Discharge</label><input type="date" id="m_admit_discharge" value="${item.expectedDischarge || ''}"></div></div><div class="form-group"><label>Admission Reason *</label><input type="text" id="m_admit_reason" value="${item.admissionReason || ''}" placeholder="e.g., Surgery recovery, Observation" required></div><div class="form-group"><label>Notes</label><textarea id="m_admit_notes">${item.notes || ''}</textarea></div>`;
+            body.innerHTML = `<div class="form-row"><div class="form-group"><label>Patient *</label><select id="m_admit_patient" required><option value="">Select Patient</option>${dataCache.patients.map(p => `<option value="${p.id}" ${item.patientId === p.id ? 'selected' : ''}>${p.name}</option>`).join('')}</select></div><div class="form-group"><label>Attending Doctor *</label><select id="m_admit_doctor" required><option value="">Select Doctor</option>${dataCache.doctors.map(d => `<option value="${d.id}" ${item.doctorId === d.id ? 'selected' : ''}>Dr. ${d.name}</option>`).join('')}</select></div></div><div class="form-row"><div class="form-group"><label>Ward *</label><select id="m_admit_ward" onchange="updateBedOptions()" required><option value="">Select Ward</option>${dataCache.wards.map(w => `<option value="${w.id}" ${item.wardId === w.id ? 'selected' : ''}>${w.name}</option>`).join('')}</select></div><div class="form-group"><label>Bed Number *</label><select id="m_admit_bed" required><option value="">Select Ward First</option></select></div></div><div class="form-row"><div class="form-group"><label>Admission Date *</label><input type="date" id="m_admit_date" value="${item.admissionDate || new Date().toISOString().split('T')[0]}" required></div><div class="form-group"><label>Admission Time</label><input type="time" id="m_admit_time" value="${item.admissionTime || new Date().toTimeString().slice(0,5)}"></div></div><div class="form-row"><div class="form-group"><label>Expected Discharge</label><input type="date" id="m_admit_discharge" value="${item.expectedDischarge || ''}"></div></div><div class="form-group"><label>Admission Reason *</label><input type="text" id="m_admit_reason" value="${item.admissionReason || ''}" placeholder="e.g., Surgery recovery, Observation" required></div><div class="form-group"><label>Notes</label><textarea id="m_admit_notes">${item.notes || ''}</textarea></div>`;
             if(isEdit) setTimeout(() => updateBedOptions(item.bedNumber), 100);
             break;
         case 'appointment':
@@ -4353,7 +4413,7 @@ function openModal(type, editId){
         case 'ward':
             title.textContent = isEdit ? 'Edit Ward' : 'Add Ward';
             const bedCount = item.beds ? item.beds.length : 10;
-            body.innerHTML = `<div class="form-row"><div class="form-group"><label>Ward Name *</label><input type="text" id="m_ward_name" value="${item.name || ''}" placeholder="e.g., Ward A, ICU, Pediatric" required></div><div class="form-group"><label>Ward Type</label><select id="m_ward_type"><option value="General" ${item.type === 'General' ? 'selected' : ''}>General</option><option value="ICU" ${item.type === 'ICU' ? 'selected' : ''}>ICU</option><option value="Pediatric" ${item.type === 'Pediatric' ? 'selected' : ''}>Pediatric</option><option value="Maternity" ${item.type === 'Maternity' ? 'selected' : ''}>Maternity</option><option value="Surgical" ${item.type === 'Surgical' ? 'selected' : ''}>Surgical</option><option value="Emergency" ${item.type === 'Emergency' ? 'selected' : ''}>Emergency</option></select></div></div><div class="form-group"><label>Number of Beds *</label><input type="number" id="m_ward_beds" value="${bedCount}" min="1" max="100" required></div><div class="form-group"><label>Description</label><textarea id="m_ward_desc">${item.description || ''}</textarea></div>`;
+            body.innerHTML = `<div class="form-row"><div class="form-group"><label>Ward Name *</label><input type="text" id="m_ward_name" value="${item.name || ''}" placeholder="e.g., Ward A, ICU, Pediatric" required></div><div class="form-group"><label>Ward Type</label><select id="m_ward_type"><option value="General" ${item.type === 'General' ? 'selected' : ''}>General</option><option value="ICU" ${item.type === 'ICU' ? 'selected' : ''}>ICU</option><option value="Pediatric" ${item.type === 'Pediatric' ? 'selected' : ''}>Pediatric</option><option value="Maternity" ${item.type === 'Maternity' ? 'selected' : ''}>Maternity</option><option value="Surgical" ${item.type === 'Surgical' ? 'selected' : ''}>Surgical</option><option value="Emergency" ${item.type === 'Emergency' ? 'selected' : ''}>Emergency</option></select></div></div><div class="form-row"><div class="form-group"><label>Price Per Day (KSh) *</label><input type="number" id="m_ward_price_day" value="${item.pricePerDay || ''}" min="0" step="50" placeholder="e.g., 2500" required></div><div class="form-group"><label>Price Per Hour (KSh)</label><input type="number" id="m_ward_price_hour" value="${item.pricePerHour || ''}" min="0" step="10" placeholder="e.g., 150"></div></div><div class="form-group"><label>Number of Beds *</label><input type="number" id="m_ward_beds" value="${bedCount}" min="1" max="100" required></div><div class="form-group"><label>Description</label><textarea id="m_ward_desc">${item.description || ''}</textarea></div>`;
             break;
         case 'doctor':
             title.textContent = isEdit ? 'Edit Doctor' : 'Add Doctor';
@@ -4605,16 +4665,20 @@ async function saveModal(){
             data = {id:currentEditId, patientId:document.getElementById('m_appt_patient').value, doctorId:document.getElementById('m_appt_doctor').value, date:document.getElementById('m_appt_date').value, time:document.getElementById('m_appt_time').value, reason:document.getElementById('m_appt_reason').value, status:document.getElementById('m_appt_status').value, notes:document.getElementById('m_appt_notes').value};
             break;
         case 'ward':
-            const wardName = document.getElementById('m_ward_name').value;
+            const wardName = document.getElementById('m_ward_name').value.trim();
             const wardType = document.getElementById('m_ward_type').value;
+            const wardPriceDay = parseFloat(document.getElementById('m_ward_price_day').value) || 0;
+            const wardPriceHour = parseFloat(document.getElementById('m_ward_price_hour').value) || 0;
             const numBeds = parseInt(document.getElementById('m_ward_beds').value) || 10;
+            if(!wardName){ toast('Ward name is required', 'error'); return; }
+            if(wardPriceDay <= 0){ toast('Price per day is required', 'error'); return; }
             let beds = [];
             if(currentEditId){
                 const existing = dataCache.wards.find(w => w.id === currentEditId);
                 if(existing && existing.beds) beds = existing.beds.slice(0, numBeds);
             }
             while(beds.length < numBeds) beds.push({number: beds.length + 1, status: 'available', patientId: '', patientName: ''});
-            data = {id:currentEditId, name:wardName, type:wardType, beds:beds, description:document.getElementById('m_ward_desc').value};
+            data = {id:currentEditId, name:wardName, type:wardType, pricePerDay:wardPriceDay, pricePerHour:wardPriceHour, beds:beds, description:document.getElementById('m_ward_desc').value};
             break;
         case 'doctor':
             data = {id:currentEditId, name:document.getElementById('m_doctor_name').value, specialization:document.getElementById('m_doctor_spec').value, phone:document.getElementById('m_doctor_phone').value, email:document.getElementById('m_doctor_email').value, bio:document.getElementById('m_doctor_bio').value};
@@ -5453,13 +5517,37 @@ async function dischargePatient(admissionId){
 async function doDischarge(admission, patient){
     admission.status = 'Discharged';
     admission.dischargeDate = new Date().toISOString().split('T')[0];
+    admission.dischargeTime = new Date().toTimeString().slice(0,5);
     const ward = dataCache.wards.find(w => w.id === admission.wardId);
+    const wardCost = calculateWardCost(admission);
     if(ward && ward.beds){
         const bed = ward.beds.find(b => b.number == admission.bedNumber);
         if(bed){ bed.status = 'available'; bed.patientId = ''; bed.patientName = ''; await saveData('wards', ward); }
     }
+    if(wardCost.cost > 0){
+        const editableCost = prompt(`Ward charges for ${patient.name}:
+${wardCost.breakdown}
+
+Total: KSh ${wardCost.cost.toFixed(2)}
+
+Enter amount to bill (or Cancel to skip):`, wardCost.cost.toFixed(2));
+        if(editableCost !== null){
+            const billAmount = parseFloat(editableCost);
+            if(!isNaN(billAmount) && billAmount > 0){
+                const billId = 'BILL-'+Date.now();
+                dataCache.billing.push({
+                    id: billId, patientId: admission.patientId, patientName: patient.name,
+                    invoiceNumber: 'INV-'+Math.floor(Math.random()*90000+10000),
+                    services: `Ward Stay: ${ward.name} (${wardCost.days}d ${wardCost.hours}h)`, amount: billAmount,
+                    status: 'Pending', date: new Date().toISOString().split('T')[0], createdAt: new Date().toISOString()
+                });
+                await saveData('billing', dataCache.billing[dataCache.billing.length-1]);
+                toast(`Ward bill of KSh ${billAmount.toFixed(2)} added`, 'success');
+            }
+        }
+    }
     await saveData('admissions', admission);
-    renderAdmissions(); renderWards(); renderPatients(); updateStats();
+    renderAdmissions(); renderWards(); renderPatients(); updateStats(); renderBilling();
     toast(`${patient.name} discharged successfully`, 'success');
 }
 
@@ -5548,7 +5636,8 @@ function viewAdmission(id){
     if(!adm) return;
     const patient = dataCache.patients.find(p => p.id === adm.patientId) || {name:'Unknown'};
     const ward = dataCache.wards.find(w => w.id === adm.wardId) || {name:'Unknown'};
-    alert(`Admission Details\nPatient: ${patient.name}\nWard: ${ward.name} - Bed ${adm.bedNumber}\nAdmitted: ${adm.admissionDate}\nExpected Discharge: ${adm.expectedDischarge || '-'}\nReason: ${adm.admissionReason}\nStatus: ${adm.status}\nNotes: ${adm.notes || '-'}`);
+    const wc = calculateWardCost(adm);
+    alert(`Admission Details\nPatient: ${patient.name}\nWard: ${ward.name} - Bed ${adm.bedNumber}\nAdmitted: ${adm.admissionDate} ${adm.admissionTime || ''}\nExpected Discharge: ${adm.expectedDischarge || '-'}\nReason: ${adm.admissionReason}\nStatus: ${adm.status}\nNotes: ${adm.notes || '-'}`);
 }
 
 
@@ -7235,8 +7324,8 @@ function renderProcurement(){
       '<td><span class="badge" style="background:'+(statusColors[p.status]||'#666')+'">'+p.status.toUpperCase()+'</span></td>'+
       '<td>'+p.date+'</td>'+
       '<td>'+
-        '<button class="btn-icon" onclick="openProcurementModal(''+p.id+'')" title="Edit"><i class="fas fa-edit"></i></button>'+
-        '<button class="btn-icon" onclick="deleteProcurement(''+p.id+'')" title="Delete"><i class="fas fa-trash"></i></button>'+
+        '<button class="btn-icon" onclick="openProcurementModal('\''+p.id+'\'')" title="Edit"><i class="fas fa-edit"></i></button>'+
+        '<button class="btn-icon" onclick="deleteProcurement('\''+p.id+'\'')" title="Delete"><i class="fas fa-trash"></i></button>'+
       '</td>'+
     '</tr>';
   }).join('');
